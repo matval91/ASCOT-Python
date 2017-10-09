@@ -532,9 +532,13 @@ class SA_datfiles(profiles):
         self.smooth()
 
     def _readeqdsk(self):
+        eqdsk_fname = 'JT-60SA_scenario5_eqdsk_convMATLAB'
+        eqdsk_fname = 'JT-60SA_scenario4_glf23_chease_cocos02.geq'
         try:
-            b = ascot_Bfield.Bfield_in('JT-60SA_scenario5_eqdsk_convMATLAB',129,129)
+            b = ascot_Bfield.Bfield_in(eqdsk_fname,129,129)
+            print "Opened ", eqdsk_fname
         except:
+            print "Impossible to open ", eqdsk_fname
             raise ValueError
         qprof_t   = b.eqdsk.q
         rho_eqdsk = b.eqdsk.rhopsi
@@ -566,6 +570,9 @@ class SA_datfiles(profiles):
         self.vt = self._spline(self.rho_in, self.vt_in, self.rho)
         for i in range(self.nion):
             self.ni[i,:]=self._spline(self.rho_in, self.ni_in[i,:], self.rho)
+
+        self.zeff = self._spline(self.rho_in, self.zeff_in, self.rho)
+
         self._extrapolate()
 
     def _phi2psi(self):

@@ -257,8 +257,9 @@ class Bfield_in:
     
         self.eqdsk= ReadEQDSK_MV.ReadEQDSK(infile_eqdsk)
         self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))
-        self.eqdsk.psi = -2*3.14*self.eqdsk.psi
+        self.eqdsk.psi = 2*3.14*self.eqdsk.psi
         self.psi_coeff = interp.interp2d(self.eqdsk.R_grid, self.eqdsk.Z_grid, self.eqdsk.psi)
+        self._read_wall()
         #self.build_header()
         #self.build_bkg()
     
@@ -281,6 +282,8 @@ class Bfield_in:
         #CB = plt.colorbar(CS, shrink=0.8, extend='both')
         ax2d.set_xlabel("R")
         ax2d.set_ylabel("Z")
+        if self.R_w[0]!=0:
+            ax2d.plot(self.R_w, self.z_w, 'k',linewidth=2)
 
         f = plt.figure()
         axq = f.add_subplot(211)
@@ -328,7 +331,7 @@ class Bfield_in:
         r,z = self.eqdsk.R_grid, self.eqdsk.Z_grid
         ax2d.contour(r,z, self.eqdsk.psi, 50)
         ax2d.set_title('choose x point position')
-        x0 = matplotlib.pyplot.ginput();
+        x0 = plt.ginput()
         self.xpoint = self.min_grad(x0=x0)        
         self.xflux = self.psi_coeff(self.xpoint[0], self.xpoint[1])
         
@@ -614,6 +617,20 @@ class Bfield_in:
         return out_arr
             
 
+    def _read_wall(self):
+        
+        try:
+            fname = "/home/vallar/JT60-SA/PARETI_2D_SA/input.wall_2d"
+            wall = np.loadtxt(fname, skiprows=1)
+            self.R_w = wall[:,0]
+            self.z_w = wall[:,1]
+
+        except:
+            print "No wall to read"
+            self.R_w=[0]
+            self.z_w=[0]
+            return
+            
 
 class venus_Bfield(Bfield_in):
     """
@@ -624,7 +641,14 @@ class venus_Bfield(Bfield_in):
         infile = sio.loadmat(infile_name)
 
         self.eq = infile['equilibrium']
-        R_psi = self.eq['R']
+        R_psi = self.eq['R']#this is a 2D array with (s=rhotor**2, R)
+        z_psi = self.eq['z']#this is a 2D array with (s=rhotor**2, Z)
+
+        # for Rval in R:
+        #    for zval in z:
+        #        psi = closest point to R_psi(:,ind_R) and z_psi(:, ind_z)
+        #        psi_grid(R,Z)=psi
+        
         self.eq.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))
         self.eq.psi = -2*3.14*self.eqdsk.psi
         self.psi_coeff = interp.interp2d(self.eqdsk.R_grid, self.eqdsk.Z_grid, self.eqdsk.psi)
