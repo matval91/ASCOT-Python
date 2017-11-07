@@ -13,3 +13,9 @@ ascot_profs.py - contains the following classes:
     - matlab_profiles: reads from a matlab file, usually produced with METIS code
     - ufiles: reads from a list of ufiles
     - SA_datfiles: reads from the data from CRONOS usually in the EU repository
+   
+   
+ascot_particles.py - 
+
+
+ascot_distributions.py - 
