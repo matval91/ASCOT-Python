@@ -9,7 +9,6 @@ Bfield_eqdsk(eqdsk filename, nR to output, nz to output, device name (JT60SA, TC
 import numpy as np
 import h5py, math
 import matplotlib.pyplot as plt
-import ascot_misc
 
 import ReadEQDSK_MV
 import scipy.optimize
