@@ -2,7 +2,7 @@
 Class for magnetic field
 """
 import numpy as np
-import h5py
+import h5py, math
 import matplotlib.pyplot as plt
 import ascot_misc
 
@@ -10,6 +10,7 @@ import ReadEQDSK_MV
 import scipy.optimize
 import scipy.interpolate as interp
 #from matplotlib.figure import Figure
+import scipy.io as sio
 
 class Bfield_out:
     """
@@ -90,7 +91,7 @@ class Bfield_out:
 
         self.nrho = self.vardict['psi_rho'].shape[0]
         self.rho = np.zeros(self.nrho)
-        self.rho = self.vardict['psi_rho'][:]
+        self.rho = self.vardict['psi_rho'][:]**0.5
         self.nthe = self.vardict['theta'].shape[0]
         self.the = np.zeros(self.nthe)
         self.the = self.vardict['theta'][:]
@@ -119,53 +120,6 @@ class Bfield_out:
         #self.checkplot()
 
 
-    def plotB(self):
-        """
-        Method to plot the magnetic field
-        bphi, btheta are in 2D
-        """
-        
-        bphi   = np.zeros((self.nR, self.nZ), dtype = float)
-        bphi   = self.vardict["bphi"][:]
-        btheta = np.zeros((self.nthe, self.nrho), dtype = float)
-        btheta = self.vardict["btheta"][:]
-        #btheta = np.transpose(btheta)
-        print(np.shape(btheta))
-        babs   = np.zeros((self.nrho, self.nthe), dtype = float)
-        babs   = self.vardict["Babs"][:]
-        
-        n_row = 1
-        n_col = 3
-        plt.subplot(n_row,n_col,1)
-        plt.title("B PHI")
-        r,z = self.R, self.Z
-        plt.contourf(r,z,bphi, self.nrho)
-        #CB = plt.colorbar(CS, shrink=0.8, extend='both')
-        plt.axis([self.rmin, self.rmax, self.zmin, self.zmax])
-        plt.xlabel("R")
-        plt.ylabel("Z")
-        
-        plt.subplot(n_row,n_col,2, projection = 'polar')
-        plt.title("B THETA")
-        rho,theta = self.rho, self.the
-        print rho.shape, theta.shape, np.shape(btheta)
-        plt.contourf(theta,rho, btheta, self.nrho)
-        #CB = plt.colorbar(CS, shrink=0.8, extend='both')
-        #plt.xlabel("R")
-        #plt.ylabel("Z")
-        
-        plt.subplot(n_row,n_col,3, projection = 'polar')
-        plt.title("B ABS")
-        rho,theta = self.rho, self.the
-        plt.contourf(rho, theta, babs, self.nrho)
-        #CB = plt.colorbar(CS, shrink=0.8, extend='both')
-        #plt.xlabel("R")
-        #plt.ylabel("Z")
-
-        plt.show()	
-    
-
-
     def checkplot(self):
         """
         Method to plot the values and check the magnetic field we are looking at
@@ -174,7 +128,7 @@ class Bfield_out:
 
         n_row = 1
         n_col = 3
-        for e,val in enumerate(["psi_2D","q","g"]):
+        for e,val in enumerate(["psi_2D","q","bphi"]):
 
             plt.subplot(n_row,n_col,e+1)
             plt.title(val)
@@ -185,17 +139,21 @@ class Bfield_out:
                 plt.contour(r,z,self.vardict[val], self.nrho)
                 plt.contour(r,z,self.vardict[val],1)
                 #CB = plt.colorbar(CS, shrink=0.8, extend='both')
-                plt.xlabel("R")
-                plt.ylabel("Z")
-                plt.plot(self.w.vardict["R_wall"], self.w.vardict["Z_wall"])
+                plt.xlabel("R [m]")
+                plt.ylabel("Z [m]")
+                plt.plot(self.w.vardict["R_wall"], self.w.vardict["Z_wall"], 'k')
 
-            else: #plot of q and g
+            elif val == 'bphi': #plot of g
+                plt.plot(self.vardict['r'][:], self.vardict[val][0,:]*self.vardict['r'][:])
+                plt.xlabel(r'R[m]')
+                plt.ylabel(r'Rx$B_\phi$')
+            elif val == 'q': #plot of q
                 plt.plot(self.rho, self.vardict[val])
-                plt.xlabel('rho')
-                plt.ylabel(val)
-
+                plt.xlabel(r'$\rho_{POL}$')
+                plt.ylabel(r'q')
         plt.show()
-        
+
+
         
 class Bfield_in:
     """
@@ -257,14 +215,10 @@ class Bfield_in:
     
         self.eqdsk= ReadEQDSK_MV.ReadEQDSK(infile_eqdsk)
         self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))
-        self.eqdsk.psi = 2*3.14*self.eqdsk.psi
+        #self.eqdsk.psi = -2.*math.pi*self.eqdsk.psi
         self.psi_coeff = interp.interp2d(self.eqdsk.R_grid, self.eqdsk.Z_grid, self.eqdsk.psi)
         self._read_wall()
-        #self.build_header()
-        #self.build_bkg()
-    
-        #self.write_head()
-        #self.write_bkg()
+
 
     def eqdsk_checkplot(self):
         """
@@ -275,26 +229,25 @@ class Bfield_in:
         n_col = 3
 
         f = plt.figure()
-        ax2d = f.add_subplot(111)
+        ax2d = f.add_subplot(131)
         r,z = self.eqdsk.R_grid, self.eqdsk.Z_grid
         ax2d.contour(r,z, self.eqdsk.psi, 50)
-        ax2d.contour(r,z, self.eqdsk.psi, 1)
+        ax2d.contour(r,z, self.eqdsk.psi, [1], linewidth=3, linecolor='k')
         #CB = plt.colorbar(CS, shrink=0.8, extend='both')
         ax2d.set_xlabel("R")
         ax2d.set_ylabel("Z")
         if self.R_w[0]!=0:
             ax2d.plot(self.R_w, self.z_w, 'k',linewidth=2)
 
-        f = plt.figure()
-        axq = f.add_subplot(211)
+        axq = f.add_subplot(132)
         axq.plot(self.eqdsk.rhopsi, self.eqdsk.q)
-        axq.set_xlabel(r'$\rho$')
+        axq.set_xlabel(r'$\rho_{POL}$')
         axq.set_ylabel(r'q')
 
-        axf = f.add_subplot(212)
-        axf.plot(self.eqdsk.rhopsi, self.eqdsk.T)
-        axf.set_xlabel(r'$\rho$')
-        axf.set_ylabel(r'f')
+        axf = f.add_subplot(133)
+        axf.plot(self.eqdsk.R_grid, self.eqdsk.T)
+        axf.set_xlabel(r'R [m]')
+        axf.set_ylabel(r'g (poloidal flux)')
 
         plt.show()
 
@@ -303,18 +256,56 @@ class Bfield_in:
         self.write_head()
         self.write_bkg()
 
-    def build(self):
-        self.build_header()
-        self.build_bkg()
+    def build_lim(self):
+        self.build_header_lim()
+        self.build_bkg()    
 
-    def build_header(self):
+    def build_SN(self):
+        self.build_header_SN()
+        self.build_bkg()
+        
+    def build_header_lim(self):
         """
-        Method to build header file from eqdsk 
+        Method to build header file from eqdsk without single nulls (one point in PFxx) 
         -The first five values of the eqdsk (nShot, tShot, modflg, FPPkat, IpiFPP)
         are already set correctly  
         -The last quantities (rhoPF, PFL, Vol, Area, Qpl) are already set
         
         """
+        print "Build hdr (limiter)"
+
+        
+        nrho = len(self.eqdsk.rhopsi)
+        dummy=np.linspace(0,1,nrho)
+        
+        self.hdr={'nSHOT':0,'tSHOT':0,'modflg':0,'FPPkat':0,'IpiFPP':self.eqdsk.Ip,\
+                  'PFxx':[],'RPFx':[],'zPFx':[],'SSQ':[], 'devnam':'JT-60SA',\
+                  'rhoPF':129,'PFL':dummy,'Vol':dummy,'Area':dummy,'Qpl':dummy} 
+        #find derivatives for finding x point
+        self.dpsidR, self.dpsidZ = self._calc_psi_deriv()  
+        
+        # find axis
+        self.ax = self.min_grad(x0=[self.eqdsk.Raxis, self.eqdsk.Zaxis])     
+        self.axflux = self.psi_coeff(self.ax[0], self.ax[1])*(2*math.pi)
+
+        # poloidal flux of the special points (only one in this case)
+        self.hdr['PFxx'] = [self.axflux[0]]#-self.axflux[0]-self.xflux[0]
+        self.hdr['RPFx'] = [self.ax[0]]
+        self.hdr['zPFx'] = [self.ax[1]]
+        self.hdr['SSQ']  = [self.eqdsk.R0EXP, self.eqdsk.Zaxis, 0, 0]
+
+        
+    def build_header_SN(self):
+        """
+        Method to build header file from eqdsk with one single null (two points in PFxx) 
+        -The first five values of the eqdsk (nShot, tShot, modflg, FPPkat, IpiFPP)
+        are already set correctly  
+        -The last quantities (rhoPF, PFL, Vol, Area, Qpl) are already set
+        
+        """
+
+        print "Build hdr (SN)"
+
         nrho = len(self.eqdsk.rhopsi)
         dummy=np.linspace(0,1,nrho)
         
@@ -336,14 +327,14 @@ class Bfield_in:
         self.xflux = self.psi_coeff(self.xpoint[0], self.xpoint[1])
         
         # find axis
-        self.ax = self.min_grad(x0=[2.2,-2.5])     
+        self.ax = self.min_grad(x0=[self.eqdsk.Raxis, self.eqdsk.Zaxis])     
         self.axflux = self.psi_coeff(self.ax[0], self.ax[1])
 
-        # poloidal flux
+        # poloidal flux of the special points.
         self.hdr['PFxx'] = [self.xflux[0], self.axflux[0]]#-self.axflux[0]-self.xflux[0]
         self.hdr['RPFx'] = [self.xpoint[0], self.ax[0]]
         self.hdr['zPFx'] = [self.xpoint[1], self.ax[1]]
-        self.hdr['SSQ']  = [self.eqdsk.R0EXP, self.eqdsk.zmid, 0, 0]
+        self.hdr['SSQ']  = [self.eqdsk.R0EXP, 0, 0, 0]
         
         #THESE HAVE BEEN ALREADY INITIALISED
         #rubbish = np.linspace(0,1,250)
@@ -362,27 +353,24 @@ class Bfield_in:
         
         """
         try:
-            self.Bphi.mean()
+            self.param_bphi(self.eqdsk.R_grid, self.eqdsk.Z_grid)
         except:
             self.calc_field()
 
+        print "Build bkg"
+
         R_temp=np.linspace(min(self.eqdsk.R_grid), max(self.eqdsk.R_grid),self.nR)
         z_temp=np.linspace(min(self.eqdsk.Z_grid), max(self.eqdsk.Z_grid),self.nz)
-        psi_temp = self.psi_coeff(R_temp, z_temp)
+        psitemp = self.psi_coeff(R_temp, z_temp)
+        bphitemp = self.param_bphi(R_temp, z_temp)
         self.bkg={'type':'magn_bkg', 'phi0':0, 'nsector':0, 'nphi_per_sector':1,\
                   'ncoil':0, 'zero_at_coil':1,\
                   'R':R_temp,'z':z_temp, \
                   'phimap_toroidal':0, 'phimap_poloidal':0, \
                   'psi':[],\
-                  'Bphi':self.Bphi, 'BR':self.Br, 'Bz':self.Bz} 
+                  'Bphi':bphitemp, 'BR':self.Br, 'Bz':self.Bz} 
 
-        self.bkg['psi'] = psi_temp
-        #self.bkg['psi']= np.array(self.eqdsk.psi)-self.axflux[0]
-        
-    #bkg.psi(isnan(bkg.psi)) = 0;
-    #bkg.BR(isnan(bkg.BR)) = 0;
-    #bkg.Bphi(isnan(bkg.Bphi)) = 0;
-    #bkg.Bz(isnan(bkg.Bz)) = 0;
+        self.bkg['psi'] = psitemp
         
 #    def smooth_psi(self):
 #        psi=self.eqdsk.psi
@@ -422,8 +410,8 @@ class Bfield_in:
         dZdi = 1.0/np.gradient(self.eqdsk.Z_grid)
         dZdi = np.tile(dZdi, [self.eqdsk.nrbox,1])
         dZdi = np.transpose(dZdi)
-        print "shape ddR:",np.shape(ddR),'shape dRdi:', np.shape(dRdi)
-        print 'shape ddZ:',np.shape(ddZ),'shape dZdi:', np.shape(dZdi)
+        #print "shape ddR:",np.shape(ddR),'shape dRdi:', np.shape(dRdi)
+        #print 'shape ddZ:',np.shape(ddZ),'shape dZdi:', np.shape(dZdi)
     
         dpsidR[:, :] = ddR*dRdi
         dpsidZ[:, :] = ddZ*dZdi
@@ -453,8 +441,9 @@ class Bfield_in:
             self.dpsidR.mean()
         except:
             self.dpsidR, self.dpsidZ = self._calc_psi_deriv()
-            
-        mu0=4*3.14e-7 
+
+        print "Calculating Bphi"
+        #tmpR = np.linspace(np.min(self.eqdsk.R_limits), np.max(self.eqdsk.R_limits), np.size(self.eqdsk.R_grid))
         inv_R = 1.0/np.array(self.eqdsk.R_grid)
         inv_R = np.tile(inv_R,[self.eqdsk.nzbox, 1])
         #inv_R = np.transpose(inv_R)
@@ -467,11 +456,12 @@ class Bfield_in:
      
         f = np.array(self.eqdsk.T)
         f = f[np.newaxis,:]
-        Bphi = f*mu0*inv_R
-        param_bphi = interp.interp2d(self.eqdsk.R_grid,self.eqdsk.Z_grid, Bphi)
-        R_temp=np.linspace(min(self.eqdsk.R_grid), max(self.eqdsk.R_grid),self.nR)
-        z_temp=np.linspace(min(self.eqdsk.Z_grid), max(self.eqdsk.Z_grid),self.nz)
-        self.Bphi = param_bphi(R_temp, z_temp)
+        Bphi = f*inv_R
+
+        self.param_bphi = interp.interp2d(self.eqdsk.R_grid,self.eqdsk.Z_grid, Bphi)
+        #R_temp=np.linspace(min(self.eqdsk.R_limits), max(self.eqdsk.R_limits), self.nR)
+        #z_temp=np.linspace(min(self.eqdsk.Z_limits), max(self.eqdsk.Z_limits), self.nz)
+        #self.Bphi = param_bphi(R_temp, z_temp)
     
     def write_head(self):
         """
@@ -502,7 +492,7 @@ class Bfield_in:
             # poloidal flux
             outfile.write('{:8.6f} '.format(hdr['PFxx'][j]))
         outfile.write(' \n')
-  
+
         for j in range(len(hdr['PFxx'])):
             # R
             outfile.write('{:8.6f} '.format(hdr['RPFx'][j]))
@@ -518,7 +508,7 @@ class Bfield_in:
             tmp_str = ['{:8.6f} '.format(j) for j in hdr['SSQ'][i:i+4]]
             outfile.write(" ".join(tmp_str))
             outfile.write("\n")
-
+        
         #print rhoPF
         outfile.write(str(hdr['rhoPF'])+'\n')
         # other arrays
@@ -546,9 +536,10 @@ class Bfield_in:
        
         """
         try:
-            self.bkg['phi'].mean()
+            self.bkg['Bphi'].mean()
         except:
             self.build_bkg()
+            
         bkg=self.bkg
         out_fname = 'input.magn_bkg'
         outfile = open(out_fname, 'wa')
@@ -563,9 +554,9 @@ class Bfield_in:
             bkg['zero_at_coil']))
             
         outfile.write('{:18.10f} {:18.10f} {:3d}\n'.format(\
-            bkg['R'][1], bkg['R'][-1], len(bkg['R'])))
+            bkg['R'][0], bkg['R'][-1], len(bkg['R'])))
         outfile.write('{:18.10f} {:18.10f} {:3d}\n'.format(\
-            bkg['z'][1], bkg['z'][-1], len(bkg['z'])))
+            bkg['z'][0], bkg['z'][-1], len(bkg['z'])))
             
         if bkg['nsector'] ==0:
             # Do domething else if it's a different case,
@@ -589,9 +580,10 @@ class Bfield_in:
             arr_t = bkg[arr_name]
             #arr = self._perm_dims(arr_t)
             arr=arr_t
+
             #making the array plain:
             arr = arr.reshape(arr.size)
-            #print(np.size(arr),np.mod(np.size(arr),4))
+
             for i in xrange(0,np.size(arr)-np.mod(np.size(arr),4),4):
                 tmp_str = ['{:18.10f} {:18.10f} {:18.10f} {:18.10f}'.format(arr[i],arr[i+1],arr[i+2],arr[i+3])]
                 outfile.write(" ".join(tmp_str))
@@ -621,6 +613,8 @@ class Bfield_in:
         
         try:
             fname = "/home/vallar/JT60-SA/PARETI_2D_SA/input.wall_2d"
+            fname = "/home/vallar/JT60-SA/PARETI_2D_SA/input.wall_2d_clamped"
+            fname = '/home/vallar/TCV/from_jari/input.wall_2d'           
             wall = np.loadtxt(fname, skiprows=1)
             self.R_w = wall[:,0]
             self.z_w = wall[:,1]
@@ -630,7 +624,6 @@ class Bfield_in:
             self.R_w=[0]
             self.z_w=[0]
             return
-            
 
 class venus_Bfield(Bfield_in):
     """
@@ -640,15 +633,41 @@ class venus_Bfield(Bfield_in):
         Bfield_in.__init__(self, infile_name, nR, nz)
         infile = sio.loadmat(infile_name)
 
-        self.eq = infile['equilibrium']
-        R_psi = self.eq['R']#this is a 2D array with (s=rhotor**2, R)
-        z_psi = self.eq['z']#this is a 2D array with (s=rhotor**2, Z)
+        eq = infile['equilibrium']
+        R_psi = eq['R'][0,0]#this is a 2D array with (s=rhotor**2, R)
+        z_psi = eq['Z'][0,0]#this is a 2D array with (s=rhotor**2, Z)
+        s_arr = eq['s'][0,0][0,:]
+        r_arrt = eq['rplas'][0,0][0,:]
+        r_arr = np.linspace(np.min(r_arrt), np.max(r_arrt), 30)
+        z_arrt = eq['zplas'][0,0][0,:]
+        z_arr = np.linspace(np.min(z_arrt), np.max(z_arrt), 30)
 
-        # for Rval in R:
-        #    for zval in z:
-        #        psi = closest point to R_psi(:,ind_R) and z_psi(:, ind_z)
-        #        psi_grid(R,Z)=psi
+        psirz = np.zeros((len(r_arr), len(z_arr)), dtype=float)
+        for i_s in np.arange(len(s_arr), step=1, dtype=int):
+            R = R_psi[i_s,:]
+            z = z_psi[i_s,:]
+            for i_r in range(len(R)):
+                indR = np.argmin(np.abs(r_arr-R[i_r]))
+                indz = np.argmin(np.abs(z_arr-z[i_r]))
+                if i_s==50000:
+                    plot(r_arr[indR], z_arr[indz], 'x')
+                psirz[indR, indz] = s_arr[i_s]
+        psirz = np.transpose(psirz)
+
+        psirz2 = psirz
+        for ir,rttt in enumerate(r_arr):
+            RLCFS_pos = r_arrt[z_arrt>0]
+            indLCFS=np.argmin(np.abs(rttt-RLCFS_pos))
+            indz = z_arr>z_arrt[indLCFS]
+            psirz2[ir, indz] = 0
+            
+            RLCFS_neg = r_arrt[z_arrt<=0]
+            indLCFS=np.argmin(np.abs(rttt-RLCFS_neg))
+            indz = z_arr>z_arrt[indLCFS]
+            psirz2[ir, indz] = 0
+            
+        params_psi = interp.interp2d(r_arr, z_arr, psirz, kind='linear')
+        r_new = np.linspace(np.min(r_arrt), np.max(r_arrt), 200)
+        z_new = np.linspace(np.min(z_arrt), np.max(z_arrt), 200)
+        plt.contourf(r_new, z_new,params_psi(r_new, z_new), 20)
         
-        self.eq.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))
-        self.eq.psi = -2*3.14*self.eqdsk.psi
-        self.psi_coeff = interp.interp2d(self.eqdsk.R_grid, self.eqdsk.Z_grid, self.eqdsk.psi)
