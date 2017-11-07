@@ -1,12 +1,20 @@
 """
+matteo.vallar@igi.cnr.it - 11/2017
+
+
 Class for profiles
+-h5_profiles(h5 infile name, nrho wanted)
+-dat_profiles(name of directory with separate dat files containing the data, nrho wanted, nion to write, array with mass number, array with Z (proton number))
+-matlab_profiles(name of the matlab file to read, nrho wanted)
+-ufiles(array of prefixes of the files, array of suffixes of the file, shot number, nrho wanted)
+-SA_datfiles(name of the input dat file (CRONOS format), nrho wanted, nion to write, array with mass number, array with Z (proton number))
 """
+
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
 from matplotlib import ticker
-from scipy import interpolate
-from scipy import integrate
+from scipy import interpolate, integrate
 import scipy.io as sio
 import time
 import math
@@ -19,12 +27,15 @@ colours = ['k','b','r','c','g',\
 
 class profiles:
     """
-    Superclass with the following methods:
-    -__init__: initialises the profiles we need
-    -plot
-    -write
-    - _spline
-    - _extrapolate
+    Superclass for profiles:
+    MODULES:
+    - __init__: initialises the profiles we need
+    - plot: auto-explicative
+    - write: writes the input.plasma_1d file
+
+    HIDDEN MODULES:
+    - _spline: Function to evaluate splines of the data input, in order to make an output in the right rho grid
+    - _extrapolate: Function that does an exponential fit over rho=1 surface.
     """
     def __init__(self):
         self.rho=[]
@@ -86,11 +97,12 @@ class profiles:
         outfile.close()
 
     def plot_profiles(self):
+        """
+        Method to plot the profiles
+        """
         #=====================================================================================
         # SET TEXT FONT AND SIZE
         #=====================================================================================
-        #plt.rc('font', family='serif', serif='Palatino')
-        #plt.rc('text', usetex=True)
         plt.rc('linethick',)
         plt.rc('xtick', labelsize=20)
         plt.rc('ytick', labelsize=20)
@@ -197,9 +209,9 @@ class h5_profiles(profiles):
 
     
     METHODS:
-    __init__(self, infile) to store variables
-    checkplot(self) to plot values and check them
-
+    __init__(self, infile, nrho): method to store variables, nrho is the output
+    read_h5: to read the input, both from bbnbi or ascot output
+    smooth: smooth input data to grid wanted
     """
 
     def __init__(self, infile_name, nrho, **kwargs):
@@ -275,12 +287,10 @@ class h5_profiles(profiles):
         print self.vt_in, self.te_in
         self.ni = np.zeros((self.nion, self.nrho),dtype = float)
         self.smooth()
-        # plot to check what we have
-        #self.checkplot()
 
     def smooth(self):
         """
-        smooth input data to data wanted
+        smooth input data to grid wanted
         """
         self.rho = np.linspace(0,1,self.nrho)
         self.te = self._spline(self.rho_in, self.te_in, self.rho)
@@ -299,6 +309,10 @@ class h5_profiles(profiles):
 class dat_profiles(profiles):
     """
     Function to write the profile file for ASCOT from an ascii file in the format (rho, quantity)
+    METHODS:
+    __init__(self,dir_name, nrho, nion, A, Z) : reads the profiles from the directory with the data stored
+      in the files (te.dat, ne.dat, vtor.dat, ti.dat, ni*.dat)
+    smooth: smooth input data to grid wanted
     
     INPUT:
     -names is a list containing the name of the files for Te, Ne, vtor_i, ti
@@ -326,7 +340,6 @@ class dat_profiles(profiles):
         self.nrho = nrho
         self.nion = nion
         
-        #self.ni_in = np.zeros((self.nion, 2, self.nrho), dtype=float)
         self.ni = np.zeros((self.nion, self.nrho), dtype=float)
 
         te_fname = dir_name+'/te.dat'
@@ -341,26 +354,26 @@ class dat_profiles(profiles):
         for i in range(self.nion):
             i_fname = dir_name+'/ni'+str(i+1)+'.dat'
             tmp_ni = np.loadtxt(i_fname, unpack=True)
+            print np.shape(tmp_ni), nrho_in, tmp_ni
             if np.shape(tmp_ni)[1]<nrho_in:
-                tmp_ni2 = np.zeros((2,nrho_in))
-                tmp_ni2[1,0:np.shape(tmp_ni)[1]] = tmp_ni[1,:]
-                tmp_ni2[0,:] =np.linspace(0,1.2, nrho_in)
-                tmp_ni = tmp_ni2
+                 tmp_ni2 = np.zeros((2,nrho_in))
+                 tmp_ni2[1,0:np.shape(tmp_ni)[1]] = tmp_ni[1,:]
+                 tmp_ni2[0,:] =np.linspace(0,1.2, nrho_in)
+                 tmp_ni = tmp_ni2
             self.ni_in[i,:,:] = tmp_ni
             
         self.rho=np.linspace(0,1,num=self.nrho)
-        self.te_in=np.loadtxt(te_fname, unpack=True)
+        #self.te_in=np.loadtxt(te_fname, unpack=True) ALREADY DONE 
         self.ne_in=np.loadtxt(ne_fname, unpack=True)
         self.vt_in=np.loadtxt(vt_fname, unpack=True)
         self.ti_in=np.loadtxt(ti_fname, unpack=True)
-        #self.ni_in[0,:,:] = np.loadtxt(i_fname, unpack=True)
         self.coll_mode = np.ones(self.nion+1)
        
         self.smooth()
    
     def smooth(self):
         """
-        smooth input data to data wanted
+        smooth input data to grid wanted
         """
     
         self.te=self._spline(self.te_in[0,:], self.te_in[1,:], self.rho)
@@ -375,9 +388,11 @@ class dat_profiles(profiles):
 class matlab_profiles(profiles):
     """
     Function to write the profile file for ASCOT from a matlab file
-    Pietro reads metis output and produces the matlab files that should be read here.
+    Pietro (pietro.vincenzi@igi.cnr.it) reads metis output and produces the matlab files that should be read here.
     
-    INPUT:
+    METHODS:
+    __init__(self,inf_name, nrho): correctly initalise and get the data from the matlab input file
+    smooth: smooth input data to grid wanted
 
     
     # Input file for ASCOT containing radial 1D information of plasma temperature,density and toroidal rotation
@@ -389,7 +404,7 @@ class matlab_profiles(profiles):
     1 1 1 1		# collision mode (0= no colls, 1=Maxw colls, 2=binary colls, 3=both colls) 1st number is for electrons
     RHO (pol)	 Te (eV)       Ne (1/m3)  Vtor_I (rad/s)        Ti1 (eV)     Ni1 (1/m3)	     Ni2 (1/m3)	     Ni3 (1/m3)
     """
-    def __init__(self,inf_name, nrho, convert):
+    def __init__(self,inf_name, nrho):
         
         profiles.__init__(self)
         self.nrho = nrho
@@ -417,7 +432,7 @@ class matlab_profiles(profiles):
 
     def smooth(self):
         """
-        smooth input data to data wanted
+        smooth input data to grid wanted
         """
         self.te = self._spline(self.rho_in, self.te_in, self.rho)
         self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
@@ -432,6 +447,8 @@ class ufiles(profiles):
     """
     Function to write the profile file for ASCOT from the Ufiles
 
+    __init__(self,pre,sub,shot,nrho): correctly initalise and get the data from the Ufiles
+    smooth(self):smooth input data to grid wanted
     """
 
     def __init__(self,pre,sub,shot,nrho):
@@ -482,7 +499,7 @@ class ufiles(profiles):
 
     def smooth(self):
         """
-        smooth input data to data wanted
+        smooth input data to grid wanted
         """
         self.te = self._spline(self.rho_in, self.te_in, self.rho)
         self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
@@ -496,7 +513,18 @@ class ufiles(profiles):
 
 class SA_datfiles(profiles):
     """
-    rho	ne	te	ti	zeff	psupra	nsupra	Jtot	jboot	jnbi	jec
+    This class is to read the files from CRONOS (usually produced by Jeronimo Garcia (jeronimo.garcia@cea.fr))
+    rho(TOR)	ne	te	ti	zeff	psupra	nsupra	Jtot	jboot	jnbi	jec
+
+    METHODS:
+    __init__(self, infile, nrho, nion, A, Z)
+    ion_densities(self): Compute C ion densities starting from ni_in, ne_in and zeff
+    smooth(self): smooth input data to grid wanted
+
+    
+    HIDDEN METHODS:
+    _readeqdsk(self): reads q and the poloidal flux from an eqdsk to convert phi2psi
+    _phi2psi(self): Converts psi 2 phi
     """
     def __init__(self, infile, nrho, nion, A, Z):
         profiles.__init__(self)
@@ -510,7 +538,7 @@ class SA_datfiles(profiles):
         self.ni = np.zeros((self.nion, self.nrho), dtype=float)
         self.coll_mode = np.ones(self.nion, dtype=float)
 
-        #Read eqdsk to convert from rotor to rhopol
+        #Read eqdsk to convert from rhotor to rhopol
         self._readeqdsk()
         self._phi2psi()
         
@@ -532,6 +560,9 @@ class SA_datfiles(profiles):
         self.smooth()
 
     def _readeqdsk(self):
+        """
+        reads q and the poloidal flux from an eqdsk to convert phi2psi
+        """
         eqdsk_fname = 'JT-60SA_scenario5_eqdsk_convMATLAB'
         eqdsk_fname = 'JT-60SA_scenario4_glf23_chease_cocos02.geq'
         try:
@@ -562,7 +593,7 @@ class SA_datfiles(profiles):
 
     def smooth(self):
         """
-        smooth input data to data wanted
+        smooth input data to grid wanted
         """
         self.te = self._spline(self.rho_in, self.te_in, self.rho)
         self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
@@ -580,7 +611,6 @@ class SA_datfiles(profiles):
         Converts psi 2 phi
         """
         tmpnum=100000
-        #self.phi = np.zeros(tmpnum)
         locq   = self.param_q(np.linspace(0,1,tmpnum)) #augmenting precision near the core
         locphi = np.linspace(0,1,tmpnum)
         psi = integrate.cumtrapz(1/locq,locphi)
@@ -588,25 +618,3 @@ class SA_datfiles(profiles):
         psi = psi/max(psi)
         rhopsi = psi**0.5
         self.param_psi = interpolate.interp1d(np.linspace(0,1,tmpnum), rhopsi)
-
-
-#    def _psi2phi(self):
-#        """
-#        Converts psi 2 phi
-#        """
-#        tmpnum=100000
-#        #self.phi = np.zeros(tmpnum)
-#        locq   = self.param_q(np.linspace(0,1,tmpnum)) #augmenting precision near the core
-#        locpsi = self.param_psi(np.linspace(0,1,tmpnum))*(self.eqdsk.psiedge-self.eqdsk.psiaxis)
-#        locpsi = np.linspace(0,1,tmpnum)*(self.eqdsk.psiedge-self.eqdsk.psiaxis)
-#        phi = integrate.cumtrapz(locq,locpsi)
-#        phi = np.concatenate([[0], phi])
-#        self.phi_edge = np.max(phi)
-#        #phi = phi/np.max(phi)
-#        self.param_phi = interpolate.interp1d(np.linspace(0,1,tmpnum), phi) #interpolate on psinorm grid
-#        self.phi = self.param_phi(self.fakerho) # compute on fake rho grid
-#        self.phinorm = self.phi/self.phi_edge
-#        self.rhotor = self.phinorm**0.5 #defined on fake rho grid
-#        self.rho = self.rhotor
-#        #plt.plot(locpsi, locq, label='q')
-#        #plt.plot(locpsi, phi, label='phi')

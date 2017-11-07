@@ -1,5 +1,10 @@
 """
+matteo.vallar@igi.cnr.it - 11/2017
+
 Class for magnetic field
+Bfield_ascot(ascot h5 infile name)
+Bfield_eqdsk(eqdsk filename, nR to output, nz to output, device name (JT60SA, TCV) )
+
 """
 import numpy as np
 import h5py, math
@@ -9,12 +14,13 @@ import ascot_misc
 import ReadEQDSK_MV
 import scipy.optimize
 import scipy.interpolate as interp
-#from matplotlib.figure import Figure
 import scipy.io as sio
 
-class Bfield_out:
+class Bfield_ascot:
     """
     Class for handling the magnetic field specifications and plots
+    Better to ignore boozer field, it is useless
+    
     Groups in h5 file (09/01/2017, ascot4)
     /bfield                  Group
     /bfield/2d               Group
@@ -54,12 +60,13 @@ class Bfield_out:
 
     
     METHODS:
-    __init__(self, infile) to store variables
+    __init__(self, infile) to store variables from h5 file
     checkplot(self) to plot magnetic values and check them
 
+    HIDDEN METHODS:
+    _read_wall_h5(self): stores wall data from h5 file
+
     """
-
-
 
     
     def __init__(self, infile_name):
@@ -68,26 +75,27 @@ class Bfield_out:
                         "nr":"/bfield/nr", "nz":"/bfield/nz",\
                         "r":"/bfield/r", "z":"/bfield/z",\
                         "raxis":"/bfield/raxis", "zaxis":"/bfield/zaxis",\
-						\
-                        "Babs":"/boozer/Babs", "I":"/boozer/Ifunc",\
-                        "r_boo":"/boozer/R","axisR_boo":"/boozer/axisR", "axisZ_boo":"/boozer/axisz",\
-                        "btheta":"/boozer/btheta", "delta":"/boozer/delta",\
-                        "g":"/boozer/gfunc", "nu":"/boozer/nu",\
-                        "psi_rho":"/boozer/psi", "psi_ax":"/boozer/psiAxis",\
-                        "maxPsi":"/boozer/psiMax", "minPsi":"/boozer/psiMin",\
-                        "psi_sepa":"/boozer/psiSepa","q":"/boozer/qprof",\
-                        "rmax":"/boozer/rgridmax", "rmin":"/boozer/rgridmin",\
-                        "theta":"/boozer/theta",\
-                        "z_boo":"/boozer/z","zmax":"/boozer/zgridmax", "zmin":"/boozer/zgridmin"\
-                        }
+                        "q":"/boozer/qprof"}
+        
+#                         "Babs":"/boozer/Babs", "I":"/boozer/Ifunc",\
+#                         "r_boo":"/boozer/R","axisR_boo":"/boozer/axisR", "axisZ_boo":"/boozer/axisz",\
+#                         "btheta":"/boozer/btheta", "delta":"/boozer/delta",\
+#                         "g":"/boozer/gfunc", "nu":"/boozer/nu",\
+#                         "psi_rho":"/boozer/psi", "psi_ax":"/boozer/psiAxis",\
+#                         "maxPsi":"/boozer/psiMax", "minPsi":"/boozer/psiMin",\
+#                         "psi_sepa":"/boozer/psiSepa",\
+#                         "rmax":"/boozer/rgridmax", "rmin":"/boozer/rgridmin",\
+#                         "theta":"/boozer/theta",\
+#                         "z_boo":"/boozer/z","zmax":"/boozer/zgridmax", "zmin":"/boozer/zgridmin"\
+#                         }
 
-        infile=h5py.File(infile_name)
+        self.infile=h5py.File(infile_name)
 
         self.vardict = {}
         #store data with the correct labels
         
         for k in self.labdict.keys():
-            self.vardict[k] = infile[self.labdict[k]]
+            self.vardict[k] = self.infile[self.labdict[k]]
 
         self.nrho = self.vardict['psi_rho'].shape[0]
         self.rho = np.zeros(self.nrho)
@@ -95,12 +103,6 @@ class Bfield_out:
         self.nthe = self.vardict['theta'].shape[0]
         self.the = np.zeros(self.nthe)
         self.the = self.vardict['theta'][:]
-
-
-##         self.rmin = self.vardict["rmin"][:]
-##         self.zmin = self.vardict["zmin"][:]
-##         self.rmax = self.vardict["rmax"][:]
-##         self.zmax = self.vardict["zmax"][:]
 
         #these nR and nZ are from the group /bfield/, the ones for /boozer/ are on rho and theta (spacing of grid)
         self.nR = self.vardict['nr'][:]        
@@ -111,14 +113,19 @@ class Bfield_out:
         self.rmax=np.max(self.R)
         self.zmin=np.min(self.Z)
         self.zmax=np.max(self.Z)
-        #self.R = np.linspace(self.rmin, self.rmax, self.nR)
-        #self.Z = np.linspace(self.zmin, self.zmax, self.nZ)
 
-        self.w = ascot_misc.misc(infile_name)
+        self._read_wall_h5()
+
+    def _read_wall_h5(self):
+        """
+        stores wall data from h5 file
+        """
+        self.walllabdict = {"R_wall":"/wall/2d/R", "Z_wall":"/wall/2d/z",\
+                            "divflag":"/wall/2d/divFlag", "segLen":"/wall/2d/segLen"}
         
-        # doing plot to check what we have
-        #self.checkplot()
-
+        self.w = {}
+        for k in self.wallabdict.keys():
+            self.w[k] = self.infile[self.labdict[k]].value
 
     def checkplot(self):
         """
@@ -138,11 +145,9 @@ class Bfield_out:
                 r,z = self.vardict['r'], self.vardict['z']
                 plt.contour(r,z,self.vardict[val], self.nrho)
                 plt.contour(r,z,self.vardict[val],1)
-                #CB = plt.colorbar(CS, shrink=0.8, extend='both')
                 plt.xlabel("R [m]")
                 plt.ylabel("Z [m]")
                 plt.plot(self.w.vardict["R_wall"], self.w.vardict["Z_wall"], 'k')
-
             elif val == 'bphi': #plot of g
                 plt.plot(self.vardict['r'][:], self.vardict[val][0,:]*self.vardict['r'][:])
                 plt.xlabel(r'R[m]')
@@ -155,28 +160,60 @@ class Bfield_out:
 
 
         
-class Bfield_in:
+class Bfield_eqdsk:
     """
     Script for writing and reading the magnetic background
     porting from matlab (16-1-2017)
+
+    INPUT REQUIRED:
+    - filename of the eqdsk (with only 4 stripped strings in the first line before the nR and nZ)
+    - nR to output
+    - nz to output
+    - devnam: name of the device (JT60SA, TCV)
+
+    METHODS:
+    - eqdsk_checkplot(self): Method to plot the values (2D psi, q, poloidal flux) and check the magnetic field we are looking at
+
+    - write(self): Function calling the two methods to write the header and the bkg
+    - write_bkg(self): Write to input.magn_bkg file
+    - write_head(self): Write to input.magn_header file
     
+    - build_lim(self): Function calling the two methods to build the header (with limiter) and bkg dictionary
+    - build_SN(self): Function calling the two methods to build the header (with SN) and bkg dictionary
+    - build_header_lim(self): Method to build header file from eqdsk without single nulls (one point in PFxx) 
+    - build_header_SN(self): Method to build header file from eqdsk with one single null (two points in PFxx)
+
+    - calc_field(self): Function to calculate toroidal fields (fields on poloidal plane set to 0
+
+    HIDDEN METHODS:
+    __init__(self, infile, nR, nz, devnam): Initialisation
+    _import_from_eqdsk(self, infile): function for import from eqdsk file
+    _calc_psi_deriv(self): Compute the derivative of psi on a refined grid
+    _min_grad(self, x0): find the point where there is the minimum of the flux
+    _perm_dims(self, arr): This permutation of the array (arr) has to be done to correctly feed the input to ascot
+    _read_wall(self): Reads 2D (R,Z) wall depending on the device name
     """
     
-    def __init__(self, infile, nR, nz):
+    def __init__(self, infile, nR, nz, devnam):
         """
         Initialisation, with EQDSK:
         -EQDSK (infile = eqdsk file)
+        - nR to output
+        - nz to output
+        - devnam name of the device
         """
-        self.import_from_eqdsk(infile)
+        self._import_from_eqdsk(infile)
+        self.devnam = devnam
         #these are the dimensions of the output arrays
         self.nR=nR
         self.nz=nz
-        
+        self._read_wall()
 
-    def import_from_eqdsk(self, infile_eqdsk):
+
+    def _import_from_eqdsk(self, infile_eqdsk):
         """
         function for import from eqdsk file
-        this is the structure of the eqdsk struct:
+        these are the data of the eqdsk struct:
         
             self.comment=comment
             self.switch=switch
@@ -217,12 +254,11 @@ class Bfield_in:
         self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))
         #self.eqdsk.psi = -2.*math.pi*self.eqdsk.psi
         self.psi_coeff = interp.interp2d(self.eqdsk.R_grid, self.eqdsk.Z_grid, self.eqdsk.psi)
-        self._read_wall()
 
 
     def eqdsk_checkplot(self):
         """
-        Method to plot the values and check the magnetic field we are looking at
+        Method to plot the values (2D psi, q, poloidal flux) and check the magnetic field we are looking at
         
         """
         n_row = 1
@@ -233,7 +269,6 @@ class Bfield_in:
         r,z = self.eqdsk.R_grid, self.eqdsk.Z_grid
         ax2d.contour(r,z, self.eqdsk.psi, 50)
         ax2d.contour(r,z, self.eqdsk.psi, [1], linewidth=3, linecolor='k')
-        #CB = plt.colorbar(CS, shrink=0.8, extend='both')
         ax2d.set_xlabel("R")
         ax2d.set_ylabel("Z")
         if self.R_w[0]!=0:
@@ -253,14 +288,24 @@ class Bfield_in:
 
 
     def write(self):
+        """
+        Function calling the two methods to write the header and the bkg
+        """
         self.write_head()
         self.write_bkg()
 
     def build_lim(self):
+        """
+        Function calling the two methods to build the header (with limiter) and bkg dictionary
+        """
         self.build_header_lim()
         self.build_bkg()    
 
     def build_SN(self):
+        """
+        Function calling the two methods to build the header (with SN) and bkg dictionary
+        In this case there are two special points (and the x-point can be found with ginput from plot)
+        """
         self.build_header_SN()
         self.build_bkg()
         
@@ -279,17 +324,17 @@ class Bfield_in:
         dummy=np.linspace(0,1,nrho)
         
         self.hdr={'nSHOT':0,'tSHOT':0,'modflg':0,'FPPkat':0,'IpiFPP':self.eqdsk.Ip,\
-                  'PFxx':[],'RPFx':[],'zPFx':[],'SSQ':[], 'devnam':'JT-60SA',\
+                  'PFxx':[],'RPFx':[],'zPFx':[],'SSQ':[], 'devnam':self.devnam,\
                   'rhoPF':129,'PFL':dummy,'Vol':dummy,'Area':dummy,'Qpl':dummy} 
         #find derivatives for finding x point
         self.dpsidR, self.dpsidZ = self._calc_psi_deriv()  
         
         # find axis
-        self.ax = self.min_grad(x0=[self.eqdsk.Raxis, self.eqdsk.Zaxis])     
+        self.ax = self._min_grad(x0=[self.eqdsk.Raxis, self.eqdsk.Zaxis])     
         self.axflux = self.psi_coeff(self.ax[0], self.ax[1])*(2*math.pi)
 
         # poloidal flux of the special points (only one in this case)
-        self.hdr['PFxx'] = [self.axflux[0]]#-self.axflux[0]-self.xflux[0]
+        self.hdr['PFxx'] = [self.axflux[0]]
         self.hdr['RPFx'] = [self.ax[0]]
         self.hdr['zPFx'] = [self.ax[1]]
         self.hdr['SSQ']  = [self.eqdsk.R0EXP, self.eqdsk.Zaxis, 0, 0]
@@ -313,7 +358,6 @@ class Bfield_in:
                   'PFxx':[],'RPFx':[],'zPFx':[],'SSQ':[], 'devnam':'JT-60SA',\
                   'rhoPF':129,'PFL':dummy,'Vol':dummy,'Area':dummy,'Qpl':dummy} 
         #Smooth psi and find derivatives for finding x point
-        #self.psi_sm=self.smooth_psi()
         self.dpsidR, self.dpsidZ = self._calc_psi_deriv()  
 
         #Find x-point
@@ -323,26 +367,19 @@ class Bfield_in:
         ax2d.contour(r,z, self.eqdsk.psi, 50)
         ax2d.set_title('choose x point position')
         x0 = plt.ginput()
-        self.xpoint = self.min_grad(x0=x0)        
+        self.xpoint = self._min_grad(x0=x0)        
         self.xflux = self.psi_coeff(self.xpoint[0], self.xpoint[1])
         
         # find axis
-        self.ax = self.min_grad(x0=[self.eqdsk.Raxis, self.eqdsk.Zaxis])     
+        self.ax = self._min_grad(x0=[self.eqdsk.Raxis, self.eqdsk.Zaxis])     
         self.axflux = self.psi_coeff(self.ax[0], self.ax[1])
 
         # poloidal flux of the special points.
-        self.hdr['PFxx'] = [self.xflux[0], self.axflux[0]]#-self.axflux[0]-self.xflux[0]
+        self.hdr['PFxx'] = [self.xflux[0], self.axflux[0]]
         self.hdr['RPFx'] = [self.xpoint[0], self.ax[0]]
         self.hdr['zPFx'] = [self.xpoint[1], self.ax[1]]
         self.hdr['SSQ']  = [self.eqdsk.R0EXP, 0, 0, 0]
         
-        #THESE HAVE BEEN ALREADY INITIALISED
-        #rubbish = np.linspace(0,1,250)
-        #self.hdr['rhoPF'] = rubbish
-        #self.hdr['PFL']   = rubbish
-        #self.hdr['Vol']   = rubbish
-        #self.hdr['Area']  = rubbish
-        #self.hdr['Qpl']   = rubbish
 
     def build_bkg(self):
         """
@@ -370,21 +407,11 @@ class Bfield_in:
                   'psi':[],\
                   'Bphi':bphitemp, 'BR':self.Br, 'Bz':self.Bz} 
 
-        self.bkg['psi'] = psitemp
-        
-#    def smooth_psi(self):
-#        psi=self.eqdsk.psi
-#        R=self.eqdsk.R_grid
-#        z=self.eqdsk.Z_grid
-#        bbox=[min(R), max(R), min(z), max(z)]
-##        newpsi=interp.SmoothBivariateSpline(x=R, y=z, z=psi, bbox=bbox, kx=3, ky=3)
-#        newpsi_coeff = interp.bisplrep(R,z,psi)
-#       
-#        return newpsi        
+        self.bkg['psi'] = psitemp   
         
     def _calc_psi_deriv(self):
         """
-        Compute the derivative of the poloidal flux on a refined grid which
+        Compute the derivative of psi on a refined grid which
         will be used then for computing of the radial and vertical component of
         the magnetic field.
         It can be done by computing on a finer grid (128x128)
@@ -395,18 +422,13 @@ class Bfield_in:
         dpsidR = np.zeros((self.eqdsk.nzbox, self.eqdsk.nrbox))
         dpsidZ = np.zeros((self.eqdsk.nzbox, self.eqdsk.nrbox))
         
-        #dpsidR = np.zeros((np.size(self.eqdsk.R_grid), np.size(self.eqdsk.Z_grid)))
-        #dpsidZ = np.zeros((np.size(self.eqdsk.R_grid), np.size(self.eqdsk.Z_grid)))
         deriv = np.gradient(psi)
         # Note np.gradient gives y
         # derivative first, then x derivative
         ddR = deriv[1]
-        # ddR = self.psi(Rgrid,Zgrid,dx=1)
         ddZ = deriv[0]
-        # ddZ = self.psi(Rgrid,Zgrid,dy=1)
         dRdi = 1.0/np.gradient(self.eqdsk.R_grid)
         dRdi = np.tile(dRdi, [self.eqdsk.nzbox,1])
-        #dRdi = np.transpose(dRdi)
         dZdi = 1.0/np.gradient(self.eqdsk.Z_grid)
         dZdi = np.tile(dZdi, [self.eqdsk.nrbox,1])
         dZdi = np.transpose(dZdi)
@@ -418,7 +440,10 @@ class Bfield_in:
     
         return dpsidR, dpsidZ   
         
-    def min_grad(self, x0):
+    def _min_grad(self, x0):
+        """
+        find the point where there is the minimum of the flux
+        """
         sp_dr = self.dpsidR
         sp_dz = self.dpsidZ
         R = self.eqdsk.R_grid
@@ -427,7 +452,6 @@ class Bfield_in:
         val_dr = interp.interp2d(R, z, sp_dr)
         val_dz = interp.interp2d(R, z, sp_dz)
         fun= lambda x: val_dr(x[0], x[1])**2 +val_dz(x[0], x[1])**2
-#        fun = np.multiply(sp_dr, sp_dr)+np.multiply(sp_dz, sp_dz)
         x = scipy.optimize.fmin(fun, x0)
         R0 = x[0]
         z0 = x[1]
@@ -435,7 +459,7 @@ class Bfield_in:
 
     def calc_field(self):
         """
-        Function to calculate fields 
+        Function to calculate toroidal fields (fields on poloidal plane set to 0) 
         """
         try:
             self.dpsidR.mean()
@@ -443,10 +467,9 @@ class Bfield_in:
             self.dpsidR, self.dpsidZ = self._calc_psi_deriv()
 
         print "Calculating Bphi"
-        #tmpR = np.linspace(np.min(self.eqdsk.R_limits), np.max(self.eqdsk.R_limits), np.size(self.eqdsk.R_grid))
         inv_R = 1.0/np.array(self.eqdsk.R_grid)
         inv_R = np.tile(inv_R,[self.eqdsk.nzbox, 1])
-        #inv_R = np.transpose(inv_R)
+
         #Bphi is used, BR and Bz not but you must initialise it to 0 and
         # print them anyway
         #self.Br = -self.dpsidR*inv_R
@@ -459,9 +482,6 @@ class Bfield_in:
         Bphi = f*inv_R
 
         self.param_bphi = interp.interp2d(self.eqdsk.R_grid,self.eqdsk.Z_grid, Bphi)
-        #R_temp=np.linspace(min(self.eqdsk.R_limits), max(self.eqdsk.R_limits), self.nR)
-        #z_temp=np.linspace(min(self.eqdsk.Z_limits), max(self.eqdsk.Z_limits), self.nz)
-        #self.Bphi = param_bphi(R_temp, z_temp)
     
     def write_head(self):
         """
@@ -470,14 +490,12 @@ class Bfield_in:
         try:
             hdr=self.hdr
         except:
-            self.build_header()
-            hdr = self.hdr
+            print "Build header first!"
+            raise ValueError
+
         out_fname = 'input.magn_header'
         outfile = open(out_fname, 'wa')
-        
-        #frmstr1 = '%8.6g %8.6g %8.6g %8.6g\n';
-        #frmstr2 = '%18.10g %18.10g %18.10g %18.10g\n';        
-        
+       
         
         #outfile.write('{:d} (R,z) wall points & divertor flag (1 = divertor, 0 = wall)\n'.format(len(lines)))
         # shot info
@@ -542,12 +560,8 @@ class Bfield_in:
             
         bkg=self.bkg
         out_fname = 'input.magn_bkg'
-        outfile = open(out_fname, 'wa')
-        
-        #frmstr1 = '%8.6g %8.6g %8.6g %8.6g\n';
-        #frmstr2 = '%18.10g %18.10g %18.10g %18.10g\n';        
-        
-        
+        outfile = open(out_fname, 'wa') 
+    
         #outfile.write('{:d} (R,z) wall points & divertor flag (1 = divertor, 0 = wall)\n'.format(len(lines)))        
         outfile.write('{:18.10f} {:3d} {:3d} {:3d} {:3d}\n'.format(\
             bkg['phi0'], bkg['nsector'], bkg['nphi_per_sector'], bkg['ncoil'], \
@@ -600,6 +614,9 @@ class Bfield_in:
                 
                 
     def _perm_dims(self,arr):
+        """
+        This permutation of the array has to be done to correctly feed the input to ascot
+        """
         out_arr = []
         if len(np.shape(arr))==2:
             out_arr = np.transpose(arr)
@@ -610,11 +627,15 @@ class Bfield_in:
             
 
     def _read_wall(self):
-        
+        """
+        Reads 2D (R,Z) wall depending on the device name
+        """
         try:
-            fname = "/home/vallar/JT60-SA/PARETI_2D_SA/input.wall_2d"
-            fname = "/home/vallar/JT60-SA/PARETI_2D_SA/input.wall_2d_clamped"
-            fname = '/home/vallar/TCV/from_jari/input.wall_2d'           
+            if self.devnam == 'JT60SA':
+                fname = "/home/vallar/JT60-SA/PARETI_2D_SA/input.wall_2d"
+                #fname = "/home/vallar/JT60-SA/PARETI_2D_SA/input.wall_2d_clamped"
+            elif self.devnam == 'TCV':
+                fname = '/home/vallar/TCV/from_jari/input.wall_2d'           
             wall = np.loadtxt(fname, skiprows=1)
             self.R_w = wall[:,0]
             self.z_w = wall[:,1]
@@ -625,12 +646,12 @@ class Bfield_in:
             self.z_w=[0]
             return
 
-class venus_Bfield(Bfield_in):
+class venus_Bfield(Bfield_eqdsk):
     """
     For the input given from L. Stipani, e.g. 53454 from VENUS/LEVIS
     """
     def __init__(self, infile_name, nR,nz):
-        Bfield_in.__init__(self, infile_name, nR, nz)
+        Bfield_eqdsk.__init__(self, infile_name, nR, nz)
         infile = sio.loadmat(infile_name)
 
         eq = infile['equilibrium']
