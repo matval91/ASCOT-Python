@@ -10,7 +10,7 @@ import numpy as np
 import h5py, math
 import matplotlib.pyplot as plt
 
-import ReadEQDSK_MV
+import ReadEQDSK
 import scipy.optimize
 import scipy.interpolate as interp
 import scipy.io as sio
@@ -249,7 +249,7 @@ class Bfield_eqdsk:
     
     
     
-        self.eqdsk= ReadEQDSK_MV.ReadEQDSK(infile_eqdsk)
+        self.eqdsk= ReadEQDSK.ReadEQDSK(infile_eqdsk)
         self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))
         #self.eqdsk.psi = -2.*math.pi*self.eqdsk.psi
         self.psi_coeff = interp.interp2d(self.eqdsk.R_grid, self.eqdsk.Z_grid, self.eqdsk.psi)
