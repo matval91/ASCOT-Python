@@ -19,3 +19,5 @@ ascot_particles.py -
 
 
 ascot_distributions.py - 
+
+ReadEQDSK.py - 
