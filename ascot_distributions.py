@@ -204,7 +204,7 @@ class distribution_1d:
             
         #in infile['species/testParticle/origin'] there is an array with the ordered set of beams
         self._h5origins = self.infile['species/testParticle/origin'].value
-        
+        self._group_beams()
         
     def plot_current(self):
         """
