@@ -22,10 +22,13 @@ class distribution_1d:
     Class for handling the <distributions> data
 
     METHODS:
-    __init__(self, infile): getting basic variables, checking if rhoDist in hdf5 file
+    __init__(self, infile): getting basic variables, checking if rhoDist 
+        in hdf5 file
     rhodists(self): Method to get the data from the ascot file
-    TCV_calc_FIBP(self, plot_flag, *args): Compute the FIBP in TCV case. Plot_flag=1 to plot, if given as *args shot and run it plots the FIBP from a different BBNBI h5 file
-    TCV_plot_all(self): Plot quantities without different ion species (i.e. j,p,ecc.)
+    TCV_calc_FIBP(self, plot_flag, *args): Compute the FIBP in TCV case. 
+        Plot_flag=1 to plot, if given as *args shot and run it plots 
+        the FIBP from a different BBNBI h5 file
+    TCV_plot_all(self): Plot quantities w/o different ion species (i.e. j,p,ecc.)
 
 
     plot_current(self): Plot the induced beam current density
@@ -409,7 +412,6 @@ class distribution_1d:
                 self.pi3   = np.dot(self.slices_summed[0,:,25], self.volumes)
                 self.tori3 = np.dot(self.slices_summed[0,:,24 + self.nions+2], self.volumes)
 
-
     def print_scalars(self):
         """
         Print the scalars
@@ -459,131 +461,151 @@ class distribution_2d:
         if "rhoPhiPEdist" not in self.infile['distributions'].keys():
             print "No rhoPhiPitchE dist in ", self.infile_n
 
-    def plot_RZ(self):
-        self.xplot = self.dict_dim['R']
-        self.yplot = self.dict_dim['z']
-        int_E = np.trapz(self.fdist[0,:,:,:,:], self.dict_dim['E'], axis = 0)
-        int_pitchE = np.trapz(int_E, self.dict_dim['pitch'], axis=0)
-        self.zplot = int_pitchE
-        self._plot_2d('R', 'z', wall=1, norm=1)
+    def plot_space(self):
+        try:
+            self.f_Ep_int.mean()
+        except:
+            self._integrate_Ep()
 
-    def integrate_RZ_rhophi(self):
-        """
-        Function to integrate over (R,z) or (rho,phi)
-        """
-        if 'R' in self.dict_dim.keys():
-            multiply_R = 2*math.pi*np.tile(self.dict_dim['R'], (20,10,20,1))
-            dist_toint = multiply_R*self.fdist[0,:,:,:,:]
-            int_R   = np.trapz(dist_toint, self.dict_dim['R'], axis = -1)
-            int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
-            self.f_RZ_int = int_Rz #E,pitch
-        elif 'rho' in self.dict_dim.keys():
-            int_rho  = np.sum(self.fdist[0,:,:,:,:], axis = -1)
-            int_rhophi  = np.sum(int_rho, axis = -1)
-            self.f_rhophi_int = np.transpose(int_rhophi) #E,pitch        
+        self.zplot = self.f_Ep_int
+        if 'R' in self.dict_dim.keys() and 'z' in self.dict_dim.keys():
+            self._plot_2d('R', 'z', wall=1, norm=1)
+        elif 'rho' in self.dict_dim.keys() and 'phi' in self.dict_dim.keys() :
+            self._plot_2d('rho', 'phi', wall=0, norm=1)
+            
 
-    def integrate_RZE(self):
+    def integrate_range_Ep(self, dim_range):
         """
-        Function to integrate over (R,z,E) or (rho,phi,E)
+        Integrates over a range of the 2D field
         """
         try:
-            if 'R' in self.dict_dim.keys():
-                self.f_RZ_int.mean()
-            else:
-                self.f_rhophi_int.mean()
+            ftoint = self.f_space_int
         except:
-            self.integrate_RZ_rhophi()
+            self._integrate_space()
+            ftoint = self.f_space_int
             
-        if 'R' in self.dict_dim.keys():
-            self.f_RZE_int = np.trapz(self.f_RZ_int, self.dict_dim['E'], axis=0)
-            self.f_RZE_int = self.f_RZE_int
-        else:
-            self.rhophiE_int = np.sum(self.f_rhophi_int, axis=1)
-
-    def integrate_RZp(self):
-        """
-        Function to integrate over (R,z,p) or (rho,phi,p)
-        """
-        try:
-            if 'R' in self.dict_dim.keys():
-                self.f_RZ_int.mean()
-            else:
-                self.f_rhophi_int.mean()
-        except:
-            self.integrate_RZ_rhophi()
-            
-        if 'R' in self.dict_dim.keys():
-            self.f_RZp_int = np.trapz(self.f_RZ_int, self.dict_dim['pitch'], axis=1)
-            self.f_RZp_int = self.f_RZp_int
-        else:
-            self.rhophip_int = np.sum(self.f_rhophi_int, axis=0)
-            el_vol = self.dvol['rho']*self.dvol['phi']*self.dvol['pitch']
-            self.f_rhophip_int = self.f_rhophip_int*el_vol/self.vtot
-
+        x = self.dict_dim['E']
+        y = self.dict_dim['pitch']
+        xlim = np.asarray(dim_range)[0,:]
+        if min(xlim)>5:
+            xlim = xlim*1.6e-19
+        ylim = np.asarray(dim_range)[1,:]
+        ind_x = np.where((x<=max(xlim)) & (x>=min(xlim)))[0]
+        x = x[ind_x][:]
+        ind_y = np.where((y<=max(ylim)) & (y>=min(ylim)))[0]
+        y = y[ind_y][:]
+        int_E = np.trapz(ftoint[ind_x], x, axis = 0)
+        int_pitchE = np.trapz(int_E[ind_y], y, axis=0)
         
+        print "Fraction of particles in range ",xlim/1.6e-19*1e-6, " MeV :", int_pitchE/self.norm*100., " %"
 
-    def plot_RZp(self, norm):
+    def integrate_space(self):
+        """
+        Function to integrate over space dimensions, i.e. (R,z) or (rho, phi)
+        """
+        self._integrate_space()
+
+
+#    def _integrate_RZ_time(self):
+#        """
+#        Function to integrate over (R,z)
+#        """
+#        self.f_RZ_int_t = np.zeros((self.shape_dim['t'], self.shape_dim['E'],\
+#                                    self.shape_dim['pitch']), dtype=float)
+#        for j in range(self.shape_dim['t']):
+#            
+#            if self.norm==1:
+#                dist_toint = self.fdist_notnorm[j,:,:,:,:]
+#            else: 
+#                dist_toint = self.fdist_norm[j,:,:,:,:]
+#    
+#            arr=np.gradient(self.dict_dim['R']**2)
+#            for i, el in enumerate(arr):
+#                dist_toint[:,:,:,i] *= math.pi*el
+#    
+#            int_R   = np.trapz(math.pi*dist_toint, self.dict_dim['R'], axis = -1)
+#            int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
+#            self.f_RZ_int_t[j,:,:] = int_Rz #E,pitch
+
+
+
+  
+
+    def _integrate_Ep(self):
+        """
+        Function to integrate over (E,p)
+        """
+        dist_toint = self.fdist_notnorm[0,:,:,:,:]/self.norm
+            
+        int_E = np.trapz(dist_toint, self.dict_dim['E'], axis=0)
+        self.f_Ep_int = np.trapz(int_E, self.dict_dim['pitch'], axis=0)
+
+
+    def _integrate_spaceE(self):
+        """
+        Function to integrate over (space,E)
+        """
         try:
-            if 'R' in self.dict_dim.keys():
-                self.f_RZp_int.mean()
-            else:
-                self.rhophip_int.mean()
+            self.f_space_int.mean()
         except:
-            self.integrate_RZp()
+            self.integrate_space()
+            
+        self.f_spaceE_int = np.trapz(self.f_space_int, self.dict_dim['E'], axis=0)
+
+
+    def _integrate_spacep(self):
+        """
+        Function to integrate over (space,p)
+        """
+        try:
+            self.f_space_int.mean()
+        except:
+            self.integrate_space()
+        self.f_spacep_int = np.trapz(self.f_space_int, self.dict_dim['pitch'], axis=1)
+
+
+    def plot_spacep(self, norm):
+        try:
+            self.f_spacep_int.mean()
+        except:
+            self.integrate_spacep()
         
         self.xplot = self.dict_dim['E']/1.6e-19
-        if 'R' in self.dict_dim.keys():
-            self.yplot = self.f_RZp_int
-        else:
-            self.yplot = self.f_rhophip_int
+        self.yplot = self.f_spacep_int
             
         self._plot_1d('Energy', norm=norm)
 
 
 
-    def plot_RZE(self, norm):
+    def plot_spaceE(self, norm):
         try:
-            if 'R' in self.dict_dim.keys():
-                self.f_RZE_int.mean()
-            else:
-                self.rhophiE_int.mean()
+            self.f_spaceE_int.mean()
         except:
-            self.integrate_RZE()
+            self.integrate_spaceE()
         
         self.xplot = self.dict_dim['pitch']
-        if 'R' in self.dict_dim.keys():
-            self.yplot = self.f_RZE_int
-        else:
-            self.yplot = self.f_rhophiE_int
-            
+        self.yplot = self.f_spaceE_int
+
         self._plot_1d('pitch', norm=norm)
 
 
     def plot_Epitch(self):
         try:
-            if 'R' in self.dict_dim.keys():
-                self.f_RZ_int.mean()
-            else:
-                self.f_rhophi_int.mean()
+            self.f_space_int.mean()
         except:
-            self.integrate_RZ_rhophi()
-
+            self.integrate_space()
 
         self.xplot = self.dict_dim['pitch']
         self.yplot = self.dict_dim['E']/1.6e-19
-
-        if 'R' in self.dict_dim.keys():
-            self.zplot = self.f_RZ_int
-        else:
-            self.zplot = self.f_rhophi_int
+        self.zplot = self.f_space_int
         self._plot_2d('pitch', 'E', wall=0, norm=1)
-
+     
 
     def write_pitchE(self):
         try:
-            self.f_RZ_int.mean()
+            self.f_space_int.mean()
         except:
-            self.integrate_RZ_rhophi()
+            self.integrate_space()
         self._write('pitch','E', self.f_RZ_int)
 
     def _plot_1d(self, xlab, norm):
@@ -606,13 +628,13 @@ class distribution_2d:
         title = 'Distribution function'
         
         if flag_dict['norm']==1:
-            self.zplot = self.zplot/self.norm
+            #self.zplot = self.zplot/self.norm
             title+= ' NORMALIZED'
         fig = plt.figure()
         ax  = fig.add_subplot(111)
         CS  = ax.contourf(self.xplot, self.yplot, self.zplot,50)
         CB  = plt.colorbar(CS)
-        
+        #ax.plot([np.min(self.xplot),np.max(self.xplot)], [5e5, 5e5], linewidth=3., color='k')
         if os.path.isfile('input.wall_2d') & flag_dict['wall']!=0:
             data_w=np.loadtxt('input.wall_2d', skiprows=1)
             ax.plot(data_w[:,0], data_w[:,1], 'k', linewidth=2)
@@ -641,6 +663,20 @@ class distribution_2d:
                 np.savetxt(f_handle, self.dict_dim[lab].flatten())
             np.savetxt(f_handle, self.y.flatten())  
 
+
+    def _computenorm(self):
+        """
+        calculates the norm of the function
+        """
+        try:
+            self.f_spacep_int()
+        except:
+            self.integrate_spacep()
+            
+        self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
+        #print "NORM = ", self.norm
+        
+
     def build_fdist(self):
         """
         Method to read the ordinates of the 2d distribution
@@ -650,19 +686,14 @@ class distribution_2d:
         except:
             print "No dictionary of dimensions created"
             raise ValueError
-            
-        #self.fdist = np.zeros(1)
-        #self.fdist = np.resize(self.fdist, [i for i in [len(k) for k in self.dict_dim.values()][::-1]])
 
+        self.norm = 1
         # 6th dimension is the one labelling the beams
         tmp = self.dist_h5['ordinate'].value
-        self.fdist = np.sum(tmp, axis=0)[:,:,:,:,:,0] #time, E,pitch,z,r
-        self.fdist_notnorm = self.fdist
-        #computing normalisation of the function, integrating over all the dimensions
-        self.integrate_RZp()
-        self.norm = np.trapz(self.f_RZp_int, self.dict_dim['E'])
-        self.fdist_norm = self.fdist_notnorm/self.norm
-
+        fdist = np.sum(tmp, axis=0)[:,:,:,:,:,0] #time, E,pitch,z,r
+        self.fdist_notnorm = fdist
+        self._computenorm()
+        #self.fdist_norm = self.fdist_notnorm/self.norm
 
     def collect_dim(self):
         self._read_dim()
@@ -672,8 +703,10 @@ class distribution_2d:
         """
         Hidden method to read the abscissae
         """
+        self.shape_dim = self.dict_dim.copy()
         for i, dim in enumerate(self.dict_dim.iterkeys()):
             self.dict_dim[dim] = self.dist_h5['abscissae/dim'+str(i+1)].value
+            self.shape_dim[dim] = np.size(self.dict_dim[dim])-1
 
     def _fix_dim(self):
         """
@@ -683,9 +716,9 @@ class distribution_2d:
             self.dict_dim.keys()
         except:
             self._read_dim()
-        tmp_dict = self.dict_dim
+
         for dim in self.dict_dim.keys():
-            tmp_dim = tmp_dict[dim]
+            tmp_dim = self.dict_dim[dim]
             self.dict_dim[dim] = np.linspace(min(tmp_dim), max(tmp_dim), len(tmp_dim)-1)
 
 
@@ -701,31 +734,61 @@ class frzpe(distribution_2d):
             self.dist_h5 = self.infile['distributions/rzPitchEdist'] 
         except:
             raise ValueError
-        
-        self.dict_dim = collections.OrderedDict([('R',[]),('z',[]),('pitch',[]),('E',[]),('t',[])])
+        self.__name__ = 'frzpe'
 
+        self.dict_dim = collections.OrderedDict([('R',[]),('z',[]),('pitch',[]),('E',[]),('t',[])])
         self.collect_dim()
         self.build_fdist()
+        self._integrate_space()        
+        
+    def _integrate_space(self):
+        """
+        Function to integrate over (R,z)
+        """
+        dist_toint = self.fdist_notnorm[0,:,:,:,:]/self.norm
 
+        for i, el in enumerate(self.dict_dim['R']):
+            dist_toint[:,:,:,i] *= 2*math.pi*el
+
+        int_R   = np.trapz(dist_toint, self.dict_dim['R'], axis = -1)
+        int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
+        self.f_space_int = int_Rz #E,pitch
 
 class frhophipe(distribution_2d):
     
     def __init__(self, infile_n):
         """
-        Module to initialise the distributions rhoPhiPEdist
-        self.fdist['ordinate'] has the following shape: (ind beam, time, energy, pitch, phi, rho, #ions)
+        Module to initialise the distributions (now works only with rzPitchEdist, rhophipitchE)
+        self.fdist['ordinate'] has the following shape: (ind beam, time, energy, pitch, z, R, #ions)
         """
         distribution_2d.__init__(self, infile_n)
         try:
-            self.dist_h5 = self.infile['distributions/rhoPhiPEdist']
+            self.dist_h5 = self.infile['distributions/rhoPhiPEdist'] 
         except:
             raise ValueError
+        self.__name__ = 'frhophipe'
         
         self.dict_dim = collections.OrderedDict([('rho',[]),('phi',[]),('pitch',[]),('E',[]),('t',[])])
-        
+        self.vol = self.infile['distributions/rhoDist/shellVolume'].value
+
         self.collect_dim()
         self.build_fdist()
+        self._integrate_space()
 
+    def _integrate_space(self):
+        """
+        Function to integrate over (rho,phi)
+        """
+        dist_toint = self.fdist_notnorm[0,:,:,:,:]/self.norm
+
+        #np.cumsum(shellVol) is the profile of the volume, enclosed in a rho surf
+        for i,el in enumerate(np.cumsum(self.vol)):
+            dist_toint[:,:,:,i] *= el/self.shape_dim['phi']       
+            
+        int_rho    = np.trapz(dist_toint, self.dict_dim['rho'], axis = -1)
+        #int_rhophi  = np.trapz(int_rho   , self.dict_dim['phi'], axis = -1) 
+        int_rhophi = int_rho[:,:,0]
+        self.f_space_int = int_rhophi #E,pitch  
 
 def plot_article(n_lines, data, data_labels, xlabel, ylabel):
         #=====================================================================================
