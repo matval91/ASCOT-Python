@@ -477,6 +477,7 @@ class distribution_2d:
     def integrate_range_Ep(self, dim_range):
         """
         Integrates over a range of the 2D field
+        input: dim_range=[[xmin, xmax], [ymin, ymax]]
         """
         try:
             ftoint = self.f_space_int
@@ -502,38 +503,14 @@ class distribution_2d:
     def integrate_space(self):
         """
         Function to integrate over space dimensions, i.e. (R,z) or (rho, phi)
+        Calls the hidden method of each subclass
         """
         self._integrate_space()
-
-
-#    def _integrate_RZ_time(self):
-#        """
-#        Function to integrate over (R,z)
-#        """
-#        self.f_RZ_int_t = np.zeros((self.shape_dim['t'], self.shape_dim['E'],\
-#                                    self.shape_dim['pitch']), dtype=float)
-#        for j in range(self.shape_dim['t']):
-#            
-#            if self.norm==1:
-#                dist_toint = self.fdist_notnorm[j,:,:,:,:]
-#            else: 
-#                dist_toint = self.fdist_norm[j,:,:,:,:]
-#    
-#            arr=np.gradient(self.dict_dim['R']**2)
-#            for i, el in enumerate(arr):
-#                dist_toint[:,:,:,i] *= math.pi*el
-#    
-#            int_R   = np.trapz(math.pi*dist_toint, self.dict_dim['R'], axis = -1)
-#            int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
-#            self.f_RZ_int_t[j,:,:] = int_Rz #E,pitch
-
-
-
   
 
     def _integrate_Ep(self):
         """
-        Function to integrate over (E,p)
+        Hidden method to integrate over (E,p)
         """
         dist_toint = self.fdist_notnorm[0,:,:,:,:]/self.norm
             
@@ -543,7 +520,7 @@ class distribution_2d:
 
     def _integrate_spaceE(self):
         """
-        Function to integrate over (space,E)
+        Hidden method to integrate over (space,E)
         """
         try:
             self.f_space_int.mean()
@@ -555,7 +532,7 @@ class distribution_2d:
 
     def _integrate_spacep(self):
         """
-        Function to integrate over (space,p)
+        hidden method to integrate over (space,pitch)
         """
         try:
             self.f_space_int.mean()
@@ -565,6 +542,9 @@ class distribution_2d:
 
 
     def plot_spacep(self, norm):
+        """
+        plot 1D (energy, int_space (int_pitch (fdist)))
+        """
         try:
             self.f_spacep_int.mean()
         except:
@@ -578,6 +558,9 @@ class distribution_2d:
 
 
     def plot_spaceE(self, norm):
+        """
+        plot 1D (pitch, int_space (int_E (fdist)))
+        """
         try:
             self.f_spaceE_int.mean()
         except:
@@ -590,6 +573,9 @@ class distribution_2d:
 
 
     def plot_Epitch(self):
+        """
+        plot 2D (pitch, energy, int_space(fdist))
+        """
         try:
             self.f_space_int.mean()
         except:
@@ -609,7 +595,10 @@ class distribution_2d:
         self._write('pitch','E', self.f_RZ_int)
 
     def _plot_1d(self, xlab, norm):
-        
+        """
+        Hidden method to plot 1D functions
+        """
+
         fig = plt.figure()
         ax  = fig.add_subplot(111)
         title = 'Distribution '
@@ -623,13 +612,14 @@ class distribution_2d:
         
         plt.show()
 
-    def _plot_2d(self, xlab, ylab, wall, norm):
-        flag_dict = {'wall': wall, 'norm': norm}
-        title = 'Distribution function'
-        
-        if flag_dict['norm']==1:
-            #self.zplot = self.zplot/self.norm
-            title+= ' NORMALIZED'
+    def _plot_2d(self, xlab, ylab, wall):
+        """
+        Hidden method to plot the 2D distribution
+        wall: set to 1 if wall needed to plot (i.e. RZ function)
+        """
+
+        flag_dict = {'wall': wall}
+        title = 'Distribution function normalised'
         fig = plt.figure()
         ax  = fig.add_subplot(111)
         CS  = ax.contourf(self.xplot, self.yplot, self.zplot,50)
@@ -696,6 +686,9 @@ class distribution_2d:
         #self.fdist_norm = self.fdist_notnorm/self.norm
 
     def collect_dim(self):
+        """
+        methods to read the dictionary of the dimensions of the 4D distributions and store it
+        """
         self._read_dim()
         self._fix_dim()
 
@@ -759,7 +752,7 @@ class frhophipe(distribution_2d):
     def __init__(self, infile_n):
         """
         Module to initialise the distributions (now works only with rzPitchEdist, rhophipitchE)
-        self.fdist['ordinate'] has the following shape: (ind beam, time, energy, pitch, z, R, #ions)
+        self.fdist['ordinate'] has the following shape: (ind beam, time, energy, pitch, phi, rho, #ions)
         """
         distribution_2d.__init__(self, infile_n)
         try:
