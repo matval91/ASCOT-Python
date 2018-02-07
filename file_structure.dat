@@ -1,0 +1,235 @@
+/                        Group
+/bfield                  Group
+/bfield/2d               Group
+/bfield/2d/bphi          Dataset {600, 300}
+/bfield/2d/psi           Dataset {600, 300}
+/bfield/nphi             Dataset {1}
+/bfield/nr               Dataset {1}
+/bfield/nz               Dataset {1}
+/bfield/r                Dataset {300}
+/bfield/raxis            Dataset {1}
+/bfield/z                Dataset {600}
+/bfield/zaxis            Dataset {1}
+/boozer                  Group
+/boozer/Babs             Dataset {200, 100}
+/boozer/Ifunc            Dataset {100}
+/boozer/R                Dataset {200, 100}
+/boozer/axisR            Dataset {1}
+/boozer/axisz            Dataset {1}
+/boozer/btheta           Dataset {200, 100}
+/boozer/delta            Dataset {200, 100}
+/boozer/gfunc            Dataset {100}
+/boozer/nu               Dataset {200, 100}
+/boozer/psi              Dataset {100}
+/boozer/psiAxis          Dataset {1}
+/boozer/psiMax           Dataset {1}
+/boozer/psiMin           Dataset {1}
+/boozer/psiSepa          Dataset {1}
+/boozer/qprof            Dataset {100}
+/boozer/rgridmax         Dataset {1}
+/boozer/rgridmin         Dataset {1}
+/boozer/theta            Dataset {200}
+/boozer/z                Dataset {200, 100}
+/boozer/zgridmax         Dataset {1}
+/boozer/zgridmin         Dataset {1}
+/distributions           Group
+/distributions/accdist   Group
+/distributions/accdist/abscissae Group
+/distributions/accdist/abscissae/dim1 Dataset {101}
+/distributions/accdist/abscissae/dim2 Dataset {2}
+/distributions/accdist/abscissae/dim3 Dataset {2}
+/distributions/accdist/ordinate Dataset {1, 1, 1, 1, 1, 100, 1}
+/distributions/accdist/ordinates Group
+/distributions/accdist/ordinates/name_000001 Dataset {SCALAR}
+/distributions/accdist/ordinates/unit_000001 Dataset {SCALAR}
+/distributions/rhoDist   Group
+/distributions/rhoDist/abscissae Group
+/distributions/rhoDist/abscissae/dim1 Dataset {201}
+/distributions/rhoDist/abscissae/dim2 Dataset {2}
+/distributions/rhoDist/abscissae/dim3 Dataset {2}
+/distributions/rhoDist/ordinate Dataset {1, 1, 1, 1, 1, 200, 29}
+/distributions/rhoDist/ordinates Group
+/distributions/rhoDist/ordinates/name_000001 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000002 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000003 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000004 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000005 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000006 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000007 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000008 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000009 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000010 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000011 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000012 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000013 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000014 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000015 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000016 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000017 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000018 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000019 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000020 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000021 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000022 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000023 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000024 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000025 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000026 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000027 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000028 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/name_000029 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000001 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000002 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000003 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000004 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000005 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000006 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000007 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000008 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000009 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000010 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000011 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000012 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000013 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000014 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000015 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000016 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000017 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000018 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000019 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000020 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000021 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000022 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000023 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000024 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000025 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000026 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000027 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000028 Dataset {SCALAR}
+/distributions/rhoDist/ordinates/unit_000029 Dataset {SCALAR}
+/distributions/rhoDist/shellArea Dataset {200}
+/distributions/rhoDist/shellVolume Dataset {200}
+/distributions/rhoDist/variance Dataset {1, 1, 1, 1, 1, 200, 31}
+/distributions/rhodtcolldist Group
+/distributions/rhodtcolldist/abscissae Group
+/distributions/rhodtcolldist/abscissae/dim1 Dataset {201}
+/distributions/rhodtcolldist/abscissae/dim2 Dataset {51}
+/distributions/rhodtcolldist/abscissae/dim3 Dataset {2}
+/distributions/rhodtcolldist/abscissae/dim4 Dataset {2}
+/distributions/rhodtcolldist/ordinate Dataset {1, 1, 1, 1, 50, 200, 1}
+/distributions/rhodtcolldist/ordinates Group
+/distributions/rhodtcolldist/ordinates/name_000001 Dataset {SCALAR}
+/distributions/rhodtcolldist/ordinates/unit_000001 Dataset {SCALAR}
+/distributions/rhodtdist Group
+/distributions/rhodtdist/abscissae Group
+/distributions/rhodtdist/abscissae/dim1 Dataset {201}
+/distributions/rhodtdist/abscissae/dim2 Dataset {51}
+/distributions/rhodtdist/abscissae/dim3 Dataset {2}
+/distributions/rhodtdist/abscissae/dim4 Dataset {2}
+/distributions/rhodtdist/ordinate Dataset {1, 1, 1, 1, 50, 200, 1}
+/distributions/rhodtdist/ordinates Group
+/distributions/rhodtdist/ordinates/name_000001 Dataset {SCALAR}
+/distributions/rhodtdist/ordinates/unit_000001 Dataset {SCALAR}
+/endstate                Group
+/endstate/R              Dataset {10/Inf}
+/endstate/Rprt           Dataset {10/Inf}
+/endstate/cpuTime        Dataset {10/Inf}
+/endstate/dH             Dataset {10/Inf}
+/endstate/endcond        Dataset {10/Inf}
+/endstate/energy         Dataset {10/Inf}
+/endstate/fPoloidal      Dataset {10/Inf}
+/endstate/fToroidal      Dataset {10/Inf}
+/endstate/id             Dataset {10/Inf}
+/endstate/mhdPhase       Dataset {10/Inf}
+/endstate/npassing       Dataset {10/Inf}
+/endstate/ntrapped       Dataset {10/Inf}
+/endstate/origin         Dataset {10/Inf}
+/endstate/phi            Dataset {10/Inf}
+/endstate/phiprt         Dataset {10/Inf}
+/endstate/pitch          Dataset {10/Inf}
+/endstate/rho            Dataset {10/Inf}
+/endstate/species        Dataset {10/Inf}
+/endstate/time           Dataset {10/Inf}
+/endstate/vR             Dataset {10/Inf}
+/endstate/vphi           Dataset {10/Inf}
+/endstate/vz             Dataset {10/Inf}
+/endstate/wallTile       Dataset {10/Inf}
+/endstate/weight         Dataset {10/Inf}
+/endstate/z              Dataset {10/Inf}
+/endstate/zprt           Dataset {10/Inf}
+/inistate                Group
+/inistate/R              Dataset {10/Inf}
+/inistate/Rprt           Dataset {10/Inf}
+/inistate/cpuTime        Dataset {10/Inf}
+/inistate/dH             Dataset {10/Inf}
+/inistate/endcond        Dataset {10/Inf}
+/inistate/energy         Dataset {10/Inf}
+/inistate/fPoloidal      Dataset {10/Inf}
+/inistate/fToroidal      Dataset {10/Inf}
+/inistate/id             Dataset {10/Inf}
+/inistate/mhdPhase       Dataset {10/Inf}
+/inistate/npassing       Dataset {10/Inf}
+/inistate/ntrapped       Dataset {10/Inf}
+/inistate/origin         Dataset {10/Inf}
+/inistate/phi            Dataset {10/Inf}
+/inistate/phiprt         Dataset {10/Inf}
+/inistate/pitch          Dataset {10/Inf}
+/inistate/rho            Dataset {10/Inf}
+/inistate/species        Dataset {10/Inf}
+/inistate/time           Dataset {10/Inf}
+/inistate/vR             Dataset {10/Inf}
+/inistate/vphi           Dataset {10/Inf}
+/inistate/vz             Dataset {10/Inf}
+/inistate/wallTile       Dataset {10/Inf}
+/inistate/weight         Dataset {10/Inf}
+/inistate/z              Dataset {10/Inf}
+/inistate/zprt           Dataset {10/Inf}
+/inputfiles              Group
+/inputfiles/input.options Dataset {SCALAR}
+/mhd                     Group
+/misc                    Group
+/misc/deviceName         Dataset {SCALAR}
+/misc/geomCentr_rz       Dataset {2}
+/misc/svndiff            Dataset {SCALAR}
+/misc/svnheadurl         Dataset {SCALAR}
+/misc/svnstatus          Dataset {SCALAR}
+/misc/svnversion         Dataset {SCALAR}
+/misc/time               Dataset {1}
+/plasma                  Group
+/plasma/1d               Group
+/plasma/1d/ne            Dataset {1373}
+/plasma/1d/ni            Dataset {1373, 3}
+/plasma/1d/rho           Dataset {1373}
+/plasma/1d/te            Dataset {1373}
+/plasma/1d/ti            Dataset {1373}
+/plasma/1d/vtor          Dataset {1373}
+/plasma/1d/zeff          Dataset {1373}
+/plasma/anum             Dataset {3}
+/plasma/colls            Dataset {4}
+/plasma/znum             Dataset {3}
+/randomNumberIniState    Group
+/randomNumberIniState/randState Dataset {10, 626}
+/randomNumberIniState/randStateId Dataset {10}
+/sanityChecks            Group
+/sanityChecks/Ip         Dataset {1}
+/sanityChecks/b0         Dataset {1}
+/sanityChecks/bphi       Dataset {10, 10}
+/sanityChecks/br         Dataset {10, 10}
+/sanityChecks/bz         Dataset {10, 10}
+/sanityChecks/rmax       Dataset {1}
+/sanityChecks/rmin       Dataset {1}
+/sanityChecks/zmax       Dataset {1}
+/sanityChecks/zmin       Dataset {1}
+/species                 Group
+/species/testParticle    Group
+/species/testParticle/anum Dataset {1}
+/species/testParticle/charge Dataset {1}
+/species/testParticle/mass Dataset {1}
+/species/testParticle/origin Dataset {1}
+/species/testParticle/znum Dataset {1}
+/wall                    Group
+/wall/2d                 Group
+/wall/2d/R               Dataset {116}
+/wall/2d/divFlag         Dataset {116}
+/wall/2d/segLen          Dataset {115}
+/wall/2d/z               Dataset {116}

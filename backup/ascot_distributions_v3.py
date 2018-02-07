@@ -77,15 +77,14 @@ class distribution_1d:
     19 Thermalized particle energy density J m^{-3}
     20 Thermalized particle torque N m^{-2}
     21 Absorbed ICRH power W m^{-3}
-    22 J.B
-    23 Power deposition to electrons W m^{-3}
-    24 Power deposition to background species  1 W m^{-3}
-    25 Power deposition to background species  2 W m^{-3}
-    26 Power deposition to background species  3 W m^{-3}
-    27 Collisional torque deposition to electrons N m^{-2}
-    28 Collisional torque deposition to background species  1 N m^{-2}
-    29 Collisional torque deposition to background species  2 N m^{-2}
-    30 Collisional torque deposition to background species  3 N m^{-2}
+    22 Power deposition to electrons W m^{-3}
+    23 Power deposition to background species  1 W m^{-3}
+    24 Power deposition to background species  2 W m^{-3}
+    25 Power deposition to background species  3 W m^{-3}
+    26 Collisional torque deposition to electrons N m^{-2}
+    27 Collisional torque deposition to background species  1 N m^{-2}
+    28 Collisional torque deposition to background species  2 N m^{-2}
+    29 Collisional torque deposition to background species  3 N m^{-2}
 
 
     # the groups here below are for debugging
@@ -140,12 +139,6 @@ class distribution_1d:
         self.rhodists()
         self.fibp_particles = 0
     
-    def _print_options(self):
-        """
-        Hidden method to print the options of the ascot file
-        """
-        print self.infile['inputfiles/input.options'].value
-
     def _evaluate_shellVol(self):
         """
         Function to evaluate the volumes at the correct rho positions
@@ -226,7 +219,6 @@ class distribution_1d:
         else:
             shot = args[0]
             run = args[1]
-            print shot, run
             new_fname = '/home/vallar/ASCOT/runs/JT60SA/'+"{:03d}".format(shot)+'/bbnbi_'+"{:03d}".format(shot)+"{:03d}".format(run)+'.h5'
             print "File opened: ", new_fname
             bbfile = h5py.File(new_fname)
@@ -310,10 +302,23 @@ class distribution_1d:
                           'tot_tor_j':13, 'ptot':14, 'ppar':15, 'pperp':16,\
                           'flr_torque':17,\
                           'th_n':18, 'th_e_n':19, 'th_torque':20, 'abs_ICRH':21,\
-                          'j.b':22,\
-                          'pel':23, 'pi1':24,\
-                          'ctor_el':25, 'ctor_i1':26\
+                          'pel':22, 'pi1':23,\
+                          'ctor_el':24, 'ctor_i1':25\
                           }
+        
+#        # self.name_dict = {'n':1, 'e_den':2,\
+#        #                   'jpar':3, 'jperp':4, \
+#        #                   'jxB':5, 'jxBstate':6, \
+#                           'CX_ionsource':7, 'CX_ionensource':8,\
+#                           'CX_neutsource':9, 'CX_neutensource':10,\
+#                           'torque':11,'par_e_den':12,\
+#                           'tot_tor_j':13, 'ptot':14, 'ppar':15, 'pperp':16,\
+#                           'flr_torque':17,\
+#                           'th_n':18, 'th_e_n':19, 'th_torque':20, 'abs_ICRH':21,\
+#                           'pel':22, 'pi1':23, 'pi2':24\
+#                           'ctor_el':25, 'ctor_i1':26, 'ctor_i2':27\
+#                           }
+
 
         self.thlist   = ['n', 'e_den', 'th_n', 'th_e_n', 'th_torque' ]
         self.plist    = ['ptot', 'ppar', 'pperp']
@@ -338,7 +343,7 @@ class distribution_1d:
                 k='pi'+str(el+2)
                 self.name_dict[k]=24+el
                 k2='ctor_i'+str(el+2)
-                self.name_dict[k2]=26+el+1
+                self.name_dict[k2]=26+el
 
         
         for key in self.abscissae:
@@ -362,40 +367,7 @@ class distribution_1d:
         self._h5origins = self.infile['species/testParticle/origin'].value
         self._calc_originbeam()
             
-    def TCV_plot_profs(self, *args):
-        """
-        Method to plot quantities without different ion species (i.e. j,p,ecc.)
-        """
-        if len(args)==0:
-            y_ind = np.array([(self.name_dict[t]-1) for t in self.name_dict.keys()])
-            n_row = 5
-            n_col = 5
-        else:
-            y_ind = args[0]  
-            if len(y_ind)<3:
-                n_row = 1
-            else:
-                n_row = 3
-            n_col = int(len(args[0])/n_row)
-        x = self.rho
-        y = np.zeros((np.size(y_ind), np.size(x)))
-        y = self.slices[0,0,:,y_ind]
-        n_el = np.size(y_ind)
-        ylabels = np.array(self.lab[y_ind])
-        yunits  = np.array(self.uni[y_ind])
-        print(x.shape)
-        print(y.shape)
-        fig, ax = plt.subplots(n_row,n_col)
-        for i in range(n_el):
-            ind_row=i%n_row
-            ind_col=i/n_col
-            ax[ind_row,ind_col].plot(x, y[i,:])                    
-            ax[ind_row,ind_col].set_xlabel('rho')
-            ax[ind_row,ind_col].set_ylabel(yunits[i])
-            ax[ind_row,ind_col].set_title(ylabels[i])
 
-            
-        plt.show()
 
     def SA_plot_profs(self, *args):
         """
@@ -742,13 +714,11 @@ class distribution_1d:
         i_ppar = self.data_PPAR [:,2]*1e-3
         i_pper = self.data_PPERP[:,2]*1e-3
         i_nnb  = self.data_NNB  [:,2]*1e-3
-
-
+        i_tot  = i_ppar+i_pper+i_nnb
+        self.Itot_prof = i_tot
         i_t_ppar =self.data_PPAR [:,12]*1e-3
         i_t_pper =self.data_PPERP[:,12]*1e-3
         i_t_nnb  =self.data_NNB  [:,12]*1e-3
-        i_tot  = i_t_ppar+i_t_pper+i_t_nnb
-        self.Itot_prof = i_tot
         
         n_ppar = self.data_PPAR [:,0]
         n_pper = self.data_PPERP[:,0]

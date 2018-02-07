@@ -17,6 +17,7 @@ from matplotlib import ticker
 from scipy import interpolate, integrate
 import scipy.io as sio
 import time
+import math
 import ufiles as uf
 import ascot_Bfield
 
@@ -120,7 +121,7 @@ class profiles:
         #axvt.plot(self.rho, self.vt,'k', linewidth=lw)
         for i in range(self.nion):
             axni.plot(self.rho, self.ni[i,:],colours[i], label='A='+str(self.A[i]), linewidth=lw)
-        #axni.plot(self.rho, self.ne, 'k--', label='No imp.', linewidth=lw)
+        axni.plot(self.rho, self.ne, 'k--', label='No imp.', linewidth=lw)
         axni.legend(loc='best')
 
         # Shrink current axis by 20%
@@ -213,7 +214,7 @@ class h5_profiles(profiles):
     smooth: smooth input data to grid wanted
     """
 
-    def __init__(self, infile_name, nrho):
+    def __init__(self, infile_name, nrho, **kwargs):
         profiles.__init__(self)
         #defining dictionary for handling data from h5file
         self.labdict = {"rho":"/plasma/1d/rho",\
@@ -227,8 +228,6 @@ class h5_profiles(profiles):
 
         if infile_name[-2:]=='h5':
             self.read_h5()
-        else:
-            "Not h5 file given as input"
             
     def read_h5(self):
         infile = h5py.File(self.inf_name,'r')
@@ -564,12 +563,10 @@ class SA_datfiles(profiles):
         """
         reads q and the poloidal flux from an eqdsk to convert phi2psi
         """
-        dir_JT='/home/vallar/JT60-SA/'
-        shot='005/'
-        eqdsk_fname = dir_JT+shot+'JT-60SA_scenario5_eqdsk'
-        #eqdsk_fname = 'JT-60SA_scenario4_glf23_chease_cocos02.geq'
+        eqdsk_fname = 'JT-60SA_scenario5_eqdsk_convMATLAB'
+        eqdsk_fname = 'JT-60SA_scenario4_glf23_chease_cocos02.geq'
         try:
-            b = ascot_Bfield.Bfield_eqdsk(eqdsk_fname,129,129, 'JT60SA', COCOS=3)
+            b = ascot_Bfield.Bfield_in(eqdsk_fname,129,129)
             print "Opened ", eqdsk_fname
         except:
             print "Impossible to open ", eqdsk_fname
