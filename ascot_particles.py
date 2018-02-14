@@ -97,8 +97,6 @@ class particles:
         self.shinethr_abs= np.sum(e*w)
         self.shinethr=np.sum(e*w)/power
 
-
-
         print "TCV Shine-through:", "{0:5f} %".format(self.shinethr*100),\
                   "||  {0:3f} W".format(self.shinethr_abs)
 
@@ -429,6 +427,7 @@ class dat_particles(particles):
         lines = in_f.readlines()[3:]
         in_f.close()
         self.id = self.fname[-10:-4]
+        self.infile = h5py.File('ascot_'+self.id+'.h5')
         #Read lines of comment
         n_comm = int(lines[0].split()[0])
         
@@ -482,7 +481,7 @@ class dat_particles(particles):
         #self.origins = np.array(list(set(self.data_i['origin'])))
         print "FIELDS IN FILE ",self.fname," :"
         print self.field
-        
+        self.banana_orbit()
 
     def _compute_npart(self, line):
         """
@@ -525,6 +524,11 @@ class dat_particles(particles):
         except:
             print "Impossible to calculate the banana orbits dimension"
             return
+        try:
+            self.partdict[0]['charge'].mean()
+        except:
+            for i in self.partdict:
+                i['charge']=1
             
         R_torus = 2.96 #in meters
         a = 1.11
@@ -560,6 +564,12 @@ class dat_particles(particles):
             self.ntrapp
         except:
             self.banana_orbit()
+            
+        plt.rc('xtick', labelsize=20)
+        plt.rc('ytick', labelsize=20)
+        plt.rc('axes', labelsize=20)    
+        plt.rc('font', size=20)
+
         self._RZsurf()
         ind_t = np.where(self.trappind==1)[0]
         ind_p = np.where(self.trappind==0)[0]     
@@ -567,10 +577,19 @@ class dat_particles(particles):
         r = self.data_i['R']; z = self.data_i['z']
         p = self.data_i['pitch']
         rho = self.data_i['rho']
+        qpart = np.zeros(self.npart)
+        q = self.infile['/boozer/qprof'][:]
+        rho_q = self.infile['/boozer/psi'][:]**0.5
+        for i in range(self.npart):
+            ind = np.argmin(rho[i]-rho_q>0)
+            qpart[i] = q[ind]
+            
         nbins=50; nsurf=20
         
-        hist_p, xedges_p, yedges_p = np.histogram2d(r[ind_p], z[ind_p], bins=nbins, normed=True)
-        hist_t, xedges_t, yedges_t = np.histogram2d(r[ind_t], z[ind_t], bins=nbins, normed=True)
+        hist_p, xedges_p, yedges_p = np.histogram2d(r[ind_p], z[ind_p], \
+                                    bins=nbins, normed=True)
+        hist_t, xedges_t, yedges_t = np.histogram2d(r[ind_t], z[ind_t], \
+                                    bins=nbins, normed=True)
         vmaxt = max(np.max(hist_t), np.max(hist_p))
         ind_cb=1
         if np.max(hist_p)> np.max(hist_t):
@@ -582,20 +601,23 @@ class dat_particles(particles):
         axrz = f.add_subplot(221)
         x = np.linspace(np.min(r[ind_p]), np.max(r[ind_p]), num=nbins)
         y = np.linspace(np.min(z[ind_p]), np.max(z[ind_p]), num=nbins)
-        CL[0]=axrz.contourf(x,y,hist_p.T, nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
+        CL[0]=axrz.contourf(x,y,hist_p.T*10., nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
         self._plot_RZsurf(axrz)
-        axrz.set_title('Passing n(R,Z)'); axrz.set_xlabel('R [m]'); axrz.set_ylabel('Z [m]')        
-        axrz.set_xlim([np.min(x), np.max(x)]); axrz.set_ylim([np.min(y), np.max(y)])
-        
+        axrz.set_title('Passing n(R,Z)'); 
+        axrz.set_xlabel('R [m]'); axrz.set_ylabel('Z [m]')        
+    
         axrz2 = f.add_subplot(222)
         x = np.linspace(np.min(r[ind_t]), np.max(r[ind_t]), num=nbins)
         y = np.linspace(np.min(z[ind_t]), np.max(z[ind_t]), num=nbins)
         CL[1]=axrz2.contourf(x,y,hist_t.T, nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
         self._plot_RZsurf(axrz2)
-        axrz2.set_title('Trapped n(R,Z)'); axrz2.set_xlabel('R [m]'); axrz2.set_ylabel('Z [m]')
-        axrz2.set_xlim([np.min(x), np.max(x)]); axrz2.set_ylim([np.min(y), np.max(y)])
+        axrz2.set_title('Trapped n(R,Z)'); 
+        axrz2.set_xlabel('R [m]'); axrz2.set_ylabel('Z [m]')
         cbar_ax = f.add_axes([0.85, 0.6, 0.03, 0.3])
         f.colorbar(CL[ind_cb], cax=cbar_ax)
+        axrz.axis('equal'); axrz2.axis('equal')
+        axrz.set_xlim([np.min(x), np.max(x)]); axrz.set_ylim([np.min(y), np.max(y)])
+        axrz2.set_xlim([np.min(x), np.max(x)]); axrz2.set_ylim([np.min(y), np.max(y)])
 
 
         hist_t, yedges_t, xedges_t = np.histogram2d(rho[ind_t], p[ind_t], bins=nbins, normed=True)
@@ -608,7 +630,7 @@ class dat_particles(particles):
         axrp = f.add_subplot(223)
         x = np.linspace(np.min(rho[ind_p]), np.max(rho[ind_p]), num=nbins)
         y = np.linspace(np.min(p[ind_p]), np.max(p[ind_p]), num=nbins)
-        CL[0]=axrp.contourf(x,y,hist_p.T, nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
+        CL[0]=axrp.contourf(x,y,hist_p.T*10., nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
 
         ax2.contour(x,y,hist_p.T,nsurf,colors='k', label='Passing')
         
@@ -624,15 +646,16 @@ class dat_particles(particles):
         axrp2.set_xlim([np.min(x), np.max(x)]); axrp2.set_ylim([np.min(y), np.max(y)])        
         ax2.set_xlabel(r'$\rho$'); ax2.set_ylabel(r'$\xi$')
         ax2.legend(loc='upper right')
-        
+        for aa in [axrz, axrz2, axrp, axrp2]:        
+            aa.xaxis.set_major_locator(plt.MaxNLocator(4))
+            aa.yaxis.set_major_locator(plt.MaxNLocator(4))            
         f.tight_layout()
         f.subplots_adjust(right=0.8)
         cbar_ax = f.add_axes([0.85, 0.1, 0.03, 0.35])
         f.colorbar(CL[ind_cb], cax=cbar_ax)
         plt.grid('on')
 
-
-    def plot_trapped_energy(self):
+    def plot_trapped_energy_PNBs(self):
         """
         plots trapped particles as function of energy
         """
@@ -657,6 +680,29 @@ class dat_particles(particles):
         ax.set_ylim([0, 1.4])
         ax.legend(loc='best')
         ax.grid('on')
+
+    def plot_trapped_energy_NNBs(self):
+        """
+        plots trapped particles as function of energy
+        """
+        e = self.data_i['energy']; 
+        width=0.2
+        num_t_full = len(np.where(self.trappind==1)[0])
+        num_full = len(e)
+
+        f = plt.figure()
+        f.suptitle(self.id)
+        ax = f.add_subplot(111)
+        x = [500e3]
+        x = [0.5]
+        y = [float(num_t_full)/num_full]
+
+        ax.bar(x, [1., 1., 1.], width, color='b', label='Passing')
+        ax.bar(x, y, width, color='r', label='Trapped')
+        ax.set_ylim([0, 1.4])
+        ax.legend(loc='best')
+        ax.grid('on')
+
         
     def plot_trajectory(self):
         """
@@ -702,6 +748,144 @@ class dat_particles(particles):
 
         axtrajxy.set_xlabel(r'x (m)')
         axtrajxy.set_ylabel(r'y (m)')        
+
+    def _ecrit(self):
+        """
+        Calculates critical energy profiles
+        Ec = 
+        ts = 6.28e14*(A*te^1.5)/(Z^2*ne*lnlambda)
+        """
+        rho = self.infile['plasma/1d/rho'][:]
+        te = self.infile['plasma/1d/te'][:]
+        ne = self.infile['plasma/1d/ne'][:]
+        Ai = self.infile['plasma/anum'][:]
+        Zi = self.infile['plasma/znum'][:]
+        nimp = self.infile['plasma/1d/ni'][:]   
+        A = self.infile['species/testParticle/anum'][0]
+        Z = self.infile['species/testParticle/znum'][0]
+        summ = np.sum(np.multiply(nimp, Zi**2/Ai), axis=1)
+        Ec = 14.8*te*(A**(1.5)/ne*summ)**(2./3.)
+        self.param_ec = interpolate.interp1d(rho,Ec)
+
+        #Spitzer slowing-down time
+        ts = 6.28e14*A*te**1.5/(Z**2*ne*17.)
+        self.param_ts = interpolate.interp1d(rho,ts)
+
+    def _colltimes_PNBs(self):
+        """
+        Calculating collision times between fast ions and e/i,
+        as in formula 2.15.3 in Wesson book, putting Ec instead of Te/i        
+            tau_e = 1.09e16 * T_e[keV]^1.5 / (n_i Z^2 lnlambda) sec
+            tau_i = 6.6e17 * (m_i/m_p)^{0.5} T_i[keV]^1.5 / (n_i Z^4 lnlambda) sec
+        where m_p should be the proton mass
+        
+        """
+        
+        rho = self.infile['plasma/1d/rho'][:]
+        E = np.array([85, 85/2., 85/3.]) #in keV    
+#        te = np.trapz(te, rho)
+        ni = self.infile['plasma/1d/ni'][:,0]   
+#        ni = np.trapz(ni, rho)
+        Zi = self.infile['plasma/znum'][0]
+        lnlambda=17
+        Ai = self.infile['plasma/anum'][0]
+#        ti = self.infile['plasma/1d/ti'][:]*1e-3
+#        ti = np.trapz(ti, rho)
+        taucoll_i = np.zeros((np.shape(E)[0], np.shape(ni)[0]))
+        taucoll_e = np.zeros((np.shape(E)[0], np.shape(ni)[0]))
+        self.taucoll_e = np.zeros((np.shape(E)[0], len(np.where(rho<1.)[0])))
+        self.taucoll_i = np.zeros((np.shape(E)[0], len(np.where(rho<1.)[0])))
+        self.taucoll_e_mean = np.zeros((np.shape(E)[0]))
+        self.taucoll_i_mean = np.zeros((np.shape(E)[0]))
+        
+        for en_ind, en in enumerate(E):
+            taucoll_e[en_ind,:] = 1.09e16*en**1.5/(ni*Zi**2*lnlambda)
+            taucoll_e[en_ind, rho>=1.] = np.NaN
+            self.taucoll_e[en_ind,:] = taucoll_e[en_ind,~np.isnan(taucoll_e[en_ind,:])]
+            taucoll_i[en_ind,:] = 6.6e17*Ai**0.5*en**1.5/(ni*Zi**4*lnlambda)
+            taucoll_i[en_ind, rho>=1.] = np.NaN
+            self.taucoll_i[en_ind,:] = taucoll_i[en_ind,~np.isnan(taucoll_i[en_ind,:])]
+            self.taucoll_e_mean[en_ind] = np.trapz(self.taucoll_e[en_ind,:], rho[rho<1.])
+            self.taucoll_i_mean[en_ind] = np.trapz(self.taucoll_i[en_ind,:], rho[rho<1.])        
+
+    def _colltimes_NNBs(self):
+        """
+        Calculating collision times between fast ions and e/i,
+        as in formula 2.15.3 in Wesson book, putting Ec instead of Te/i        
+            tau_e = 1.09e16 * T_e[keV]^1.5 / (n_i Z^2 lnlambda) sec
+            tau_i = 6.6e17 * (m_i/m_p)^{0.5} T_i[keV]^1.5 / (n_i Z^4 lnlambda) sec
+        where m_p should be the proton mass
+        
+        """
+        
+        rho = self.infile['plasma/1d/rho'][:]
+        E = np.array([500]) #in keV    
+#        te = np.trapz(te, rho)
+        ni = self.infile['plasma/1d/ni'][:,0]   
+#        ni = np.trapz(ni, rho)
+        Zi = self.infile['plasma/znum'][0]
+        lnlambda=17
+        Ai = self.infile['plasma/anum'][0]
+#        ti = self.infile['plasma/1d/ti'][:]*1e-3
+#        ti = np.trapz(ti, rho)
+        taucoll_i = np.zeros((np.shape(E)[0], np.shape(ni)[0]))
+        taucoll_e = np.zeros((np.shape(E)[0], np.shape(ni)[0]))
+        self.taucoll_e = np.zeros((np.shape(E)[0], len(np.where(rho<1.)[0])))
+        self.taucoll_i = np.zeros((np.shape(E)[0], len(np.where(rho<1.)[0])))
+        self.taucoll_e_mean = np.zeros((np.shape(E)[0]))
+        self.taucoll_i_mean = np.zeros((np.shape(E)[0]))
+        
+        for en_ind, en in enumerate(E):
+            taucoll_e[en_ind,:] = 1.09e16*en**1.5/(ni*Zi**2*lnlambda)
+            taucoll_e[en_ind, rho>=1.] = np.NaN
+            self.taucoll_e[en_ind,:] = taucoll_e[en_ind,~np.isnan(taucoll_e[en_ind,:])]
+            taucoll_i[en_ind,:] = 6.6e17*Ai**0.5*en**1.5/(ni*Zi**4*lnlambda)
+            taucoll_i[en_ind, rho>=1.] = np.NaN
+            self.taucoll_i[en_ind,:] = taucoll_i[en_ind,~np.isnan(taucoll_i[en_ind,:])]
+            self.taucoll_e_mean[en_ind] = np.trapz(self.taucoll_e[en_ind,:], rho[rho<1.])
+            self.taucoll_i_mean[en_ind] = np.trapz(self.taucoll_i[en_ind,:], rho[rho<1.]) 
+
+        
+    def detrapping(self):
+        """
+        Calculates the detrapping condition for the particles
+        As calculated in the Wesson book (3.12.11), the condition for the detrapping
+        to happen is
+            tau_coll \leq (R_0/r)^{1.5} q R_0/(sqrt(2)v_perp)
+        where
+            v_perp = sqrt(2)* v_thermal = sqrt(2)*sqrt(kB T/m)
+        The tau_coll to use for comparison is the spitzer E
+        """
+        try:
+            self.taucoll_e.mean()
+        except:
+            self._colltimes()
+        kB = 1.38064852e-23
+        me = 9.10938356e-31
+        mp = 1.6726219e-27
+        e = 1.602e-19
+        R_torus = 2.96 #in meters
+        a = 1.11
+        rho = self.infile['/boozer/psi'][:]**0.5
+        q = self.infile['boozer/qprof'][:]*(-1)
+        self.epsilon = a/R_torus
+        print "Epsilon used is for scenario 5"           
+        te = self.infile['plasma/1d/te'][:]      
+        vperp = np.zeros(self.npart)   
+        self.tau_detrapp = np.zeros(self.npart)
+
+        for i in range(self.npart):        
+            E = self.partdict[i]['energy'][0]*e
+            m = self.partdict[i]['mass'][0]*mp
+            v = math.sqrt(2.*E/m)
+            angle = np.arccos(self.partdict[i]['pitch'][0])
+            vperp[i] = v*math.sin(angle)
+            R,z = self.partdict[i]['R'][0], self.partdict[i]['z'][0]            
+            r = math.sqrt((R-R_torus)**2+z**2)
+            factor = (R_torus/r)**1.5*R_torus/(math.sqrt(2)*vperp[i])
+            ind = np.argmin(rho-self.partdict[i]['rho'][0]>0)
+            self.tau_detrapp[i] = factor*q[ind]
+
         
 class h5_particles(particles):
     """

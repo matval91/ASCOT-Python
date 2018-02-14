@@ -10,7 +10,7 @@ distribution_2d(h5 ascot file with 2D distributions in it)
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
-from matplotlib import ticker
+from matplotlib import ticker, colors
 from scipy import interpolate
 import os.path, math, time
 import collections
@@ -19,6 +19,27 @@ import ascot_particles
 
 colours = ['k','g','c','b','r']
 
+cdict = {'red': ((0., 1, 1),
+                 (0.05, 1, 1),
+                 (0.11, 0, 0),
+                 (0.66, 1, 1),
+                 (0.89, 1, 1),
+                 (1, 0.5, 0.5)),
+         'green': ((0., 1, 1),
+                   (0.05, 1, 1),
+                   (0.11, 0, 0),
+                   (0.375, 1, 1),
+                   (0.64, 1, 1),
+                   (0.91, 0, 0),
+                   (1, 0, 0)),
+         'blue': ((0., 1, 1),
+                  (0.05, 1, 1),
+                  (0.11, 1, 1),
+                  (0.34, 1, 1),
+                  (0.65, 0, 0),
+                  (1, 0, 0))}
+my_cmap = colors.LinearSegmentedColormap('my_colormap',cdict,256)
+                  
 class distribution_1d:
     """
     Class for handling the <distributions> data
@@ -896,7 +917,7 @@ class distribution_2d:
             print "No rzMuE dist in ", self.infile_n
         
         self.id = self.infile_n[-9:-3]
-        
+        self._readwall()
         
     def plot_space(self):
         try:
@@ -908,7 +929,7 @@ class distribution_2d:
         if 'R' in self.dict_dim.keys() and 'z' in self.dict_dim.keys():
             self.xplot = self.dict_dim['R']
             self.yplot = self.dict_dim['z'] 
-            self._plot_2d('R', 'z', wall=1)
+            self._plot_2d('R [m]', 'z [m]', wall=1, surf=1)
         elif 'rho' in self.dict_dim.keys() and 'phi' in self.dict_dim.keys():
             self.xplot = self.dict_dim['rho']
             self.yplot = self.dict_dim['phi'] 
@@ -956,14 +977,14 @@ class distribution_2d:
         """
         Hidden method to integrate over (space,E)
         """
-        self.f_spaceE_int = self._integrate_spacex('E')
+        self.f_spaceE_int = self._integrate_spacex('E', axis=0)
 
 
     def _integrate_spacep(self):
         """
         hidden method to integrate over (space,pitch)
         """
-        self.f_spacep_int = self._integrate_spacex('pitch')
+        self.f_spacep_int = self._integrate_spacex('pitch', axis=1)
 
 
     def _integrate_spacemu(self):
@@ -973,7 +994,7 @@ class distribution_2d:
         self.f_spacemu_int = self._integrate_spacex('mu')
 
 
-    def _integrate_spacex(self, x):
+    def _integrate_spacex(self, x, axis):
         """
         Hidden method to integrate over space and something else (pitch, E, mu...)
         """
@@ -981,9 +1002,9 @@ class distribution_2d:
             self.f_space_int.mean()
         except:
             self._integrate_space()
-        return np.trapz(self.f_space_int, self.dict_dim[x], axis=1)        
+        return np.trapz(self.f_space_int, self.dict_dim[x], axis=axis)        
 
-    def plot_spacep(self, norm):
+    def plot_spacep(self):
         """
         plot 1D (energy, int_space (int_pitch (fdist)))
         """
@@ -995,22 +1016,22 @@ class distribution_2d:
         self.xplot = self.dict_dim['E']/1.6e-19
         self.yplot = self.f_spacep_int
             
-        self._plot_1d('Energy', norm=norm)
+        self._plot_1d('E [keV]', "Normalized f")
 
 
-    def plot_spaceE(self, norm):
+    def plot_spaceE(self):
         """
         plot 1D (pitch, int_space (int_E (fdist)))
         """
         try:
             self.f_spaceE_int.mean()
         except:
-            self.integrate_spaceE()
+            self._integrate_spaceE()
         
         self.xplot = self.dict_dim['pitch']
         self.yplot = self.f_spaceE_int
 
-        self._plot_1d('pitch', norm=norm)
+        self._plot_1d(r'$\xi$ ($\frac{v_\parallel}{v}$)', "Normalized f")
 
 
     def plot_Epitch(self):
@@ -1025,7 +1046,7 @@ class distribution_2d:
         self.xplot = self.dict_dim['pitch']
         self.yplot = self.dict_dim['E']/1.6e-19
         self.zplot = self.f_space_int
-        self._plot_2d('pitch', 'E', wall=0)
+        self._plot_2d('pitch', 'E')
 
     def plot_Emu(self):
         """
@@ -1048,40 +1069,40 @@ class distribution_2d:
             self._integrate_space()
         self._write('pitch','E', self.f_space_int, units=['adimensional', 'J'])
 
-    def _plot_1d(self, xlab, norm):
+    def _plot_1d(self, xlab, ylab):
         """
         Hidden method to plot 1D functions
         """
 
         fig = plt.figure()
+        fig.suptitle(self.id)
         ax  = fig.add_subplot(111)
-        title = 'Distribution '
-        if norm==1:
-            self.yplot = self.yplot/self.norm
-            title += ' NORM'
-        ax.plot(self.xplot, self.yplot, linewidth=2.3)
+        ax.plot(self.xplot, self.yplot, 'k', linewidth=2.3)
 
-        ax.set_xlabel(xlab)
-        ax.set_title(title)
+        ax.set_xlabel(xlab), ax.set_ylabel(ylab)
         
         plt.show()
 
-    def _plot_2d(self, xlab, ylab, wall):
+    def _plot_2d(self, xlab, ylab, **kwargs):
         """
         Hidden method to plot the 2D distribution
         wall: set to 1 if wall needed to plot (i.e. RZ function)
         """
 
-        flag_dict = {'wall': wall}
-        title = 'Distribution function normalised'
+        flag_dict = kwargs
+        title = 'Normalized f'
         fig = plt.figure()
+        fig.suptitle(self.id)
         ax  = fig.add_subplot(111)
-        CS  = ax.contourf(self.xplot, self.yplot, self.zplot,50)
+        CS  = ax.contourf(self.xplot, self.yplot, self.zplot, 50, cmap=my_cmap)
         plt.colorbar(CS)
         #ax.plot([np.min(self.xplot),np.max(self.xplot)], [5e5, 5e5], linewidth=3., color='k')
-        if os.path.isfile('input.wall_2d') & flag_dict['wall']!=0:
-            data_w=np.loadtxt('input.wall_2d', skiprows=1)
-            ax.plot(data_w[:,0], data_w[:,1], 'k', linewidth=2)
+               
+        if 'wall' in flag_dict.keys() and flag_dict['wall']==1:
+            ax.plot(self.R_w, self.z_w, 'k', linewidth=2)
+        if 'surf' in flag_dict.keys() and flag_dict['surf']==1:
+            self._plot_RZsurf(ax)            
+            
         ax.set_xlabel(xlab)
         ax.set_ylabel(ylab)
         ax.set_title(title)
@@ -1202,7 +1223,43 @@ class distribution_2d:
             tmp_dim = self.dict_dim[dim]
             self.dict_dim[dim] = np.linspace(min(tmp_dim), max(tmp_dim), len(tmp_dim)-1)
 
+    def _RZsurf(self):
+        """
+        Reads the position of RZ surfaces from ascot file
+        now the edge is set to the value for scenario 5 from JT60SA
+        """
+        f = self.infile
+        self.RZsurf = f['bfield/2d/psi'].value
+        self.Rsurf = f['bfield/r']
+        self.zsurf = f['bfield/z']
+        edge = np.abs(f['boozer/psiSepa'][:]); axis=np.abs(f['boozer/psiAxis'][:])
+        self.RZsurf = (self.RZsurf - axis )/(edge-axis)
+        self.RZsurf = np.sqrt(self.RZsurf)            
 
+    def _plot_RZsurf(self, ax):
+        try:
+            self.RZsurf.mean()
+        except:
+            self._RZsurf()
+            
+        CS = ax.contour(self.Rsurf, self.zsurf, self.RZsurf, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
+        plt.clabel(CS, inline=1, fontsize=10)   
+        
+    def _readwall(self):
+        """
+        Hidden method to read the wall
+        """
+        in_w_fname = 'input.wall_2d'
+        try:
+            wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
+        except:
+            in_w_fname = '/home/vallar/ASCOT/runs/JT60SA/002/input.wall_2d'
+            wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
+        self.R_w = wall[0,:]
+        self.z_w = wall[1,:]
+        self.R_w = np.array(self.R_w)
+        self.z_w = np.array(self.z_w)        
+        
 class frzpe(distribution_2d):
     
     def __init__(self, infile_n):

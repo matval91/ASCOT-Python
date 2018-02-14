@@ -8,7 +8,6 @@ from matplotlib import ticker, colors
 # SET TEXT FONT AND SIZE
 #=====================================================================================
 plt.rc('font', family='serif', serif='Palatino')
-plt.rc('text', usetex=True)
 plt.rc('xtick', labelsize=20)
 plt.rc('ytick', labelsize=20)
 plt.rc('axes', labelsize=20)
