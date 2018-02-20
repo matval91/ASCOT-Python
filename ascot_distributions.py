@@ -17,8 +17,8 @@ import collections
 
 import ascot_particles
 
-colours = ['k','g','c','b','r']
-
+colours = ['k', 'g','b','r','c']
+col=colours
 cdict = {'red': ((0., 1, 1),
                  (0.05, 1, 1),
                  (0.11, 0, 0),
@@ -578,8 +578,7 @@ class TCV_1d(distribution_1d):
         n_el = np.size(y_ind)
         ylabels = np.array(self.lab[y_ind])
         yunits  = np.array(self.uni[y_ind])
-        print(x.shape)
-        print(y.shape)
+
         fig, ax = plt.subplots(n_row,n_col)
         for i in range(n_el):
             ind_row=i%n_row
@@ -597,8 +596,33 @@ class SA_1d(distribution_1d):
 
     def __init__(self, infile_n):
         distribution_1d.__init__(self, infile_n)
-        
-    def SA_plot_profs(self, *args):
+        self.beamorigindict_full = \
+                        {\
+                        '45':1 ,  '46':1,    '47':2,    '48':2,   \
+                        '133':3,  '134':3,   '135':4,   '136':4,  \
+                        '221':5,  '222':5,   '223':6,   '224':6,  \
+                        '309':7,  '310':7,   '311':8,   '312':8,  \
+                        '3637':9, '3638':9,  '3639':10, '3640':10,\
+                        '5253':13,'5254':13, '5255':14, '5256':14,\
+                        '3031':99,'3032':101 \
+                        }
+        self.beamnum = {1,2,3,4,5,6,7,8,9,10,13,14,99,101}
+        self.beamlabel_full={'1':[45, 46],'2':[47, 48],\
+                            '3':[133, 134],'4':[135, 136],\
+                            '5':[221, 222],'6':[223, 224],\
+                            '7':[309, 310],'8':[311, 312],\
+                            '9':[3637, 3638],'10':[3639, 3640],\
+                            '13':[5253, 5254],'14':[5255, 5256],\
+                            '99':[3031],'101':[3032]}  
+        self.beamlabel=['1','2','3','4','5','6','7','8','9','10',\
+                        '13','14','NNB_U','NNB_L']
+        self.NNBflag=0
+        if 3031 in self._h5origins:
+            self.NNBflag=1
+        if 3032 in self._h5origins:
+            self.NNBflag=1
+            
+    def plot_profs(self, *args):
         """
         Method to plot quantities without different ion species (i.e. j,p,ecc.)
         """
@@ -641,168 +665,63 @@ class SA_1d(distribution_1d):
             
         plt.show()
 
-    def _calc_originbeam(self):
-        """
-        Method to translate from origin in bbnbi.h5 file to beam identification
-        Now only with JT60-SA (and still to recognize A and B units)
-        """
-        #self.beamorigindict={'1':[45,46]    , '2':[47,48]     ,'3':[133,134]   ,'4':[135,136],\
-        #                     '5':[221,222]  , '6':[223,224]   ,'7':[309,310]   ,'8':[311,312],\
-        #                     '9':[3637,3638], '10':[3639,3640],'13':[5253,5254],'14':[5255,5256],\
-        #                     'NNBI_U':[3031], 'NNBI_L':[3032]}
-        #self.origindict={'45':'1_1', '46':'1_2', '47':'2_1', '48':'2_2',\
-        #                 '133':'3_1', '134':'3_2', '135':'4_1', '136':'4_2',\
-        #                 '221':'5_1', '222':'5_2', '223':'6_1', '224':'6_2',\
-        #                 '309':'7_1', '310':'7_2', '311':'8_1', '312':'8_2',\
-        #                 '3637':'9_1', '3638':'9_2', '3639':'10_1', '3640':'10_2',\
-        #                 '5253':'13_1', '5254':'13_2', '5255':'14_1', '5256':'14_2',\
-        #                 '3031':'NNB_1', '3032':'NNB_2'}
-
-#        self.beamlabel=['1','2','3','4','5','6','7','8','9','10',\
-#                        '13','14','NNB_U','NNB_L']
-#        self.beamlabel_full={'1':[45, 46],'2':[47, 48],\
-#                            '3':[133, 134],'4':[135, 136],\
-#                            '5':[221, 222],'6':[223, 224],\
-#                            '7':[309, 310],'8':[311, 312],\
-#                            '9':[3637, 3638],'10':[3639, 3640],\
-#                            '13':[5253, 5254],'14':[5255, 5256],\
-#                            '99':[3031],'101':[3032]}
-#        self.beamorigin_full = np.array([45,46,47,48,133,134,135,136,\
-#                           221,222,223,224,309,310,311,312,\
-#                           3637,3638,3639,3640,5253,5254,5255,5256,\
-#                           3031,3032], dtype=int)
-        
-        self.beamorigindict_full = {'45':1 ,  '46':1,    '47':2,'48':2,\
-                                '133':3,  '134':3,\
-                                '135':4,  '136':4,   '221':5,'222':5,\
-                                '223':6,  '224':6,   '309':7,'310':7,\
-                                '311':8,  '312':8,   '3637':9,'3638':9,\
-                                '3639':10,'3640':10, \
-                                '5253':13,'5254':13, '5255':14,'5256':14,\
-                                '3031':99,'3032':101}
-#        self.beamlabel_no78 = ['1','2','3','4','5','6','9','10',\
-#                        '13','14','NNB_U','NNB_L']
-
-        #orderedorigins is the array where you can retrieve the correct beam used in the distributions
-        # so in orderedorigins we will find e.g. [13,7,9,11,15,4,8,9,...]
-        # and you get data of beam 1 using orderedorigins[0], etc.
-        # origindict is the dictionary where you can find in the keys the beam
-        # number and the value is the element in orderedorigin
-#        self.orderedorigins=np.zeros(len(self._h5origins), dtype=int)
-#        self.origindict = {}
-#        j=0
-#        for kk in self._h5origins:
-#            for jj, el in enumerate(self.beamorigin_full):
-#                if kk==el:
-#                    self.orderedorigins[j]=jj
-#                    j=j+1         
-#                    break
-#            for i,el in enumerate(self.beamlabel_full.keys()):
-#                if kk in self.beamlabel_full[el]:
-#                    if el not in self.origindict.keys():
-#                        self.origindict[el] = jj
-#                    else:
-#                        self.origindict[el] = np.append(self.origindict[el], jj)
-
     def SA_calculate_scalar(self):
         """
         Method to calculate scalar quantities: total power to ions, to electrons,
         total current induced, total angular momentum
-        """
-        
+        """        
         self._evaluate_shellArea(self.rho)
         self._evaluate_shellVol (self.rho)
-        self._calc_originbeam  ()
         self.I_tot = 0
         self.pe=0
         self.pi1 = 0
         self.tor = 0
-        self.i_beams  = np.zeros(self.n_inj/2+1, dtype=float)
-        self.pi_beams = np.zeros(self.n_inj/2+1, dtype=float)
-        self.pe_beams = np.zeros(self.n_inj/2+1, dtype=float)
-        self.tor_beams = np.zeros(self.n_inj/2+1, dtype=float)
-        for jj in range(self.n_inj/2-1):
-            ind1=self.orderedorigins[2*jj]
-            ind2=self.orderedorigins[2*jj+1]
-            # CURRENT
-            tmp_j  = self.slices[ind1,0,:,2]+self.slices[ind2,0,:,2]
-            #plt.plot(self.rho, tmp_j, self.rho, self.areas)
-            #plt.show()
-            tmp_I  = np.dot(tmp_j, self.areas)
-            self.i_beams[jj] = tmp_I
-            self.I_tot += tmp_I
-
-            # POWER TO electrons
-            tmp_Penorm = self.slices[ind1,0,:,21]+self.slices[ind2,0,:,21]
-            tmp_Pe = np.dot(tmp_Penorm, self.volumes)
-            self.pe_beams[jj] = tmp_Pe
-            self.pe += tmp_Pe
-
-            # POWER TO IONS 1
-            tmp_Pinorm = self.slices[ind1,0,:,22]+self.slices[ind2,0,:,22]
-            tmp_Pi = np.dot(tmp_Pinorm, self.volumes)
-            self.pi_beams[jj] = tmp_Pi
-            self.pi1 += tmp_Pi
-
-            #TORQUE TOTAL
-            tmp_tornorm = self.slices[ind1,0,:,5]+self.slices[ind1,0,:,24]+\
-                          self.slices[ind2,0,:,5]+self.slices[ind2,0,:,24]
-            tmp_tor = np.dot(tmp_tornorm, self.volumes)
-            self.tor_beams[jj] = tmp_tor
-            self.tor += tmp_tor
-        #==============================================================
-        # NNB
-        ind1=self.orderedorigins[-2]
-        ind2=self.orderedorigins[-1]
-        # CURRENT
-        tmp_j  = self.slices[ind1,0,:,2]
-        #plt.plot(self.rho, tmp_j, self.rho, self.areas)
-        #plt.show()
-        tmp_I  = np.dot(tmp_j, self.areas)
-        self.i_beams[-2] = tmp_I
-        self.I_tot += tmp_I
-
-        tmp_j  = self.slices[ind2,0,:,2]
-        #plt.plot(self.rho, tmp_j, self.rho, self.areas)
-        #plt.show()
-        tmp_I  = np.dot(tmp_j, self.areas)
-        self.i_beams[-1] = tmp_I
-        self.I_tot += tmp_I
         
-        # POWER TO electrons
-        tmp_Penorm = self.slices[ind1,0,:,21]
-        tmp_Pe = np.dot(tmp_Penorm, self.volumes)
-        self.pe_beams[-2] = tmp_Pe
-        self.pe += tmp_Pe
-
-        tmp_Penorm = self.slices[ind2,0,:,21]
-        tmp_Pe = np.dot(tmp_Penorm, self.volumes)
-        self.pe_beams[-1] = tmp_Pe
-        self.pe += tmp_Pe
-        # POWER TO IONS 1
-        tmp_Pinorm = self.slices[ind1,0,:,22]
-        tmp_Pi = np.dot(tmp_Pinorm, self.volumes)
-        self.pi_beams[-2] = tmp_Pi
-        self.pi1 += tmp_Pi
+        self.i_beams  = np.zeros(14, dtype=float)
+        self.pi_beams = np.zeros(14, dtype=float)
+        if self.nions>1:
+            self.pi2_beams = np.zeros(14, dtype=float)
+            self.pi2 = 0
+        self.pe_beams = np.zeros(14, dtype=float)
+        self.tor_beams = np.zeros(14, dtype=float)
         
-        tmp_Pinorm = self.slices[ind2,0,:,22]
-        tmp_Pi = np.dot(tmp_Pinorm, self.volumes)
-        self.pi_beams[-1] = tmp_Pi
-        self.pi1 += tmp_Pi
+        for jj, el in enumerate(self.beamlabel_full.keys()):
+            beamid = self.beamlabel_full[el]
+            for ii in beamid:
+                if ii in self._h5origins:
+                    ind_ii = np.where(self._h5origins==ii)[0]
+                    # CURRENT
+                    tmp_j  = self.slices[ind_ii,0,:,12]
+                    tmp_I  = np.dot(tmp_j, self.areas)
+                    self.i_beams[jj] = tmp_I
+                    self.I_tot += tmp_I
+        
+                    # POWER TO electrons
+                    tmp_Penorm = self.slices[ind_ii,0,:,21]
+                    tmp_Pe = np.dot(tmp_Penorm, self.volumes)
+                    self.pe_beams[jj] = tmp_Pe
+                    self.pe += tmp_Pe
+        
+                    # POWER TO IONS 1
+                    tmp_Pinorm = self.slices[ind_ii,0,:,22]
+                    tmp_Pi = np.dot(tmp_Pinorm, self.volumes)
+                    self.pi_beams[jj] = tmp_Pi
+                    self.pi1 += tmp_Pi
+                    
+                    if self.nions >1:
+                        # POWER TO IONS 2
+                        tmp_Pi2norm = self.slices[ind_ii,0,:,23]
+                        tmp_Pi2 = np.dot(tmp_Pi2norm, self.volumes)
+                        self.pi2_beams[jj] = tmp_Pi2
+                        self.pi2 += tmp_Pi2        
+                    
+                    #TORQUE TOTAL |||| CHECK INDEXES
+                    tmp_tornorm = self.slices[ind_ii,0,:,5]+self.slices[ind_ii,0,:,24]
+                    tmp_tor = np.dot(tmp_tornorm, self.volumes)
+                    self.tor_beams[jj] = tmp_tor
+                    self.tor += tmp_tor
 
-        # TORQUE
-        tmp_tornorm = self.slices[ind1,0,:,5]+self.slices[ind1,0,:,24]
-        tmp_tor = np.dot(tmp_tornorm, self.volumes)
-        self.tor_beams[-2] = tmp_tor
-        self.tor += tmp_tor
-
-        tmp_tornorm = self.slices[ind2,0,:,5]+self.slices[ind2,0,:,24]
-        tmp_tor = np.dot(tmp_tornorm, self.volumes)
-        self.tor_beams[-1] = tmp_tor
-        self.tor += tmp_tor       
-        #==============================================================
-
-    def print_scalars(self):
+    def SA_print_scalars(self):
         """
         Method to print the scalars
         """
@@ -813,30 +732,47 @@ class SA_1d(distribution_1d):
                 
 
         for ii, el in enumerate(self.i_beams):
+            if el==0:
+                continue
             print("Current from beam ", self.beamlabel[ii], " is ", el*1e-3, " kA")
         print("")
         for ii, el in enumerate(self.pe_beams):
+            if el==0:
+                continue
             print("Pe from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW")
         print("")
         for ii, el in enumerate(self.pi_beams):
+            if el==0:
+                continue
             print("Pi from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW")
         print("")
-        for ii, el in enumerate(self.tor_beams):
-            print("Tor from beam ", self.beamlabel[ii], " is ", el, " Nm")
+        if self.nions>1:
+            for ii, el in enumerate(self.pi_beams):
+                if el==0:
+                    continue
+                print("Pi 2 from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW")
+            print("")
             
-        print(" ")
+#        for ii, el in enumerate(self.tor_beams):
+#            if el==0:
+#                continue
+#            print("Tor from beam ", self.beamlabel[ii], " is ", el, " Nm")
+#        print(" ")
+        
         print("Total current induced    ", self.I_tot*1e-3, " kA")
         print("Total power to electrons ", self.pe*1e-6, " MW")
         print("Total power to ions      ", self.pi1*1e-6, " MW")
-        print("Total power delivered    ", (self.pi1+self.pe)*1e-6, " MW")
+        totpower = self.pi1+self.pe
+        if self.nions>1:
+            print("Total power to ions  2   ", self.pi2*1e-6, " MW")
+            totpower += self.pi2
+        print("Total power delivered    ", totpower*1e-6, " MW")
         print("Total torque ", self.tor, " Nm")
 
     def group_beams(self):
         """
         Method to group data distribution for beam type (PPERP, PPAR, NNB)
-        """
-        self._calc_originbeam  ()
-                
+        """              
         self.data_PPERP = np.zeros((len(self.rho), len(self.lab)),dtype=float)
         self.data_PPAR  = np.zeros((len(self.rho), len(self.lab)),dtype=float)
         self.data_NNB   = np.zeros((len(self.rho), len(self.lab)),dtype=float)
@@ -850,68 +786,79 @@ class SA_1d(distribution_1d):
                 self.data_NNB += self.slices[ii, 0,:,:]
             else:
                 self.data_PPERP += self.slices[ii,0,:,:]
- 
-    def plot_groupcurrent(self):
+
+
+    def _plot_groups(self, ind, ylabel, **kwargs):
         """
-        method to plot the data produced with group_beams 
+        Hidden method to plot the grouped values for the set of beams 
+        (NNB, PNB tang, PNB perp)
+        """
+        labels2=['TOT', 'P-T','P-P','N-NB']
+        factor=1.
+        if 'factor' in kwargs.keys():
+            factor = kwargs['factor']
+        if type(ind)==int:
+            y_ppar = self.data_PPAR[:,ind]*factor
+            y_pper = self.data_PPERP[:,ind]*factor
+            y_nnb  = self.data_NNB[:,ind]*factor  
+        else:
+            y_ppar = np.sum(self.data_PPAR[:,ind], axis=1)*factor
+            y_pper = np.sum(self.data_PPERP[:,ind], axis=1)*factor
+            y_nnb  = np.sum(self.data_NNB[:,ind], axis=1)*factor
+          
+        y_tot  = y_ppar+y_pper+y_nnb
+        values = [self.rho, y_tot, y_ppar, y_pper, y_nnb]
+        if 'ylim' in kwargs.keys():
+            plot_article(len(values)-1, values, labels2, r'$\rho$',\
+                         ylabel, self.infile_n, ylim=kwargs['ylim'])
+        else:
+            plot_article(len(values)-1, values, labels2, r'$\rho$',\
+                         ylabel, self.infile_n)
+    def plot_current_groups(self):
+        """
+        Plots the current grouped
         """
         try:
             self.data_PPAR.mean()
         except:
             self.group_beams()
+        self._plot_groups(12,r'j (kA/$m^2$)', factor=-1e-3)
 
-        i_t_ppar = -1.*self.data_PPAR [:,12]*1e-3
-        i_t_pper = -1.*self.data_PPERP[:,12]*1e-3
-        i_t_nnb  = -1.*self.data_NNB  [:,12]*1e-3
-        i_tot  = i_t_ppar+i_t_pper+i_t_nnb
-        self.Itot_prof = i_tot
+    def plot_power_groups(self):
+        """
+        Plots the power grouped
+        """
+        try:
+            self.data_PPAR.mean()
+        except:
+            self.group_beams()
+        self._plot_groups(21,r'$P_e$ (kW/$m^3$)', factor=1e-3, ylim=[0, 200])
+        if self.nions==1:
+            self._plot_groups(22,r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 200])
+        if self.nions==2:
+            self._plot_groups([22,23],r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 200])
+            
+    def plot_pn_groups(self):
+        """
+        Plots the power grouped
+        """
+        try:
+            self.data_PPAR.mean()
+        except:
+            self.group_beams()
+        self._plot_groups(0,r'n (1/$m^3$)')
+        self._plot_groups(13,r'p (kPa)', factor=1e-3)        
+    
+    def plot_torque_groups(self):
+        """
+        Plots the power grouped
+        """
+        try:
+            self.data_PPAR.mean()
+        except:
+            self.group_beams()
+        self._plot_groups([5,24],r'Torque to electrons (N $m^{-2}$)')
         
-        n_ppar = self.data_PPAR [:,0]
-        n_pper = self.data_PPERP[:,0]
-        n_nnb  = self.data_NNB  [:,0]
-        n_tot  = n_ppar + n_pper + n_nnb
-        self.ntot_prof = n_tot
-
-        pe_ppar = self.data_PPAR [:,21]*1e-3
-        pe_pper = self.data_PPERP[:,21]*1e-3
-        pe_nnb  = self.data_NNB  [:,21]*1e-3
-        pe_tot  = pe_ppar+pe_pper+pe_nnb
-        self.petot_prof = pe_tot
-        
-        pi_ppar = self.data_PPAR [:,22]*1e-3
-        pi_pper = self.data_PPERP[:,22]*1e-3
-        pi_nnb  = self.data_NNB  [:,22]*1e-3      
-        pi_tot  = pi_ppar+pi_pper+pi_nnb
-        self.pitot_prof = pi_tot
-
-#        thn_ppar=self.data_PPAR  [:,18]
-#        thn_pper=self.data_PPERP [:,18]
-#        thn_nnb=self.data_NNB    [:,18]
-
-        press_ppar = self.data_PPAR [:,13]*1e-3
-        press_pper = self.data_PPERP[:,13]*1e-3
-        press_nnb  = self.data_NNB  [:,13]*1e-3
-        p_tot      = press_ppar+press_pper+press_nnb
-
-        tor_i_ppar = self.data_PPAR [:,5]+self.data_PPAR [:,24]
-        tor_i_pper = self.data_PPERP[:,5]+self.data_PPERP[:,24]
-        tor_i_nnb  = self.data_NNB  [:,5]+self.data_NNB  [:,24]
-#        tor_i_tot  = tor_i_ppar+tor_i_pper+tor_i_nnb
-        
-#        labels=['P-T','P-P','N-NB']
-        labels2=['P-T','P-P','N-NB','TOT']
-        plot_article(4,[self.rho, i_t_ppar, i_t_pper, i_t_nnb, i_tot],labels2,r'$\rho$', 'j (kA/$m^2$)', self.infile_n)
-#        plot_article(3,[self.rho, n_ppar, n_pper, n_nnb],labels,r'$\rho$', 'n ($m^{-3}$)')
-#        plot_article(4,[self.rho, pe_ppar, pe_pper, pe_nnb, pe_tot],labels2,r'$\rho$', '$P_e$ (kW/$m^3$)', self.infile_n)
-#        plot_article(4,[self.rho, pi_ppar, pi_pper, pi_nnb, pi_tot],labels2,r'$\rho$', '$P_i$ (kW/$m^3$)', self.infile_n)
-#        plot_article(4,[self.rho, press_ppar, press_pper, press_nnb, p_tot],labels2,r'$\rho$', '$p$ (kPa)', self.infile_n)
-#        plot_article(4,[self.rho, tor_i_ppar, tor_i_pper, tor_i_nnb, tor_i_tot],labels2,r'$\rho$', 'Torque density (N $m^{-2}$)')
-
-#        plot_article(3,[self.rho, tor_el_ppar, tor_el_pper, tor_el_nnb],labels,r'$\rho$', 'Torque to electrons (N $m^{-2}$)')
-#        plot_article(4,[self.rho, i_t_ppar, i_t_pper, i_t_nnb, i_tot],labels2,r'$\rho$', 'Shielded current (kA/$m^{2}$)', self.infile_n)
-
-        #plot_article(3,[self.rho, thn_ppar, thn_pper, thn_nnb],labels,r'$\rho$', 'Th. n (1/$m^3$)')
-
        
 class distribution_2d:
 
@@ -1428,7 +1375,7 @@ class frzmue(distribution_2d):
         self.f_space_int = int_Rz #E,pitch
 
 
-def plot_article(n_lines, data, data_labels, xlabel, ylabel, title):
+def plot_article(n_lines, data, data_labels, xlabel, ylabel, title, **kwargs):
         #=====================================================================================
         # SET TEXT FONT AND SIZE
         #=====================================================================================
@@ -1438,7 +1385,6 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title):
         plt.rc('ytick', labelsize=20)
         plt.rc('axes', labelsize=20)
         #=====================================================================================
-        col=['k','r','g','b']
         fig=plt.figure()
         ax=fig.add_subplot(111)
         for i in range(n_lines):
@@ -1447,7 +1393,8 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title):
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_title(title)
-        #ax.set_ylim([0,250])
+        if 'ylim' in kwargs.keys():
+            ax.set_ylim(kwargs['ylim'])
         #ax.plot([0.85,0.85],[min(ax.get_ybound()), max(ax.get_ybound())],'k--', linewidth=3.)
         #=====================================================================================
         # ADJUST SUBPLOT IN FRAME
