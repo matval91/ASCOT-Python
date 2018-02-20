@@ -1092,7 +1092,7 @@ class distribution_2d:
         flag_dict = kwargs
         title = 'Normalized f'
         fig = plt.figure()
-        tit=self.id
+        fig.suptitle(self.id)
         ax  = fig.add_subplot(111)
         CS  = ax.contourf(self.xplot, self.yplot, self.zplot, 50, cmap=my_cmap)
         plt.colorbar(CS)
@@ -1102,16 +1102,10 @@ class distribution_2d:
             ax.plot(self.R_w, self.z_w, 'k', linewidth=2)
         if 'surf' in flag_dict.keys() and flag_dict['surf']==1:
             self._plot_RZsurf(ax)            
-        if 'title' in flag_dict.keys():
-            tit+= ' '+flag_dict['title']
             
-        fig.suptitle(tit)
-        
         ax.set_xlabel(xlab)
         ax.set_ylabel(ylab)
         ax.set_title(title)
-        ax.grid('on')
-        fig.tight_layout()
         plt.show()
         
     def _backup_file(self, fname):
@@ -1298,47 +1292,6 @@ class frzpe(distribution_2d):
         int_R   = np.trapz(dist_toint, self.dict_dim['R'], axis = -1)
         int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
         self.f_space_int = int_Rz #E,pitch
-        
-    def _integrate_space_enslice(self, sliceind):
-        """
-        Function to integrate over (R,z) on a E defined
-        """
-        dist_toint = self.fdist_notnorm[0,sliceind,:,:,:]/self.norm
-
-        for i, el in enumerate(self.dict_dim['R']):
-            dist_toint[:,:,i] *= 2*math.pi*el
-
-        int_R   = np.trapz(dist_toint, self.dict_dim['R'], axis = -1)
-        int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
-        self.f_space_int = int_Rz #E,pitch
-        
-    def _integrate_space_pslice(self, sliceind):
-        """
-        Function to integrate over (R,z) on a pitch defined
-        """
-        dist_toint = self.fdist_notnorm[0,:,sliceind,:,:]/self.norm
-
-        for i, el in enumerate(self.dict_dim['R']):
-            dist_toint[:,:,i] *= 2*math.pi*el
-
-        int_R   = np.trapz(dist_toint, self.dict_dim['R'], axis = -1)
-        int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
-        self.f_space_int = int_Rz #E,pitch
-
-    def plot_RZposition(self, sliceR, slicez):
-        """
-        makes a plot of E, pitch on a R,z position
-        """
-
-        ind_R = np.argmin(self.dict_dim['R']-sliceR < 0)
-        ind_z = np.argmin(self.dict_dim['z']-slicez < 0)
-        dist_toplot = self.fdist_notnorm[0,:,:,ind_R, ind_z]/self.norm
-
-        self.xplot = self.dict_dim['pitch']
-        self.yplot = self.dict_dim['E']/1.6e-19
-        self.zplot = dist_toplot
-        self._plot_2d('pitch', 'E', title='R='+str(sliceR)+' z='+str(slicez))
-        
 
 class frhophipe(distribution_2d):
     

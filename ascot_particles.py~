@@ -497,7 +497,6 @@ class dat_particles(particles):
         Computes the fraction of the particles doing a trapped orbit
         To do it, set the simulation time to 1e-3, 1e-4 and the writeInterval small.
         from the orbits, you check where the pitch changes sign: this means the orbit is trapped
-        trappind=1 means orbit is trapped
         """         
         self.ntrapp = 0
         self.trappind = np.zeros(self.npart)
@@ -585,12 +584,12 @@ class dat_particles(particles):
             ind = np.argmin(rho[i]-rho_q>0)
             qpart[i] = q[ind]
             
-        nbins=10; nsurf=20
+        nbins=50; nsurf=20
         
         hist_p, xedges_p, yedges_p = np.histogram2d(r[ind_p], z[ind_p], \
-                                    bins=nbins)
+                                    bins=nbins, normed=True)
         hist_t, xedges_t, yedges_t = np.histogram2d(r[ind_t], z[ind_t], \
-                                    bins=nbins)
+                                    bins=nbins, normed=True)
         vmaxt = max(np.max(hist_t), np.max(hist_p))
         ind_cb=1
         if np.max(hist_p)> np.max(hist_t):
@@ -602,7 +601,7 @@ class dat_particles(particles):
         axrz = f.add_subplot(221)
         x = np.linspace(np.min(r[ind_p]), np.max(r[ind_p]), num=nbins)
         y = np.linspace(np.min(z[ind_p]), np.max(z[ind_p]), num=nbins)
-        CL[0]=axrz.contourf(x,y,hist_p.T, nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
+        CL[0]=axrz.contourf(x,y,hist_p.T*10., nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
         self._plot_RZsurf(axrz)
         axrz.set_title('Passing n(R,Z)'); 
         axrz.set_xlabel('R [m]'); axrz.set_ylabel('Z [m]')        
@@ -621,8 +620,8 @@ class dat_particles(particles):
         axrz2.set_xlim([np.min(x), np.max(x)]); axrz2.set_ylim([np.min(y), np.max(y)])
 
 
-        hist_t, yedges_t, xedges_t = np.histogram2d(rho[ind_t], p[ind_t], bins=nbins)
-        hist_p, yedges_p, xedges_p = np.histogram2d(rho[ind_p], p[ind_p], bins=nbins)
+        hist_t, yedges_t, xedges_t = np.histogram2d(rho[ind_t], p[ind_t], bins=nbins, normed=True)
+        hist_p, yedges_p, xedges_p = np.histogram2d(rho[ind_p], p[ind_p], bins=nbins, normed=True)
         vmaxt = max(np.max(hist_t), np.max(hist_p))   
 
         f2=plt.figure()
@@ -631,7 +630,7 @@ class dat_particles(particles):
         axrp = f.add_subplot(223)
         x = np.linspace(np.min(rho[ind_p]), np.max(rho[ind_p]), num=nbins)
         y = np.linspace(np.min(p[ind_p]), np.max(p[ind_p]), num=nbins)
-        CL[0]=axrp.contourf(x,y,hist_p.T, nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
+        CL[0]=axrp.contourf(x,y,hist_p.T*10., nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
 
         ax2.contour(x,y,hist_p.T,nsurf,colors='k', label='Passing')
         
@@ -716,36 +715,36 @@ class dat_particles(particles):
             
         ind_t = np.where(self.trappind==1)[0]
         ind_p = np.where(self.trappind==0)[0]      
-        ind = np.linspace(0, len(ind_t)-1, 10)
+        ind = np.linspace(0, 100, num=5)
         f = plt.figure()
         f.suptitle(self.fname)
         axtrajRZ = f.add_subplot(121)        
         for i in ind:
             axtrajRZ.plot(self.data_i['R'][ind_t[i]], self.data_i['z'][ind_t[i]], 'k*')
             axtrajRZ.plot(self.partdict[ind_t[i]]['R'], self.partdict[ind_t[i]]['z'], 'k-') 
-            #axtrajRZ.plot(self.data_i['R'][ind_p[i]], self.data_i['z'][ind_p[i]], 'r*')
-            #axtrajRZ.plot(self.partdict[ind_p[i]]['R'], self.partdict[ind_p[i]]['z'], 'r-') 
+            axtrajRZ.plot(self.data_i['R'][ind_p[i]], self.data_i['z'][ind_p[i]], 'r*')
+            axtrajRZ.plot(self.partdict[ind_p[i]]['R'], self.partdict[ind_p[i]]['z'], 'r-') 
         self._plot_RZsurf(axtrajRZ)
         axtrajRZ.set_xlabel(r'R (m)')
         axtrajRZ.set_ylabel(r'z (m)')
         
         axtrajxy = f.add_subplot(122)        
-#         for i in ind:
-#             ll = ind_t[i]
-#             xi,yi = self.data_i['R'][ll]*np.cos(self.data_i['phi'][ll]), \
-#                     self.data_i['R'][ll]*np.sin(self.data_i['phi'][ll])
-#             x,y = self.partdict[ll]['R']*np.cos(self.partdict[ll]['phi']), \
-#                     self.partdict[ll]['R']*np.sin(self.partdict[ll]['phi'])  
+        for i in ind:
+            ll = ind_t[i]
+            xi,yi = self.data_i['R'][ll]*np.cos(self.data_i['phi'][ll]), \
+                    self.data_i['R'][ll]*np.sin(self.data_i['phi'][ll])
+            x,y = self.partdict[ll]['R']*np.cos(self.partdict[ll]['phi']), \
+                    self.partdict[ll]['R']*np.sin(self.partdict[ll]['phi'])  
                     
-#             axtrajxy.plot(xi,yi, 'k*')
-#             axtrajxy.plot(x,y, 'k-') 
-#             ll = ind_p[i]
-#             xi,yi = self.data_i['R'][ll]*np.cos(self.data_i['phi'][ll]), \
-#                     self.data_i['R'][ll]*np.sin(self.data_i['phi'][ll])
-#             x,y = self.partdict[ll]['R']*np.cos(self.partdict[ll]['phi']), \
-#                     self.partdict[ll]['R']*np.sin(self.partdict[ll]['phi'])             
-#             axtrajxy.plot(xi,yi, 'r*')
-#             axtrajxy.plot(x,y, 'r-') 
+            axtrajxy.plot(xi,yi, 'k*')
+            axtrajxy.plot(x,y, 'k-') 
+            ll = ind_p[i]
+            xi,yi = self.data_i['R'][ll]*np.cos(self.data_i['phi'][ll]), \
+                    self.data_i['R'][ll]*np.sin(self.data_i['phi'][ll])
+            x,y = self.partdict[ll]['R']*np.cos(self.partdict[ll]['phi']), \
+                    self.partdict[ll]['R']*np.sin(self.partdict[ll]['phi'])             
+            axtrajxy.plot(xi,yi, 'r*')
+            axtrajxy.plot(x,y, 'r-') 
 
         axtrajxy.set_xlabel(r'x (m)')
         axtrajxy.set_ylabel(r'y (m)')        

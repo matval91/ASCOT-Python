@@ -177,13 +177,14 @@ class distribution_1d:
         #=====================================================================================
         col=['r','g','b','k']
         fig=plt.figure()
+        fig.suptitle(self.infile_n)
         ax=fig.add_subplot(111)
         for i in range(n_lines):
             ax.plot(data[0], data[i+1], label=str(data_labels[i]), linewidth=3, color=col[i])
         #ax.plot(data[0], np.zeros(len(data[0])), 'k',linewidth=2)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
-        #ax.set_ylim([0,240])
+        ax.set_ylim([0,2.5e19])
         #ax.plot([0.85,0.85],[min(ax.get_ybound()), max(ax.get_ybound())],'k--', linewidth=3.)
         #=====================================================================================
         # ADJUST SUBPLOT IN FRAME
@@ -493,18 +494,28 @@ class distribution_1d:
         #                 '3637':'9_1', '3638':'9_2', '3639':'10_1', '3640':'10_2',\
         #                 '5253':'13_1', '5254':'13_2', '5255':'14_1', '5256':'14_2',\
         #                 '3031':'NNB_1', '3032':'NNB_2'}
-
-        self.beamlabel=['1','2','3','4','5','6','7','8','9','10',\
-                        '13','14','NNB_U','NNB_L']
-        self.beamlabel_num=['1','2','3','4','5','6','7','8','9','10',\
-                            '13','14','99','101']
-        self.beamorigin = np.array([45,46,47,48,133,134,135,136,\
-                           221,222,223,224,309,310,311,312,\
-                           3637,3638,3639,3640,5253,5254,5255,5256,\
-                           3031,3032], dtype=int)
-        self.beamlabel_no910 = ['1','2','3','4','5','6','7','8',\
-                        '13','14','NNB_U','NNB_L']
-
+        if 1>2:
+            self.beamlabel=['1','2','3','4','5','6','7','8','9','10',\
+                            '13','14','NNB_U','NNB_L']
+            self.beamlabel_num=['1','2','3','4','5','6','7','8','9','10',\
+                                '13','14','99','101']
+            self.beamorigin = np.array([45,46,47,48,133,134,135,136,\
+                               221,222,223,224,309,310,311,312,\
+                               3637,3638,3639,3640,5253,5254,5255,5256,\
+                               3031,3032], dtype=int)
+            self.beamlabel_no910 = ['1','2','3','4','5','6','7','8',\
+                            '13','14','NNB_U','NNB_L']
+        else:
+            self.beamlabel=['1','2','3','4','5','6','9','10',\
+                            '13','14','NNB_U','NNB_L']
+            self.beamlabel_num=['1','2','3','4','5','6','9','10',\
+                                '13','14','99','101']
+            self.beamorigin = np.array([45,46,47,48,133,134,135,136,\
+                               221,222,223,224,\
+                               3637,3638,3639,3640,5253,5254,5255,5256,\
+                               3031,3032], dtype=int)
+            self.beamlabel_no910 = ['1','2','3','4','5','6','7','8',\
+                            '13','14','NNB_U','NNB_L']            
         #orderedorigins is the array where you can retrieve the correct beam used in the distributions
         # so in orderedorigins we will find e.g. [13,7,9,11,15,4,8,9,...]
         # and you get data of beam 1 using orderedorigins[0], etc.
@@ -689,6 +700,38 @@ class distribution_1d:
         self.data_PPAR  = np.zeros((len(self.rho), len(self.lab)),dtype=float)
         self.data_NNB   = np.zeros((len(self.rho), len(self.lab)),dtype=float)
 
+        for ii, el in enumerate(self.beamlabel):
+        #for ii, el in enumerate(['NNB_L', 'NNB_U']):
+            try:
+                if el in [9,10]:
+                    ind1=self.orderedorigins[2*ii]
+                    ind2=self.orderedorigins[2*ii+1]
+                    self.data_PPAR  = self.data_PPAR+self.slices[ind1,0,:,:]+self.slices[ind2,0,:,:]
+
+                elif el=='NNB_L' or el=='NNB_U':
+                    if el=='NNB_L':
+                        tmp=-2
+                    else:
+                        tmp=-1
+                    ind1=self.orderedorigins[tmp]
+                    self.data_NNB   = self.data_NNB+ self.slices[ind1, 0,:,:]
+                else:
+                    ind1=self.orderedorigins[2*ii]
+                    ind2=self.orderedorigins[2*ii+1]
+                    self.data_PPERP = self.data_PPERP+self.slices[ind1,0,:,:]+self.slices[ind2,0,:,:]
+            except:
+                continue
+
+    def group_beams_w78(self):
+	"""
+	Method to group data distribution for beam type (PPERP, PPAR, NNB)
+	"""
+        self._calc_originbeam  ()
+                
+        self.data_PPERP = np.zeros((len(self.rho), len(self.lab)),dtype=float)
+        self.data_PPAR  = np.zeros((len(self.rho), len(self.lab)),dtype=float)
+        self.data_NNB   = np.zeros((len(self.rho), len(self.lab)),dtype=float)
+
         for ii, el in enumerate(self.beamlabel_no910):
         #for ii, el in enumerate(['NNB_L', 'NNB_U']):
             try:
@@ -744,9 +787,9 @@ class distribution_1d:
         i_nnb  = self.data_NNB  [:,2]*1e-3
 
 
-        i_t_ppar =self.data_PPAR [:,12]*1e-3
-        i_t_pper =self.data_PPERP[:,12]*1e-3
-        i_t_nnb  =self.data_NNB  [:,12]*1e-3
+        i_t_ppar = np.abs(self.data_PPAR [:,12])*1e-3
+        i_t_pper = np.abs(self.data_PPERP[:,12])*1e-3
+        i_t_nnb  = np.abs(self.data_NNB  [:,12])*1e-3
         i_tot  = i_t_ppar+i_t_pper+i_t_nnb
         self.Itot_prof = i_tot
         
@@ -784,15 +827,15 @@ class distribution_1d:
         
         labels=['P-T','P-P','N-NB']
         labels2=['P-T','P-P','N-NB','TOT']
-#        plot_article(4,[self.rho, i_ppar, i_pper, i_nnb, i_tot],labels2,r'$\rho$', 'j (kA/$m^2$)')
-#        plot_article(3,[self.rho, n_ppar, n_pper, n_nnb],labels,r'$\rho$', 'n ($m^{-3}$)')
-#        plot_article(4,[self.rho, pe_ppar, pe_pper, pe_nnb, pe_tot],labels2,r'$\rho$', '$P_e$ (kW/$m^3$)')
-#        plot_article(4,[self.rho, pi_ppar, pi_pper, pi_nnb, pi_tot],labels2,r'$\rho$', '$P_i$ (kW/$m^3$)')
-#        plot_article(4,[self.rho, press_ppar, press_pper, press_nnb, p_tot],labels2,r'$\rho$', '$p$ (kPa)')
-#        plot_article(4,[self.rho, tor_i_ppar, tor_i_pper, tor_i_nnb, tor_i_tot],labels2,r'$\rho$', 'Torque density (N $m^{-2}$)')
+#        plot_article(4,[self.rho, i_ppar, i_pper, i_nnb, i_tot],labels2,r'$\rho$', 'j (kA/$m^2$)', self.infile_n)
+#        plot_article(4,[self.rho, n_ppar, n_pper, n_nnb, n_tot],labels2,r'$\rho$', 'n ($m^{-3}$)', self.infile_n)
+#        plot_article(4,[self.rho, pe_ppar, pe_pper, pe_nnb, pe_tot],labels2,r'$\rho$', '$P_e$ (kW/$m^3$)', self.infile_n)
+#        plot_article(4,[self.rho, pi_ppar, pi_pper, pi_nnb, pi_tot],labels2,r'$\rho$', '$P_i$ (kW/$m^3$)', self.infile_n)
+#        plot_article(4,[self.rho, press_ppar, press_pper, press_nnb, p_tot],labels2,r'$\rho$', '$p$ (kPa)', self.infile_n)
+#        plot_article(4,[self.rho, tor_i_ppar, tor_i_pper, tor_i_nnb, tor_i_tot],labels2,r'$\rho$', 'Torque density (N $m^{-2}$)', self.infile_n)
 
 #        plot_article(3,[self.rho, tor_el_ppar, tor_el_pper, tor_el_nnb],labels,r'$\rho$', 'Torque to electrons (N $m^{-2}$)')
-#        plot_article(3,[self.rho, i_t_ppar, i_t_pper, i_t_nnb],labels,r'$\rho$', 'Shielded current (kA/$m^{2}$)')
+        plot_article(4,[self.rho, i_t_ppar, i_t_pper, i_t_nnb, i_tot],labels2,r'$\rho$', 'Shielded current (kA/$m^{2}$)', self.infile_n)
 
         #plot_article(3,[self.rho, thn_ppar, thn_pper, thn_nnb],labels,r'$\rho$', 'Th. n (1/$m^3$)')
 
@@ -1094,7 +1137,7 @@ class frhophipe(distribution_2d):
         self.build_fdist()
 
 
-def plot_article(n_lines, data, data_labels, xlabel, ylabel):
+def plot_article(n_lines, data, data_labels, xlabel, ylabel, suptitle):
         #=====================================================================================
         # SET TEXT FONT AND SIZE
         #=====================================================================================
@@ -1106,13 +1149,15 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel):
         #=====================================================================================
         col=['r','g','b','k']
         fig=plt.figure()
+        fig.suptitle(suptitle)
         ax=fig.add_subplot(111)
         for i in range(n_lines):
             ax.plot(data[0], data[i+1], label=str(data_labels[i]), linewidth=3, color=col[i])
         ax.plot(data[0], np.zeros(len(data[0])), 'k',linewidth=2)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
-        #ax.set_ylim([0,240])
+        ax.grid('on')
+        ax.set_ylim([0,250])
         #ax.plot([0.85,0.85],[min(ax.get_ybound()), max(ax.get_ybound())],'k--', linewidth=3.)
         #=====================================================================================
         # ADJUST SUBPLOT IN FRAME
