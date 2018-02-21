@@ -6,6 +6,8 @@ Bfield_ascot(ascot h5 infile name)
 Bfield_eqdsk(eqdsk filename, nR to output, nz to output, device name (JT60SA, TCV) )
 
 """
+from __future__ import print_function
+
 import numpy as np
 import h5py, math
 import matplotlib.pyplot as plt
@@ -94,7 +96,7 @@ class Bfield_ascot:
         self.vardict = {}
         #store data with the correct labels
         
-        for k in self.labdict.keys():
+        for k in self.labdict:
             self.vardict[k] = self.infile[self.labdict[k]]
 
         self.nrho = self.vardict['psi_rho'].shape[0]
@@ -118,8 +120,8 @@ class Bfield_ascot:
         """
         self.walllabdict = {"R_wall":"/wall/2d/R", "Z_wall":"/wall/2d/z",\
                             "divflag":"/wall/2d/divFlag", "segLen":"/wall/2d/segLen"}
-        self.w = dict.fromkeys(self.walllabdict.keys())
-        for k in self.walllabdict.keys():
+        self.w = dict.fromkeys(self.walllabdict)
+        for k in self.walllabdict:
             self.w[k] = self.infile[self.walllabdict[k]].value
 
 
@@ -135,7 +137,7 @@ class Bfield_ascot:
             self.sanitydict[key] = self.infile['sanityChecks/'+key].value
         for key in ['Ip', 'b0','psiAtAxis', 'psiAtSeparatrix',\
                     'rmin','rmax','zmin','zmax']:
-            print key, " ", self.sanitydict[key]
+            print(key, " ", self.sanitydict[key])
             
     def checkplot(self):
         """
@@ -225,7 +227,7 @@ class Bfield_eqdsk:
         self._read_wall()
         if len(args)!=0:
             self.dr, self.dz = np.asarray(args[0]), np.asarray(args[1])
-            print "Shifting of quantity ", self.dr, " and ", self.dz
+            print("Shifting of quantity ", self.dr, " and ", self.dz)
             self._shift_eq()
 
 
@@ -421,7 +423,7 @@ class Bfield_eqdsk:
         -The last quantities (rhoPF, PFL, Vol, Area, Qpl) are already set
         
         """
-        print "Build hdr (limiter)"
+        print("Build hdr (limiter)")
 
         
         nrho = len(self.eqdsk.rhopsi)
@@ -451,7 +453,7 @@ class Bfield_eqdsk:
         
         """
 
-        print "Build hdr (SN)"
+        print("Build hdr (SN)")
 
         nrho = len(self.eqdsk.rhopsi)
         dummy=np.linspace(0,1,nrho)
@@ -491,11 +493,11 @@ class Bfield_eqdsk:
         """
         try:
             self.Fgrid.mean()
-            print "Bphi already built!"
+            print("Bphi already built!")
         except:
             self.calc_field()
 
-        print "Build bkg"
+        print("Build bkg")
 
         R_temp = np.linspace(self.eqdsk.rboxleft, self.eqdsk.rboxleft+self.eqdsk.rboxlength, self.nR)
         z_temp = np.linspace(-self.eqdsk.zboxlength/2., self.eqdsk.zboxlength/2., self.nz)
@@ -534,8 +536,8 @@ class Bfield_eqdsk:
         dZdi = np.asarray(1.0)/np.gradient(self.Z_eqd)
         dZdi = np.tile(dZdi, [self.eqdsk.nrbox,1])
         dZdi = np.transpose(dZdi)
-        #print "shape ddR:",np.shape(ddR),'shape dRdi:', np.shape(dRdi)
-        #print 'shape ddZ:',np.shape(ddZ),'shape dZdi:', np.shape(dZdi)
+        #print("shape ddR:",np.shape(ddR),'shape dRdi:', np.shape(dRdi))
+        #print('shape ddZ:',np.shape(ddZ),'shape dZdi:', np.shape(dZdi))
     
         self.dpsidR[:, :] = ddR*dRdi
         self.dpsidZ[:, :] = ddZ*dZdi
@@ -571,7 +573,7 @@ class Bfield_eqdsk:
             self.dpsidR.mean()
         except:
             self._calc_psi_deriv()
-        print "Calculating Bphi"
+        print("Calculating Bphi")
         inv_R = np.asarray(1.0)/np.array(self.R_eqd)
         inv_R = np.tile(inv_R,[self.eqdsk.nzbox, 1])
         self.Bphi = np.zeros(np.shape(inv_R))
@@ -608,7 +610,7 @@ class Bfield_eqdsk:
         try:
             hdr=self.hdr
         except:
-            print "Build header first!"
+            print("Build header first!")
             raise ValueError
 
         out_fname = 'input.magn_header'
@@ -645,12 +647,12 @@ class Bfield_eqdsk:
             outfile.write(" ".join(tmp_str))
             outfile.write("\n")
         
-        #print rhoPF
+        #print rhoPF 
         outfile.write(str(hdr['rhoPF'])+'\n')
         # other arrays
         
         for arr_name in ('PFL','Vol','Area','Qpl'):
-            print "Writing ", arr_name
+            print("Writing ", arr_name)
             arr = hdr[arr_name]
             for i in xrange(0,len(arr),4):
                 tmp_str = ['{:18.10f}'.format(j) for j in arr[i:i+4]]
@@ -696,7 +698,7 @@ class Bfield_eqdsk:
             outfile.write('{:d}\n'.format(0))
             outfile.write('{:d}\n'.format(0))
         else:
-            print "Bkg[nsector] = ", bkg['nsector']
+            print("Bkg[nsector] = ", bkg['nsector'])
             for arr_name in ('phimap_toroidal', 'phimap_poloidal'):
                 arr = bkg[arr_name]
                 for i in xrange(0,len(arr),18):
@@ -708,7 +710,7 @@ class Bfield_eqdsk:
             #Bphi is used, BR and Bz not but you must initialise it to 0 and
            # print them anyway           
         for arr_name in ('psi', 'BR', 'Bphi', 'Bz'):
-            print "Writing ", arr_name
+            print("Writing ", arr_name)
             arr_t = bkg[arr_name]
             #arr = self._perm_dims(arr_t)
             arr=arr_t
@@ -759,7 +761,7 @@ class Bfield_eqdsk:
             self.z_w = wall[:,1]
 
         except:
-            print "No wall to read"
+            print("No wall to read")
             self.R_w=[0]
             self.z_w=[0]
             return

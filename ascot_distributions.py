@@ -6,7 +6,12 @@ two classes inside:
 distribution_1d(h5 ascot file)
 distribution_2d(h5 ascot file with 2D distributions in it)
 
+02/2018: PORTING TO python3 with backwards compatibility using future package
+http://python-future.org/index.html
+
 """
+from __future__ import print_function
+
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
@@ -197,7 +202,7 @@ class distribution_1d:
         self._check_dims()
         self.abscissae = {}
         self.abscissae = self.abscissae.fromkeys(self.infile['/distributions/rhoDist/abscissae'].keys(),0)
-        for key in self.abscissae.keys():
+        for key in self.abscissae:
             self.abscissae[key]=self.infile[tree_path+'/abscissae/'+str(key)].value
         self.rho = np.linspace(0,1,len(self.abscissae['dim1'])-1)
             
@@ -206,23 +211,22 @@ class distribution_1d:
         #ADDING DIFFERENT ION SPECIES
         self.nions = len(self.infile['plasma/anum'][:])
         n_ions_more = self.nions-1
+        self.dimnum += 2*n_ions_more
         self.name_dict['ctor_el']+= n_ions_more
         self.name_dict['ctor_i1']+= n_ions_more              
         for el in range(n_ions_more):
             k='pi'+str(el+2)
-            self.name_dict[k]=24+el
+            self.name_dict[k]=self.dimnum-1+el
             k2='ctor_i'+str(el+2)
-            self.name_dict[k2]=26+el+1
+            self.name_dict[k2]=self.dimnum+1+el+1
 
         #self.slices structure WILL BECOME:
         #(injector, time, rho, type of distribution)
         self.slices = ordinate.reshape(ordinate.shape[-4], ordinate.shape[-3], ordinate.shape[-2], ordinate.shape[-1])
         self.n_inj = self.slices.shape[0]
-        self.dim_num = len(self.infile['/distributions/rhoDist/ordinates/'].keys())
-        self.dim_num = int(self.dim_num/2.) #this because names and units are doubled
         self.lab = np.array([], dtype='S32')
         self.uni = np.array([], dtype='S8')
-        for i in range(self.dim_num):
+        for i in range(self.dimnum):
             self.lab = np.append(self.lab, self.infile[tree_path+'ordinates/name_'+'{:06d}'.format(i+1)].value)
             self.uni = np.append(self.uni, self.infile[tree_path+'ordinates/unit_'+'{:06d}'.format(i+1)].value)
             
@@ -239,17 +243,21 @@ class distribution_1d:
         dimnum = len(self.infile['/distributions/rhoDist/ordinates/'].keys())
         dimnum -= len(self.infile['plasma/anum'][:])*2
         dimnum /= 2
+        self.dimnum = int(dimnum)
         if dimnum==25:
             self.name_dict['pel'] = 22
             self.name_dict['pi1'] = 23
             self.name_dict['ctor_el'] = 24
             self.name_dict['ctor_i1'] = 25 # The last two lines are affected by the number of ion species
+            self.peind = 22
         else:
             self.name_dict['J.B'] = 22
             self.name_dict['pel'] = 23
             self.name_dict['pi1'] = 24
             self.name_dict['ctor_el'] = 25
             self.name_dict['ctor_i1'] = 26 # The last two lines are affected by the number of ion species
+            self.peind=23
+        
         return
        
        
@@ -562,7 +570,7 @@ class TCV_1d(distribution_1d):
         Plot quantities without different ion species (i.e. j,p,ecc.)
         """
         if len(args)==0:
-            y_ind = np.array([(self.name_dict[t]-1) for t in self.name_dict.keys()])
+            y_ind = np.array([(self.name_dict[t]-1) for t in self.name_dict)
             n_row = 5
             n_col = 5
         else:
@@ -596,7 +604,7 @@ class SA_1d(distribution_1d):
 
     def __init__(self, infile_n):
         distribution_1d.__init__(self, infile_n)
-        self.beamorigindict_full = \
+        self.id2beamnum = \
                         {\
                         '45':1 ,  '46':1,    '47':2,    '48':2,   \
                         '133':3,  '134':3,   '135':4,   '136':4,  \
@@ -607,13 +615,14 @@ class SA_1d(distribution_1d):
                         '3031':99,'3032':101 \
                         }
         self.beamnum = {1,2,3,4,5,6,7,8,9,10,13,14,99,101}
-        self.beamlabel_full={'1':[45, 46],'2':[47, 48],\
-                            '3':[133, 134],'4':[135, 136],\
-                            '5':[221, 222],'6':[223, 224],\
-                            '7':[309, 310],'8':[311, 312],\
-                            '9':[3637, 3638],'10':[3639, 3640],\
-                            '13':[5253, 5254],'14':[5255, 5256],\
-                            '99':[3031],'101':[3032]}  
+        self.beamnum2id = \
+                        {'1':[45, 46],      '2':[47, 48],\
+                         '3':[133, 134],    '4':[135, 136],\
+                         '5':[221, 222],    '6':[223, 224],\
+                         '7':[309, 310],    '8':[311, 312],\
+                         '9':[3637, 3638],  '10':[3639, 3640],\
+                         '13':[5253, 5254], '14':[5255, 5256],\
+                         '99':[3031],       '101':[3032]}  
         self.beamlabel=['1','2','3','4','5','6','7','8','9','10',\
                         '13','14','NNB_U','NNB_L']
         self.NNBflag=0
@@ -627,7 +636,7 @@ class SA_1d(distribution_1d):
         Method to plot quantities without different ion species (i.e. j,p,ecc.)
         """
         if len(args)==0:
-            y_ind = np.array([(self.name_dict[t]-1) for t in self.name_dict.keys()])
+            y_ind = np.array([(self.name_dict[t]-1) for t in self.name_dict])
             n_row = 5
             n_col = 5
         else:
@@ -685,8 +694,8 @@ class SA_1d(distribution_1d):
         self.pe_beams = np.zeros(14, dtype=float)
         self.tor_beams = np.zeros(14, dtype=float)
         
-        for jj, el in enumerate(self.beamlabel_full.keys()):
-            beamid = self.beamlabel_full[el]
+        for jj, el in enumerate(self.beamnum2id):
+            beamid = self.beamnum2id[el]
             for ii in beamid:
                 if ii in self._h5origins:
                     ind_ii = np.where(self._h5origins==ii)[0]
@@ -697,20 +706,20 @@ class SA_1d(distribution_1d):
                     self.I_tot += tmp_I
         
                     # POWER TO electrons
-                    tmp_Penorm = self.slices[ind_ii,0,:,21]
+                    tmp_Penorm = self.slices[ind_ii,0,:,self.peind-1]
                     tmp_Pe = np.dot(tmp_Penorm, self.volumes)
                     self.pe_beams[jj] = tmp_Pe
                     self.pe += tmp_Pe
         
                     # POWER TO IONS 1
-                    tmp_Pinorm = self.slices[ind_ii,0,:,22]
+                    tmp_Pinorm = self.slices[ind_ii,0,:,self.peind]
                     tmp_Pi = np.dot(tmp_Pinorm, self.volumes)
                     self.pi_beams[jj] = tmp_Pi
                     self.pi1 += tmp_Pi
                     
                     if self.nions >1:
                         # POWER TO IONS 2
-                        tmp_Pi2norm = self.slices[ind_ii,0,:,23]
+                        tmp_Pi2norm = self.slices[ind_ii,0,:,self.peind+1]
                         tmp_Pi2 = np.dot(tmp_Pi2norm, self.volumes)
                         self.pi2_beams[jj] = tmp_Pi2
                         self.pi2 += tmp_Pi2        
@@ -747,7 +756,7 @@ class SA_1d(distribution_1d):
             print("Pi from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW")
         print("")
         if self.nions>1:
-            for ii, el in enumerate(self.pi_beams):
+            for ii, el in enumerate(self.pi2_beams):
                 if el==0:
                     continue
                 print("Pi 2 from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW")
@@ -779,7 +788,7 @@ class SA_1d(distribution_1d):
 
         for ii, el in enumerate(self._h5origins):
         #for ii, el in enumerate(['NNB_L', 'NNB_U']):
-            beam=self.beamorigindict_full[str(el)]
+            beam=self.id2beamnum[str(el)]
             if beam in [7,8,9,10]:
                 self.data_PPAR += self.slices[ii,0,:,:]                  
             elif beam in [99, 101]:
@@ -795,7 +804,7 @@ class SA_1d(distribution_1d):
         """
         labels2=['TOT', 'P-T','P-P','N-NB']
         factor=1.
-        if 'factor' in kwargs.keys():
+        if 'factor' in kwargs:
             factor = kwargs['factor']
         if type(ind)==int:
             y_ppar = self.data_PPAR[:,ind]*factor
@@ -808,7 +817,7 @@ class SA_1d(distribution_1d):
           
         y_tot  = y_ppar+y_pper+y_nnb
         values = [self.rho, y_tot, y_ppar, y_pper, y_nnb]
-        if 'ylim' in kwargs.keys():
+        if 'ylim' in kwargs:
             plot_article(len(values)-1, values, labels2, r'$\rho$',\
                          ylabel, self.infile_n, ylim=kwargs['ylim'])
         else:
@@ -832,11 +841,15 @@ class SA_1d(distribution_1d):
             self.data_PPAR.mean()
         except:
             self.group_beams()
-        self._plot_groups(21,r'$P_e$ (kW/$m^3$)', factor=1e-3, ylim=[0, 200])
+        self._plot_groups(self.peind-1,r'$P_e$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
         if self.nions==1:
-            self._plot_groups(22,r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 200])
+            self._plot_groups(self.peind,r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+            self._plot_groups([self.peind-1, self.peind],r'$P_{TOT}$ (kW/$m^3$)', factor=1e-3, ylim=[0, 500])
         if self.nions==2:
-            self._plot_groups([22,23],r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 200])
+            self._plot_groups(self.peind,r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+            self._plot_groups(self.peind+1,r'$P_i\, 2$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+            self._plot_groups([self.peind,self.peind+1],r'$P_i TOT$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+            self._plot_groups([self.peind-1, self.peind, self.peind+1],r'$P_{TOT}$ (kW/$m^3$)', factor=1e-3, ylim=[0, 500])
             
     def plot_pn_groups(self):
         """
@@ -886,11 +899,11 @@ class distribution_2d:
             self._integrate_Ep()
        
         self.zplot = self.f_Ep_int
-        if 'R' in self.dict_dim.keys() and 'z' in self.dict_dim.keys():
+        if 'R' in self.dict_dim and 'z' in self.dict_dim:
             self.xplot = self.dict_dim['R']
             self.yplot = self.dict_dim['z'] 
             self._plot_2d('R [m]', 'z [m]', wall=1, surf=1)
-        elif 'rho' in self.dict_dim.keys() and 'phi' in self.dict_dim.keys():
+        elif 'rho' in self.dict_dim and 'phi' in self.dict_dim:
             self.xplot = self.dict_dim['rho']
             self.yplot = self.dict_dim['phi'] 
             self._plot_2d('rho', 'phi', wall=0)
@@ -1059,11 +1072,11 @@ class distribution_2d:
         plt.colorbar(CS)
         #ax.plot([np.min(self.xplot),np.max(self.xplot)], [5e5, 5e5], linewidth=3., color='k')
                
-        if 'wall' in flag_dict.keys() and flag_dict['wall']==1:
+        if 'wall' in flag_dict and flag_dict['wall']==1:
             ax.plot(self.R_w, self.z_w, 'k', linewidth=2)
-        if 'surf' in flag_dict.keys() and flag_dict['surf']==1:
+        if 'surf' in flag_dict and flag_dict['surf']==1:
             self._plot_RZsurf(ax)            
-        if 'title' in flag_dict.keys():
+        if 'title' in flag_dict:
             tit+= ' '+flag_dict['title']
         fig.suptitle(tit)
         
@@ -1073,7 +1086,7 @@ class distribution_2d:
         ax.grid('on')
         fig.tight_layout()
         plt.show()
-        if 'fname' in flag_dict.keys():
+        if 'fname' in flag_dict:
             plt.savefig(flag_dict['fname'], bbox_inches='tight')
             
     def _backup_file(self, fname):
@@ -1126,7 +1139,7 @@ class distribution_2d:
         """
         calculates the norm of the function
         """
-        if "pitch" in self.dict_dim.keys():
+        if "pitch" in self.dict_dim:
             try:
                 self.f_spacep_int()
             except:
@@ -1135,7 +1148,7 @@ class distribution_2d:
             self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
             #print "NORM = ", self.norm
         
-        elif "mu" in self.dict_dim.keys():
+        elif "mu" in self.dict_dim:
             try:
                 self.f_spacemu_int()
             except:
@@ -1149,7 +1162,7 @@ class distribution_2d:
         Method to read the ordinates of the 2d distribution
         """
         try:
-            self.dict_dim.keys()
+            self.dict_dim
         except:
             print("No dictionary of dimensions created")
             raise ValueError
@@ -1174,7 +1187,7 @@ class distribution_2d:
         Hidden method to read the abscissae
         """
         self.shape_dim = self.dict_dim.copy()
-        for i, dim in enumerate(self.dict_dim.keys()):
+        for i, dim in enumerate(self.dict_dim):
             self.dict_dim[dim] = self.dist_h5['abscissae/dim'+str(i+1)].value
             self.shape_dim[dim] = np.size(self.dict_dim[dim])-1
 
@@ -1183,11 +1196,11 @@ class distribution_2d:
         Hidden method to make the abscissae the correct length (same as ordinate)
         """
         try:
-            self.dict_dim.keys()
+            self.dict_dim
         except:
             self._read_dim()
 
-        for dim in self.dict_dim.keys():
+        for dim in self.dict_dim:
             tmp_dim = self.dict_dim[dim]
             self.dict_dim[dim] = np.linspace(min(tmp_dim), max(tmp_dim), len(tmp_dim)-1)
 
@@ -1298,7 +1311,7 @@ class frzpe(distribution_2d):
         self.xplot = self.dict_dim['pitch']
         self.yplot = self.dict_dim['E']/1.6e-19
         self.zplot = dist_toplot
-        if 'fname' in kwargs.keys():
+        if 'fname' in kwargs:
             self._plot_2d('pitch', 'E', \
                           title='R='+str(sliceR)+' z='+str(slicez), \
                           fname=kwargs['fname'])
@@ -1379,7 +1392,7 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title, **kwargs):
         #=====================================================================================
         # SET TEXT FONT AND SIZE
         #=====================================================================================
-        plt.rc('font', family='serif', serif='Palatino')
+        #plt.rc('font', family='serif', serif='Palatino')
         #plt.rc('text', usetex=True)
         plt.rc('xtick', labelsize=20)
         plt.rc('ytick', labelsize=20)
@@ -1393,7 +1406,7 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title, **kwargs):
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_title(title)
-        if 'ylim' in kwargs.keys():
+        if 'ylim' in kwargs:
             ax.set_ylim(kwargs['ylim'])
         #ax.plot([0.85,0.85],[min(ax.get_ybound()), max(ax.get_ybound())],'k--', linewidth=3.)
         #=====================================================================================

@@ -14,12 +14,12 @@ CHANGE HISTORY:
 -16/10/2015 - generators introduced for reading input file
 -06/2017 - modified to work with Python 3
 -09/2017 - changes applied to version in /local/lib
-
+-02/2018 - added  backwards compatibility with python 2
 NOTES:
 
 
 """
-
+from builtins import *
 import numpy as np
 from pylab import *
 import re
@@ -97,24 +97,24 @@ def ReadEQDSK(in_filename):
 	comment = data[0:-3]
 	
 	token = file_numbers(fin)
-
+	
 	#first line
-	rboxlength = float(token.next())
-	zboxlength = float(token.next())
-	R0EXP = float(token.next())
-	rboxleft = float(token.next())
-	zmid   = float(token.next()) #(maxygrid+minygrid)/2
+	rboxlength = float(token.__next__())
+	zboxlength = float(token.__next__())
+	R0EXP = float(token.__next__())
+	rboxleft = float(token.__next__())
+	zmid   = float(token.__next__()) #(maxygrid+minygrid)/2
 	
 	#second line
-	Raxis = float(token.next())
-	Zaxis = float(token.next())
-	psiaxis = float(token.next()) # psi_axis-psi_edge
-	psiedge = float(token.next()) # psi_edge-psi_edge (=0)
-	B0EXP = float(token.next()) # normalizing magnetic field in chease
+	Raxis = float(token.__next__())
+	Zaxis = float(token.__next__())
+	psiaxis = float(token.__next__()) # psi_axis-psi_edge
+	psiedge = float(token.__next__()) # psi_edge-psi_edge (=0)
+	B0EXP = float(token.__next__()) # normalizing magnetic field in chease
 	
 	#third line
 	#ip is first element, all others are already stored
-	Ip = float(token.next())
+	Ip = float(token.__next__())
 	
 	""" DEFINING USEFUL FUNCTIONS TO READ ARRAYS """
 	def consume(iterator,n):
@@ -125,7 +125,7 @@ def ReadEQDSK(in_filename):
 		data = np.zeros([n])
 		try:
 			for i in np.arange(n):
-				data[i] = float(token.next())
+				data[i] = float(token.__next__())
 		except:
 			raise IOError("Failed reading array '"+name+"' of size ", n)
 		return data
@@ -159,16 +159,16 @@ def ReadEQDSK(in_filename):
 	q = read_array(nrbox,"safety_factor")
 	
 	#n of points for the lcfs and limiter boundary
-	nLCFS = int(token.next())
-	nlimits = int(token.next())
+	nLCFS = int(token.__next__())
+	nlimits = int(token.__next__())
 	
 	#rz lcfs coordinates
 	if nLCFS > 0:
 		R = np.zeros([nLCFS])
 		Z = np.zeros([nLCFS])
 		for ii in range(nLCFS):
-			R[ii] = float(token.next())
-			Z[ii] = float(token.next())
+			R[ii] = float(token.__next__())
+			Z[ii] = float(token.__next__())
 	else:
 		R = [0]
 		Z = [0]
@@ -178,8 +178,8 @@ def ReadEQDSK(in_filename):
 		R_limits = np.zeros([nlimits])
 		Z_limits = np.zeros([nlimits])
 		for ii in range(nlimits):
-			R_limits[ii] = float(token.next())
-			Z_limits[ii] = float(token.next())
+			R_limits[ii] = float(token.__next__())
+			Z_limits[ii] = float(token.__next__())
 	else:
 		R_limits = [0]
 		Z_limits = [0]

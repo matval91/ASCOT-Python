@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import ticker, colors
@@ -167,7 +169,7 @@ class particles:
         Method to plot XY of ionisation FOR EACH BEAM
         """
         try:
-            self.beamorigindict.keys()
+            self.beamorigindict
         except:
             self._calc_originbeam()
 
@@ -177,7 +179,7 @@ class particles:
         axrz = plt.subplot2grid((1,2),(0,1))
         ind = np.zeros((2,self.npart), dtype=bool)
         
-        for i,el in enumerate(self.beamorigindict.keys()):
+        for i,el in enumerate(self.beamorigindict):
             if el != 'NNBI_U' and el!='NNBI_L':
                 ind[0,:] = self.data_i['origin']==self.beamorigindict[el][0]
                 ind[1,:] = self.data_i['origin']==self.beamorigindict[el][1]
@@ -468,7 +470,7 @@ class dat_particles(particles):
 
         self.data_i = dict.copy(tmpdict)
         for i in range(self.npart):
-            for key in self.data_i.keys():
+            for key in self.data_i:
                 self.data_i[key] = np.append(self.data_i[key], \
                             self.partdict[i][key][0])
 #        for key in self.field:
