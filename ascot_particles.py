@@ -341,8 +341,8 @@ class particles:
         except:
             self._readwall()
         #ind = np.where(self.data_e['endcond']== 10)[0] #rho=1
-        #ind = np.where(self.data_e['endcond']== 3)[0] #wall
-        ind = np.arange(len(self.data_e['endcond'])) #all particles
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        #ind = np.arange(len(self.data_e['endcond'])) #all particles
         
         pitchi = self.data_i['pitch'][ind]
         energyi = self.data_i['energy'][ind]
@@ -378,7 +378,7 @@ class particles:
         #plt.figure(); plt.scatter(r,z, c=pitch); plt.colorbar(); plt.xlabel('R'); plt.ylabel('z')
         
         #ax=plt.axes(); ax.quiver(r,z,np.multiply(vr,1./norm_v), np.multiply(vz, 1./norm_v));
-        
+        plt.tight_layout()
         
     def _power_coupled(self):
         """
@@ -931,7 +931,7 @@ class h5_particles(particles):
         self.data_e['phiprt']=self.data_e['phiprt']*math.pi/180.
 
         print("FIELDS IN FILE ",self.fname,", section inistate and ",self.endgroup," :")
-        print(self.field)
+        print(list(self.field))
 
         # Swapping R and Rprt, since they are opposite to matlab
         self.data_e['R']   = self.data_e['Rprt']
@@ -943,35 +943,47 @@ class h5_particles(particles):
         """
         Method to calculate the shine-through with the weights
         """
-        try:
-            self.originpower.mean()
-        except:
-            self._calc_originbeam()
+#        try:
+#            self.originpower.mean()
+#        except:
+#            self._calc_originbeam()
             
             
         if self.endgroup != 'shinethr':
             print("WARNING! Check input file, which is ", self.fname)
 
         self._calc_weight()
-        self.shinethr=np.zeros((len(self.origins)), dtype=float)
-        self.shinethr_abs=np.zeros((len(self.origins)), dtype=float)
-
-        for ind_i,i in enumerate(self.origins):
-            ind = self.data_e['origin'][:]==i
+        self.shinethr=np.zeros((26), dtype=float)
+        self.shinethr_abs=np.zeros((26), dtype=float)
+        self.id2beamnum = \
+                        {\
+                        '45':1 ,  '46':1,    '47':2,    '48':2,   \
+                        '133':3,  '134':3,   '135':4,   '136':4,  \
+                        '221':5,  '222':5,   '223':6,   '224':6,  \
+                        '309':7,  '310':7,   '311':8,   '312':8,  \
+                        '3637':9, '3638':9,  '3639':10, '3640':10,\
+                        '5253':13,'5254':13, '5255':14, '5256':14,\
+                        '3031':99,'3032':101 \
+                        }
+        for ind_i,i in enumerate(self.id2beamnum):
+            ind = self.data_e['origin'][:]==int(i)
             if len(self.data_e['origin'][ind])==0:
                 w=0
                 e=0
                 power = 1
-            else:   
+            else:  
+                power=1.e6
+                if int(i) in [3031, 3032]:
+                    power = 5.e6
+                    
                 e = self.data_e['energy'][ind][0]
                 e = e*1.612e-19
                 w = np.sum(self.data_e['weight'][ind_i])
                 #wtot = self.w[ind_i]
-                power = self.originpower[str(int(i))]*1e6
             self.shinethr[ind_i]=float(e)*w/power
             self.shinethr_abs[ind_i] = float(e)*w
-            print("NBI:","{}".format(self.origindict[str(int(i))]),\
-                  "Shine-through:", "{0:5f} %".format(self.shinethr[ind_i]*100),\
-                  "||  {0:3f} W".format(e*w))
+#            print("NBI:","{}".format(self.origindict[str(int(i))]),\
+#                  "Shine-through:", "{0:5f} %".format(self.shinethr[ind_i]*100),\
+#                  "||  {0:3f} W".format(e*w))
 
 

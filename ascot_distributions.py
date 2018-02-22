@@ -222,6 +222,9 @@ class distribution_1d:
 
         #self.slices structure WILL BECOME:
         #(injector, time, rho, type of distribution)
+        if ordinate.shape[-1]!=self.dimnum:
+            print(self.dimnum, ordinate.shape[-1])
+            raise ValueError
         self.slices = ordinate.reshape(ordinate.shape[-4], ordinate.shape[-3], ordinate.shape[-2], ordinate.shape[-1])
         self.n_inj = self.slices.shape[0]
         self.lab = np.array([], dtype='S32')
@@ -240,11 +243,13 @@ class distribution_1d:
         In two different versions of ascot (e.g. 9215 and >9401) there is one
         rhodist more, which is J.B. Need to check for that to be the case
         """
-        dimnum = len(self.infile['/distributions/rhoDist/ordinates/'].keys())
-        dimnum -= len(self.infile['plasma/anum'][:])*2
+        dimnum = len(list(self.infile['/distributions/rhoDist/ordinates/'].keys()))
+        if len(self.infile['plasma/anum'][:])>1:
+            dimnum -= len(self.infile['plasma/anum'][:])*2
         dimnum /= 2
         self.dimnum = int(dimnum)
-        if dimnum==25:
+        print("Dimensions ",self.dimnum)
+        if self.dimnum==24:
             self.name_dict['pel'] = 22
             self.name_dict['pi1'] = 23
             self.name_dict['ctor_el'] = 24
@@ -257,7 +262,7 @@ class distribution_1d:
             self.name_dict['ctor_el'] = 25
             self.name_dict['ctor_i1'] = 26 # The last two lines are affected by the number of ion species
             self.peind=23
-        
+        self.peind-=1
         return
        
        
@@ -570,7 +575,7 @@ class TCV_1d(distribution_1d):
         Plot quantities without different ion species (i.e. j,p,ecc.)
         """
         if len(args)==0:
-            y_ind = np.array([(self.name_dict[t]-1) for t in self.name_dict)
+            y_ind = np.array([(self.name_dict[t]-1) for t in self.name_dict])
             n_row = 5
             n_col = 5
         else:
@@ -615,6 +620,7 @@ class SA_1d(distribution_1d):
                         '3031':99,'3032':101 \
                         }
         self.beamnum = {1,2,3,4,5,6,7,8,9,10,13,14,99,101}
+        self.beampow = [2e6,2e6,2e6,2e6,2e6,2e6,2e6,2e6,2e6,2e6,2e6,5e6,5e6]
         self.beamnum2id = \
                         {'1':[45, 46],      '2':[47, 48],\
                          '3':[133, 134],    '4':[135, 136],\
@@ -761,7 +767,6 @@ class SA_1d(distribution_1d):
                     continue
                 print("Pi 2 from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW")
             print("")
-            
 #        for ii, el in enumerate(self.tor_beams):
 #            if el==0:
 #                continue
@@ -774,7 +779,10 @@ class SA_1d(distribution_1d):
         totpower = self.pi1+self.pe
         if self.nions>1:
             print("Total power to ions  2   ", self.pi2*1e-6, " MW")
+            print("Ratio pi2/pi (%):", self.pi2/(self.pi1+self.pi2)*100., '%')
             totpower += self.pi2
+            print("Ratio pi2/ptot (%):", self.pi2/totpower*100., '%')
+
         print("Total power delivered    ", totpower*1e-6, " MW")
         print("Total torque ", self.tor, " Nm")
 
@@ -871,7 +879,62 @@ class SA_1d(distribution_1d):
         except:
             self.group_beams()
         self._plot_groups([5,24],r'Torque to electrons (N $m^{-2}$)')
+
+
+    def SA_calc_FIBP(self, plot_flag, *args):
+        volumes = self._volumes
+        rho = np.linspace(0, 1, num=len(volumes), dtype=float)
+        self.fibp        = np.zeros(len(rho),dtype=float)
+        self.fibp_PNB    = np.zeros(len(rho),dtype=float)
+        self.fibp_P_tang = np.zeros(len(rho),dtype=float)
+        self.fibp_P_perp = np.zeros(len(rho),dtype=float)
+        self.fibp_NNB    = np.zeros(len(rho),dtype=float)
+        rho_edg = rho+(rho[-1]-rho[-2])*0.5
+        if len(args)==0:
+            origins  = self.infile['inistate/origin'].value
+            part_rho = self.infile['inistate/rho'].value
+            weight_a = self.infile['inistate/weight'].value
+        else:
+            shot = args[0]
+            run = args[1]
+            print(shot, run)
+            new_fname = '/home/vallar/ASCOT/runs/JT60SA/'+"{:03d}".format(shot)+'/bbnbi_'+"{:03d}".format(shot)+"{:03d}".format(run)+'.h5'
+            new_fname = '/Users/Matteo/Documents/work/ASCOT/runs/JT60SA/'+"{:03d}".format(shot)+'/bbnbi_'+"{:03d}".format(shot)+"{:03d}".format(run)+'.h5'
+
+            print("File opened: ", new_fname)
+            bbfile = h5py.File(new_fname)
+            origins  = bbfile['inistate/origin'].value
+            part_rho = bbfile['inistate/rho'].value
+            weight_a = bbfile['inistate/weight'].value
+            
+        for i,r in enumerate(rho):
+            if r==rho[-1]:
+                continue
+            ind = [(part_rho>rho_edg[i]) &  (part_rho<rho_edg[i+1])]
+            ind_P = [(part_rho>rho_edg[i]) & (part_rho<rho_edg[i+1]) & (origins != 3031) & (origins != 3032)]
+            ind_P_perp = [(part_rho>rho_edg[i]) & (part_rho<rho_edg[i+1]) & \
+                          (origins != 3031) & (origins != 3032) & \
+                          (origins != 309) & (origins != 310) & \
+                          (origins != 312) & (origins != 311) & \
+                          (origins != 3637) & (origins != 3638) & \
+                          (origins != 3639) & (origins != 3640)\
+                          ]
         
+            weight = np.sum(weight_a[ind])
+            weight_P = np.sum(weight_a[ind_P])
+            weight_PP = np.sum(weight_a[ind_P_perp])
+
+            self.fibp[i] = weight/volumes[i]
+            self.fibp_PNB[i]=weight_P/volumes[i]
+            self.fibp_P_perp[i]=weight_PP/volumes[i]
+            self.fibp_P_tang[i]=self.fibp_PNB[i]-self.fibp_P_perp[i]
+            self.fibp_NNB[i]=self.fibp[i]-self.fibp_PNB[i]
+
+        self.fibp_particles = np.dot(self.fibp, volumes)
+        if plot_flag == 1:
+            self.plot_1d(4, [rho, self.fibp, self.fibp_P_perp, self.fibp_P_tang, self.fibp_NNB], \
+                     ['TOT','P-perp','P-tang','N'], r'$\rho$', r'Fast ion birth profile $1/(s\cdot m^3)$')
+       
        
 class distribution_2d:
 
@@ -1068,12 +1131,14 @@ class distribution_2d:
         fig = plt.figure()
         tit=self.id
         ax  = fig.add_subplot(111)
-        CS  = ax.contourf(self.xplot, self.yplot, self.zplot, 50, cmap=my_cmap)
+        x,y = np.meshgrid(self.xplot, self.yplot)
+        CS  = ax.pcolor(x,y, self.zplot, cmap=my_cmap)
         plt.colorbar(CS)
         #ax.plot([np.min(self.xplot),np.max(self.xplot)], [5e5, 5e5], linewidth=3., color='k')
                
         if 'wall' in flag_dict and flag_dict['wall']==1:
             ax.plot(self.R_w, self.z_w, 'k', linewidth=2)
+            ax.axis('equal')
         if 'surf' in flag_dict and flag_dict['surf']==1:
             self._plot_RZsurf(ax)            
         if 'title' in flag_dict:
