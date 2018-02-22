@@ -19,9 +19,12 @@ NOTES:
 
 
 """
-from builtins import *
+try:
+    import builtins                  # <- python 3
+except ImportError:
+    import __builtin__ as builtins   # <- python 2.
+
 import numpy as np
-from pylab import *
 import re
 from itertools import islice
 #from pyTokamak.formats.geqdsk import file_numbers,file_tokens
