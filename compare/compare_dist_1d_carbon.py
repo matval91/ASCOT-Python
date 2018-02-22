@@ -17,7 +17,7 @@ yticks_m=ticker.MaxNLocator(M*2)
 xticks = ticker.MaxNLocator(M)
 
 styles = ['-','--', '-.']
-plot_flag = 01
+plot_flag =1
 shot = 2
 shot = 5
 if shot == 2:
@@ -25,16 +25,20 @@ if shot == 2:
     runs = [7,31]
 else:
     ascot_run = 0
-    runs = [12,11]
+    runs = [12,45]
 
 carbon = ["No imp.","Imp."]
 power = [0,0,0]
 curpow = [0,0,0]
 
+#dir='/home/vallar/ASCOT/runs/JT60SA/'
+direct='/Users/Matteo/Documents/work/ASCOT/runs/JT60SA/'
+fname = direct+"{:03d}".format(shot)+'/ascot_'+"{:03d}".format(shot)+"{:03d}".format(runs[0])+'.h5'
+fname1=fname
+fname2 = direct+"{:03d}".format(shot)+'/ascot_'+"{:03d}".format(shot)+"{:03d}".format(runs[1])+'.h5'
 
-fname = '/home/vallar/ASCOT/runs/JT60SA/'+"{:03d}".format(shot)+'/ascot_'+"{:03d}".format(shot)+"{:03d}".format(runs[0])+'.h5'
-dis = ascot_distributions.distribution_1d(fname)
-cur = np.zeros((len(runs), len(dis.volumes)-1), dtype=float)
+dis = ascot_distributions.SA_1d(fname)
+cur = np.zeros((len(runs), len(dis._volumes)), dtype=float)
 totcur = np.zeros((len(runs)), dtype=float)
 inipow = np.zeros((len(runs)), dtype=float)
 endpow = np.zeros((len(runs)), dtype=float)
@@ -47,42 +51,49 @@ powi_scal = np.zeros((len(runs)), dtype=float)
 powc_scal = np.zeros((len(runs)), dtype=float)
 
 
-pow_i = np.zeros((len(runs),len(dis.volumes)-1), dtype=float)
-pow_e = np.zeros((len(runs),len(dis.volumes)-1), dtype=float)
-dens = np.zeros((len(runs),len(dis.volumes)-1), dtype=float)
-pow_C = np.zeros((len(runs),len(dis.volumes)-1), dtype=float)
-cur_NNB = np.zeros((len(runs),len(dis.volumes)-1), dtype=float)
-cur_PNB_par = np.zeros((len(runs),len(dis.volumes)-1), dtype=float)
-cur_PNB_per = np.zeros((len(runs),len(dis.volumes)-1), dtype=float)
+pow_i = np.zeros((len(runs),len(dis._volumes)), dtype=float)
+pow_e = np.zeros((len(runs),len(dis._volumes)), dtype=float)
+dens = np.zeros((len(runs),len(dis._volumes)), dtype=float)
+pow_C = np.zeros((len(runs),len(dis._volumes)), dtype=float)
+cur_NNB = np.zeros((len(runs),len(dis._volumes)), dtype=float)
+cur_PNB_par = np.zeros((len(runs),len(dis._volumes)), dtype=float)
+cur_PNB_per = np.zeros((len(runs),len(dis._volumes)), dtype=float)
 
 npitch = 10
 pitch = np.linspace(-1,1,npitch, dtype=float)
 dist_RZE = np.zeros((len(runs), npitch), dtype=float)
 tmpdist = np.zeros(20, dtype=float)
 for i, el in enumerate(runs):
-    fname = '/home/vallar/ASCOT/runs/JT60SA/'+"{:03d}".format(shot)+'/ascot_'+"{:03d}".format(shot)+"{:03d}".format(el)+'.h5'
-    print fname
-    dis = ascot_distributions.distribution_1d(fname)
+    fname = direct+"{:03d}".format(shot)+'/ascot_'+"{:03d}".format(shot)+"{:03d}".format(el)+'.h5'
+    print(fname)
+    dis = ascot_distributions.SA_1d(fname)
     dis.rhodists()
 
-    #dis.plot_groupcurrent()
-
-    dis.sum_all()
-    #cur_NNB[i,:] = dis.data_NNB[:,2]*1e-3
-    #cur_PNB_par[i,:] = dis.data_PPAR[:,2]*1e-3
-    #cur_PNB_per[i,:] = dis.data_PPERP[:,2]*1e-3
-    cur[i,:] = dis.Itot_prof*1e-3
-    cur_scal[i] = np.dot(cur[i,:], dis.areas[1:])
-    pow_e[i,:] = dis.petot_prof*1e-3
-    powe_scal[i] = np.dot(pow_e[i,:], dis.volumes[1:])
-    pow_i[i,:] = dis.pitot_prof*1e-3
-    powi_scal[i] = np.dot(pow_i[i,:], dis.volumes[1:])
-    dens[i,:]  = dis.ntot_prof
+    dis.group_beams()
+    dis.SA_calculate_scalar()
+    #dis.sum_all()
+    cur_NNB[i,:] = dis.data_NNB[:,12]*1e-3
+    cur_PNB_par[i,:] = dis.data_PPAR[:,12]*1e-3
+    cur_PNB_per[i,:] = dis.data_PPERP[:,12]*1e-3
+    cur[i,:] = cur_NNB[i,:]+cur_PNB_par[i,:]+cur_PNB_per[i,:]
+    cur_scal[i] = dis.I_tot
+    pow_e[i,:] = 1e-3*(dis.data_NNB[:, dis.peind-1]+dis.data_PPAR[:, dis.peind-1]+\
+         dis.data_PPERP[:, dis.peind-1])
+    powe_scal[i] = dis.pe
+    pow_i[i,:] = 1e-3*(dis.data_NNB[:, dis.peind]+dis.data_PPAR[:, dis.peind]+\
+         dis.data_PPERP[:, dis.peind])
+    powi_scal[i] = dis.pi1
+    
+    dens[i,:]  = (dis.data_NNB[:, 0]+dis.data_PPAR[:, 0]+\
+         dis.data_PPERP[:, 0])
     try:
-        pow_C[i,:] = dis.pimptot_prof*1e-3
+        powc_scal[i] = dis.pi2
+        pow_C[i,:] = 1e-3*(dis.data_NNB[:, dis.peind+1]+dis.data_PPAR[:, dis.peind+1]+\
+         dis.data_PPERP[:, dis.peind+1])
     except:
-        pow_C[i,:] = np.zeros(len(dis.volumes)-1, dtype=float)    
-    powc_scal[i] = np.dot(pow_C[i,:], dis.volumes[1:])
+        powc_scal[i]=0
+        pow_C[i,:] = np.zeros(len(dis._volumes), dtype=float)    
+
     
 
     ptcls = ascot_particles.h5_particles(fname)
@@ -101,14 +112,14 @@ for i, el in enumerate(runs):
     
 
 for i, el in enumerate(runs):
-     print "RUN ", el, " ", carbon[i]
-     print "{:05.4f} % absorbed out of {:05.4f} MW".format((inipow[i]-pow_wall[i]-endpow[i])/30e6, 30e6)
-     print "{:05.4f} MW lost to the wall after slowing-down".format(pow_wall[i]*1e-6)
-     print "{:05.4f} kA NBCD".format(cur_scal[i])
+     print("RUN ", el, " ", carbon[i])
+     print("{:05.4f} % absorbed out of {:05.4f} MW".format((inipow[i]-pow_wall[i]-endpow[i])*100./30e6, 30e6))
+     print("{:05.4f} MW lost to the wall after slowing-down".format(pow_wall[i]*1e-6))
+     print("{:05.4f} kA NBCD".format(cur_scal[i]))
      tmppow = powe_scal[i]+powi_scal[i]+powc_scal[i]
-     print "{:05.4f} MW power to e || {:05.4f} % ".format(powe_scal[i]*1e-3,powe_scal[i]/tmppow*100. )
-     print "{:05.4f} MW power to i || {:05.4f} % ".format(powi_scal[i]*1e-3,powi_scal[i]/tmppow*100. )
-     print "{:05.4f} MW power to C || {:05.4f} % ".format(powc_scal[i]*1e-3,powc_scal[i]/tmppow*100. )
+     print("{:05.4f} MW power to e || {:05.4f} % ".format(powe_scal[i]*1e-3,powe_scal[i]/tmppow*100. ))
+     print("{:05.4f} MW power to i || {:05.4f} % ".format(powi_scal[i]*1e-3,powi_scal[i]/tmppow*100. ))
+     print("{:05.4f} MW power to C || {:05.4f} % ".format(powc_scal[i]*1e-3,powc_scal[i]/tmppow*100. ))
 
 #     print "{:05.4f} kA for injection power".format(totcur[i])
 #     print "{:05.4f} MW {:05.4f} % to el. for injection power".format(totpow_e[i],totpow_e[i]/totpow[i]*100.)
@@ -128,7 +139,7 @@ if plot_flag == 1:
     #ax.yaxis.set_major_locator(yticks)
     ##ax.yaxis.set_minor_locator(yticks_m)
     #ax.xaxis.set_major_locator(xticks)
-    
+    fig.tight_layout()
     fig = plt.figure()
     ax = fig.add_subplot(111)
     for i, el in enumerate(runs):
@@ -136,7 +147,7 @@ if plot_flag == 1:
 
         ax.plot(dis.rho, pow_e[i,:], linewidth = 2.3, linestyle=styles[i],color='r', label = carbon[i]+" e ")
         ax.plot(dis.rho, pow_i[i,:], linewidth = 2.3, linestyle=styles[i],color='g', label = carbon[i]+" D ")
-        if shot==5 and el == 11:
+        if shot==5 and el == 45:
             ax.plot(dis.rho, pow_C[i,:], linewidth = 2.3, linestyle=styles[i],color='b', label = carbon[i]+" C ")        
 
         #ax.plot(dis.rho, pow_i[i,:], linewidth = 2.3, linestyle=styles[i],color='r', label = "ions "+str(en[i])+' keV, run '+str(el))
@@ -148,6 +159,7 @@ if plot_flag == 1:
     ax.set_xlabel(r'$\rho$')
     ax.set_ylabel(r'Power density [$kW/m^3$]')
     ax.legend(loc='best')    
+    fig.tight_layout()
 
     # fig = plt.figure()
     # ax = fig.add_subplot(111)
