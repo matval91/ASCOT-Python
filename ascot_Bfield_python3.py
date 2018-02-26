@@ -6,8 +6,6 @@ Bfield_ascot(ascot h5 infile name)
 Bfield_eqdsk(eqdsk filename, nR to output, nz to output, device name (JT60SA, TCV) )
 
 """
-from __future__ import print_function
-
 import numpy as np
 import h5py, math
 import matplotlib.pyplot as plt
@@ -96,7 +94,7 @@ class Bfield_ascot:
         self.vardict = {}
         #store data with the correct labels
         
-        for k in self.labdict:
+        for k in self.labdict.keys():
             self.vardict[k] = self.infile[self.labdict[k]]
 
         self.nrho = self.vardict['psi_rho'].shape[0]
@@ -120,8 +118,8 @@ class Bfield_ascot:
         """
         self.walllabdict = {"R_wall":"/wall/2d/R", "Z_wall":"/wall/2d/z",\
                             "divflag":"/wall/2d/divFlag", "segLen":"/wall/2d/segLen"}
-        self.w = dict.fromkeys(self.walllabdict)
-        for k in self.walllabdict:
+        self.w = dict.fromkeys(self.walllabdict.keys())
+        for k in self.walllabdict.keys():
             self.w[k] = self.infile[self.walllabdict[k]].value
 
 
@@ -145,47 +143,30 @@ class Bfield_ascot:
         Plots psi_2D, q, Bphi
         
         """
-        #=====================================================================================
-        # SET TEXT FONT AND SIZE
-        #=====================================================================================
-#        plt.rc('linethick',2)
-        plt.rc('xtick', labelsize=12)
-        plt.rc('ytick', labelsize=12)
-        plt.rc('axes', labelsize=15)
-        #=====================================================================================
         n_row = 1
         n_col = 3
-        f, axarr = plt.subplots(n_row, n_col)
-        edge = self.infile['boozer/psiSepa'][:]; axis=self.infile['boozer/psiAxis'][:]
-
+        f, axarr = plt.subplots(n_row, n_col)        
         for e,val in enumerate(["psi_2D","q","bphi"]):
             currax = axarr[e]
             #plt.title(val)
             #plot for mag surfaces 2D
             if val == "psi_2D":
-                yplot = (-1*self.vardict[val][:]-edge)/(axis-edge)
                 r,z = self.vardict['r'], self.vardict['z']
-                CS = currax.contour(r,z,yplot, 20)
-                currax.contour(r,z,yplot,1, colors='k', linewidths=3.)
+                CS = currax.contour(r,z,self.vardict[val], 20)
+                currax.contour(r,z,self.vardict[val],1, colors='k', linewidths=3.)
                 CB = plt.colorbar(CS)
                 currax.set_xlabel("R [m]")
                 currax.set_ylabel("Z [m]")
                 currax.plot(self.w["R_wall"], self.w["Z_wall"], 'k')
-                currax.axis('equal') 
+                currax.axis('equal')
             elif val == 'bphi': #plot of g
-                currax.plot(self.vardict['r'], self.vardict[val][50,:], 'k', lw=2.3)
+                currax.plot(self.vardict['r'], self.vardict[val][50,:])
                 currax.set_xlabel(r'$R [m]$')
                 currax.set_ylabel(r'$B_\phi$')
-#                currax.set_position([box1.x0, box1.y0*0.9, box1.width, box1.height*0.5])
             elif val == 'q': #plot of q
-                currax.plot(self.rho, -1*self.vardict[val].value, 'k', lw=2.3)
+                currax.plot(self.rho, -1*self.vardict[val].value)
                 currax.set_xlabel(r'$\rho_{POL}$')
                 currax.set_ylabel(r'q')
-#                box1 = currax.get_position()
-#                print(val)
-#                print(box1.x0, box1.y0, box1.width, box1.height)
-#                currax.set_position([box1.x0, 0.6, 0.4, box1.height*0.5])
-        f.tight_layout()
         plt.show()
 
 
@@ -448,7 +429,7 @@ class Bfield_eqdsk:
         
         self.hdr={'nSHOT':0,'tSHOT':0,'modflg':0,'FPPkat':0,'IpiFPP':self.eqdsk.Ip,\
                   'PFxx':[],'RPFx':[],'zPFx':[],'SSQ':[], 'devnam':self.devnam,\
-                  'rhoPF':nrho,'PFL':dummy,'Vol':dummy,'Area':dummy,'Qpl':dummy} 
+                  'rhoPF':129,'PFL':dummy,'Vol':dummy,'Area':dummy,'Qpl':dummy} 
         
         # find axis
         self.ax = self._min_grad(x0=[self.eqdsk.Raxis, self.eqdsk.Zaxis])     
@@ -477,7 +458,7 @@ class Bfield_eqdsk:
         
         self.hdr={'nSHOT':0,'tSHOT':0,'modflg':0,'FPPkat':0,'IpiFPP':self.eqdsk.Ip,\
                   'PFxx':[],'RPFx':[],'zPFx':[],'SSQ':[], 'devnam':self.devnam,\
-                  'rhoPF':nrho,'PFL':dummy,'Vol':dummy,'Area':dummy,'Qpl':dummy} 
+                  'rhoPF':129,'PFL':dummy,'Vol':dummy,'Area':dummy,'Qpl':dummy} 
 
         #Find x-point
         f = plt.figure()

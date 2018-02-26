@@ -14,17 +14,14 @@ CHANGE HISTORY:
 -16/10/2015 - generators introduced for reading input file
 -06/2017 - modified to work with Python 3
 -09/2017 - changes applied to version in /local/lib
--02/2018 - added  backwards compatibility with python 2
+
 NOTES:
 
 
 """
-try:
-    import builtins                  # <- python 3
-except ImportError:
-    import __builtin__ as builtins   # <- python 2.
-
+from builtins import *
 import numpy as np
+from pylab import *
 import re
 from itertools import islice
 #from pyTokamak.formats.geqdsk import file_numbers,file_tokens
@@ -199,7 +196,7 @@ def ReadEQDSK(in_filename):
 	psi_grid = np.linspace(psiaxis,psiedge,nrbox)
 	
 	#corresponding s=sqrt(psi_bar)
-	rhopsi = np.sqrt(abs(psi_grid-psiaxis)/abs(psiedge-psiaxis))
+	rhopsi = sqrt(abs(psi_grid-psiaxis)/abs(psiedge-psiaxis))
 	fin.close()
 	
 		

@@ -43,6 +43,7 @@ plt.subplots_adjust(top=0.95,bottom=0.2,left=0.2,right=0.95)
 
 #=====================================================================================
 # SET TICK LOCATION
+# needs matplotlib.ticker
 #=====================================================================================
 
 # Create your ticker object with M ticks

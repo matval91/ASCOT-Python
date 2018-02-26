@@ -1,7 +1,6 @@
 """
 matteo.vallar@igi.cnr.it - 11/2017
 
-02/2018: now for python 3 with backwards compatibility
 
 Class for profiles
 -h5_profiles(h5 infile name, nrho wanted)
@@ -10,7 +9,7 @@ Class for profiles
 -ufiles(array of prefixes of the files, array of suffixes of the file, shot number, nrho wanted)
 -SA_datfiles(name of the input dat file (CRONOS format), nrho wanted, nion to write, array with mass number, array with Z (proton number))
 """
-from __future__ import print_function
+
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
@@ -18,7 +17,7 @@ from matplotlib import ticker
 from scipy import interpolate, integrate
 import scipy.io as sio
 import time
-#import ufiles as uf
+import ufiles as uf
 import ascot_Bfield
 
 colours = ['k','b','r','c','g',\
@@ -61,16 +60,12 @@ class profiles:
         """
         
         out_fname = "input.plasma_1d"
-        outfile = open(out_fname, 'w+')
-#        header=''
+        outfile = open(out_fname, 'wa')
+        
         outfile.write('# Input file for ASCOT containing radial 1D information of plasma temperature,density and toroidal rotation \n')
-#        header += '# Input file for ASCOT containing radial 1D information of plasma temperature,density and toroidal rotation \n'
         outfile.write('# range must cover [0,1] of normalised poloidal rho. It can exceed 1. \n')
-#        header += '# range must cover [0,1] of normalised poloidal rho. It can exceed 1. \n'
         outfile.write('# {:s} (first 3 lines are comment lines) \n'.format(time.strftime('%d%b%y')))
-#        header +='# {:s} (first 3 lines are comment lines) \n'.format(time.strftime('%d%b%y'))
         outfile.write('{:d}\t{:1d}\t# Nrad,Nion \n'.format(self.nrho,self.nion))
-#        header +='{:d}\t{:1d}\t# Nrad,Nion \n'.format(self.nrho,self.nion)
         strcoll = str(1)+' ' # for electrons
         strZ=''
         strA=''
@@ -84,7 +79,6 @@ class profiles:
         outfile.write(strZ)				
         outfile.write(strA)
         outfile.write(strcoll)
-#        header += strZ + strA + strcoll
             
         lab_len=15
         strlabel='RHO (pol)'.ljust(lab_len)+'Te (eV)'.ljust(lab_len)+'Ne (1/m3)'.ljust(lab_len)+'Vtor_I (rad/s)'.ljust(lab_len)+\
@@ -93,15 +87,13 @@ class profiles:
             tmpstr ='Ni{:d} (1/m3)'.format(i+1)
             strlabel+=tmpstr.ljust(lab_len)
         strlabel+='\n'
-#        header +=strlabel
         outfile.write(strlabel)
         data=np.array((self.rho, self.te, self.ne, self.vt, self.ti), dtype=float)
         data = np.concatenate([data, [self.ni[i,:] for i in range(self.nion)]])
 
         data=np.transpose(data)
-        #data.tofile(outfile, sep='\t', format='%15e')
-        np.savetxt(outfile, data, fmt='%.15e')
-        #outfile.close()
+        np.savetxt(outfile, data, fmt='%15e')
+        outfile.close()
 
     def plot_profiles(self):
         """
@@ -110,14 +102,14 @@ class profiles:
         #=====================================================================================
         # SET TEXT FONT AND SIZE
         #=====================================================================================
-#        plt.rc('linethick',2)
-        plt.rc('xtick', labelsize=12)
-        plt.rc('ytick', labelsize=12)
-        plt.rc('axes', labelsize=15)
+        plt.rc('linethick',)
+        plt.rc('xtick', labelsize=20)
+        plt.rc('ytick', labelsize=20)
+        plt.rc('axes', labelsize=20)
         #=====================================================================================
         fig=plt.figure()
         axte = fig.add_subplot(221)
-        axne = fig.add_subplot(222, sharex=axte)
+        axne = fig.add_subplot(222)
         axti = fig.add_subplot(223)
         axni = fig.add_subplot(224)
         #axvt = fig.add_subplot(325)
@@ -127,14 +119,7 @@ class profiles:
         axti.plot(self.rho, self.ti*1e-3,'k', linewidth=lw)
         #axvt.plot(self.rho, self.vt,'k', linewidth=lw)
         for i in range(self.nion):
-            if self.A[i]==2.:
-                label='D'
-            elif self.A[i]==12:
-                label='C'
-            else:
-                label='UNSPEC'
-            axni.plot(self.rho, self.ni[i,:],colours[i], \
-                      label=label, linewidth=lw)
+            axni.plot(self.rho, self.ni[i,:],colours[i], label='A='+str(self.A[i]), linewidth=lw)
         #axni.plot(self.rho, self.ne, 'k--', label='No imp.', linewidth=lw)
         axni.legend(loc='best')
 
@@ -163,9 +148,9 @@ class profiles:
 
 
         axte.set_ylabel(r'$T_e$ [keV]')
-        axne.set_ylabel(r'$n_e$ [1/$m^3$]')
+        axne.set_ylabel(r'$N_e$ [1/$m^3$]')
         axti.set_ylabel(r'$T_i$ [keV]')
-        axni.set_ylabel(r'$n_i$ [1/$m^3$]')
+        axni.set_ylabel(r'$N_i$ [1/$m^3$]')
         #axvt.set_ylabel(r'$V_{tor} [rad/s]$')
         fig.tight_layout() # Or equivalently,  "plt.tight_layout()"
         plt.show()
@@ -459,71 +444,71 @@ class matlab_profiles(profiles):
         self._extrapolate()
 
 
-#class ufiles(profiles):
-#    """
-#    Function to write the profile file for ASCOT from the Ufiles
-#
-#    __init__(self,pre,sub,shot,nrho): correctly initalise and get the data from the Ufiles
-#    smooth(self):smooth input data to grid wanted
-#    """
-#
-#    def __init__(self,pre,sub,shot,nrho):
-#        
-#        profiles.__init__(self)
-#        self.nrho=nrho
-#        if len(pre)!=len(sub):
-#            print("len of pre must be len of sub")
-#            raise ValueError
-#
-#        print("Opening values for shot ", shot)
-#
-#        #GETTING number of rho
-#        fname = str(pre[0])+str(shot)+'.'+str(sub[0])
-#        tmp_uf = uf.RU(fname)
-#        self.nrho_in = tmp_uf.nf
-#        self.rho_in = tmp_uf.values['Y']
-#
-#
-#        self.nion  = 1
-#        self.rho   = np.linspace(0,1,self.nrho, dtype = float)
-#        self.ne_in = np.zeros(self.nrho_in, dtype = float)
-#        self.ni_in = np.zeros((self.nion,self.nrho_in), dtype = float)
-#        self.te_in = np.zeros(self.nrho_in, dtype = float)
-#        self.ti_in = np.zeros(self.nrho_in, dtype = float)
-#        self.vt_in = np.zeros(self.nrho_in, dtype = float)
-#
-#        self.ni = np.zeros((self.nion, self.nrho), dtype=float)
-#
-#        self.A = [2]
-#        self.Z = [1]
-#        self.coll_mode = np.ones(self.nion+1)
-#
-#        for i, el in enumerate(pre):
-#            fname = el+str(shot)+'.'+str(sub[i])
-#            tmp_uf = uf.RU(fname)
-#            if el == 'N':
-#                self.ne_in = tmp_uf.fvalues[0]*1e6 #conversion from cm^-3 to m^-3
-#            if el == 'T':
-#                if sub[i] == 'ELE':
-#                    self.te_in = tmp_uf.fvalues[0]
-#                else:
-#                    self.ti_in = tmp_uf.fvalues[0]
-#
-#        self.ni_in[0,:] = self.ne_in
-#        self.smooth()
-#
-#
-#    def smooth(self):
-#        """
-#        smooth input data to grid wanted
-#        """
-#        self.te = self._spline(self.rho_in, self.te_in, self.rho)
-#        self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
-#        self.ti = self._spline(self.rho_in, self.ti_in, self.rho)
-#        self.vt = self._spline(self.rho_in, self.vt_in, self.rho)
-#        for i in range(self.nion):
-#            self.ni[i,:]=self._spline(self.rho_in, self.ni_in[i,:], self.rho)
-#        self._extrapolate()
+class ufiles(profiles):
+    """
+    Function to write the profile file for ASCOT from the Ufiles
+
+    __init__(self,pre,sub,shot,nrho): correctly initalise and get the data from the Ufiles
+    smooth(self):smooth input data to grid wanted
+    """
+
+    def __init__(self,pre,sub,shot,nrho):
+        
+        profiles.__init__(self)
+        self.nrho=nrho
+        if len(pre)!=len(sub):
+            print("len of pre must be len of sub")
+            raise ValueError
+
+        print("Opening values for shot ", shot)
+
+        #GETTING number of rho
+        fname = str(pre[0])+str(shot)+'.'+str(sub[0])
+        tmp_uf = uf.RU(fname)
+        self.nrho_in = tmp_uf.nf
+        self.rho_in = tmp_uf.values['Y']
+
+
+        self.nion  = 1
+        self.rho   = np.linspace(0,1,self.nrho, dtype = float)
+        self.ne_in = np.zeros(self.nrho_in, dtype = float)
+        self.ni_in = np.zeros((self.nion,self.nrho_in), dtype = float)
+        self.te_in = np.zeros(self.nrho_in, dtype = float)
+        self.ti_in = np.zeros(self.nrho_in, dtype = float)
+        self.vt_in = np.zeros(self.nrho_in, dtype = float)
+
+        self.ni = np.zeros((self.nion, self.nrho), dtype=float)
+
+        self.A = [2]
+        self.Z = [1]
+        self.coll_mode = np.ones(self.nion+1)
+
+        for i, el in enumerate(pre):
+            fname = el+str(shot)+'.'+str(sub[i])
+            tmp_uf = uf.RU(fname)
+            if el == 'N':
+                self.ne_in = tmp_uf.fvalues[0]*1e6 #conversion from cm^-3 to m^-3
+            if el == 'T':
+                if sub[i] == 'ELE':
+                    self.te_in = tmp_uf.fvalues[0]
+                else:
+                    self.ti_in = tmp_uf.fvalues[0]
+
+        self.ni_in[0,:] = self.ne_in
+        self.smooth()
+
+
+    def smooth(self):
+        """
+        smooth input data to grid wanted
+        """
+        self.te = self._spline(self.rho_in, self.te_in, self.rho)
+        self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
+        self.ti = self._spline(self.rho_in, self.ti_in, self.rho)
+        self.vt = self._spline(self.rho_in, self.vt_in, self.rho)
+        for i in range(self.nion):
+            self.ni[i,:]=self._spline(self.rho_in, self.ni_in[i,:], self.rho)
+        self._extrapolate()
 
 
 
@@ -579,12 +564,9 @@ class SA_datfiles(profiles):
         """
         reads q and the poloidal flux from an eqdsk to convert phi2psi
         """
-        #dir_JT='/home/vallar/JT60-SA/'
-        dir_JT='./'
+        dir_JT='/home/vallar/JT60-SA/'
         shot='005/'
-        shot='004/'
-        eqdsk_fname = dir_JT+'JT-60SA_scenario5_eqdsk'
-        eqdsk_fname = dir_JT+'JT-60SA_scenario4_uptowall.geq'
+        eqdsk_fname = dir_JT+shot+'JT-60SA_scenario5_eqdsk'
         #eqdsk_fname = 'JT-60SA_scenario4_glf23_chease_cocos02.geq'
         try:
             b = ascot_Bfield.Bfield_eqdsk(eqdsk_fname,129,129, 'JT60SA', COCOS=3)
@@ -594,9 +576,11 @@ class SA_datfiles(profiles):
             raise ValueError
         qprof_t   = b.eqdsk.q
         rho_eqdsk = b.eqdsk.rhopsi
+        polflux_eqdsk = rho_eqdsk**2
         self.param_q = interpolate.interp1d(rho_eqdsk, qprof_t)
 
-    def ion_densities_old(self):
+
+    def ion_densities(self):
         """
         Compute C ion densities starting from ni_in, ne_in and zeff
         Solving the following system (valid only if D and C(6+) are the ion species):
@@ -607,19 +591,6 @@ class SA_datfiles(profiles):
         k = (self.zeff_in-1)/(self.Z[1]**2-self.Z[1]*self.zeff_in)
         nD = self.ne_in*(1-6*k)/(1+6*k)
         nC = self.ne_in*(2*k)/(1+6*k)
-        self.ni_in[0,:] = nD
-        self.ni_in[1,:] = nC
-
-    def ion_densities(self):
-        """
-        Compute C ion densities starting from ni_in, ne_in and zeff
-        Solving the following system (valid only if D and C(6+) are the ion species):
-            (1) Zeff = sum(ni*Zi**2)/sum(ni*Zi)
-            (2) ne   = nD + 6*nC
-        """
-        nD = self.ne_in*(6-self.zeff_in)/(5.)
-        nC = self.ne_in*(self.zeff_in-1)/(30.)
-        print(nC/nD)
         self.ni_in[0,:] = nD
         self.ni_in[1,:] = nC
 
