@@ -172,8 +172,10 @@ class distribution_1d:
         try:
             self._volumes = self.infile['distributions/rhoDist/shellVolume'].value
             self._areas   = self.infile['distributions/rhoDist/shellArea'].value
-            self._evaluate_shellVol(rhonew)
-            self._evaluate_shellArea(rhonew)
+            self.volumes = self._volumes
+            self.areas   = self._areas
+#            self._evaluate_shellVol(rhonew)
+#            self._evaluate_shellArea(rhonew)
         except:
             print("No /distributions/rhoDist/ in ", infile_n)    
         
@@ -831,6 +833,8 @@ class SA_1d(distribution_1d):
         else:
             plot_article(len(values)-1, values, labels2, r'$\rho$',\
                          ylabel, self.infile_n)
+                         
+                         
     def plot_current_groups(self):
         """
         Plots the current grouped
@@ -1106,6 +1110,10 @@ class distribution_2d:
             self._integrate_space()
         self._write('pitch','E', self.f_space_int, units=['adimensional', 'J'])
 
+    def write_allf(self):
+        self._write4d('R','z','pitch','E', self.fdist_notnorm/self.norm, \
+                         units=['m','m','adimensional', 'J'])
+
     def _plot_1d(self, xlab, ylab):
         """
         Hidden method to plot 1D functions
@@ -1199,6 +1207,48 @@ class distribution_2d:
             #    np.savetxt(f_handle, self.dict_dim[lab])
             np.savetxt(f_handle, self.y, fmt='%.5e')  
 
+    def _write4d(self, *args, **kwargs):
+        """
+        Method to write the distribution (4d) to dat file
+        """
+        try:
+            units = kwargs['units']
+        except:
+            units = ['adimensional','adimensional',
+                     'adimensional','adimensional']
+        
+        x_labels = [args[i] for i in range(len(args)-1)]
+        self.y = args[-1]
+        fname = self.id+'_'+args[0]+args[1]+'.dat'
+        self._backup_file(fname)
+
+        self.info = '' + self.infile_n + ' ' + ' matteo.vallar@igi.cnr.it ' + \
+                        time.strftime("%d/%m/%Y")
+        self.info2 = 'For each dimension: name  units   number of bins     min     max'
+        self.header = '' 
+        for i in range(len(args)-1):
+            self.header += args[i]+' '
+            self.header += units[i]+' '            
+            self.header += ' '+str(len(self.dict_dim[x_labels[i]]))
+            self.header += ' '+str(min(self.dict_dim[x_labels[i]]))
+            self.header += ' '+str(max(self.dict_dim[x_labels[i]]))
+            self.header += ' '
+            
+        self.header += '\n'
+        self.header += "# Normalisation : {0:.5e}".format(round(self.norm, 2))
+                    
+        f_handle = open(fname,'w')
+        f_handle.write('# '+self.info+'\n')
+        f_handle.write('# '+self.info2+'\n') 
+        f_handle.write('# '+self.header+'\n')
+        #for lab in x_labels:
+        #    np.savetxt(f_handle, self.dict_dim[lab])
+        print(self.y[0,:,:,:,:].shape)
+        for sl in self.y[0,:,:,:,:]:
+            for ssll in sl:
+                np.savetxt(f_handle, ssll, fmt='%.5e')
+                f_handle.write('\n')
+            f_handle.write('\n')
 
     def _computenorm(self):
         """

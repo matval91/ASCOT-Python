@@ -108,34 +108,60 @@ class particles:
         """
         Method to plot R vs z of the ionised particles, useful mostly with bbnbi
         """
+        #=====================================================================================
+        # SET TEXT FONT AND SIZE
+        #=====================================================================================
+        #plt.rc('font', family='serif', serif='Palatino')
+        #plt.rc('text', usetex=True)
+        plt.rc('xtick', labelsize=20)
+        plt.rc('ytick', labelsize=20)
+        plt.rc('axes', labelsize=20)
+        #=====================================================================================        
+        
         try:
             x=self.data_i['Rprt']
             y=self.data_i['zprt']
         except:
             x=self.data_i['R']
             y=self.data_i['z']
-        if np.mean(x)==999.:
+        if np.mean(x)==999. or np.mean(x)==-999.:
             x=self.data_i['R']
             y=self.data_i['z']
-            
-        f=plt.figure()
+        #w, h = plt.figaspect(1.3)
+        f=plt.figure(figsize=(6,7))
         f.suptitle(self.fname)
         ax = f.add_subplot(111)
         self._plot_RZsurf(ax)
         #hb = ax.hexbin(x, y, gridsize=100, cmap=my_cmap)
         hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
         f.colorbar(hb[3], ax=ax)
-        ax.set_xlabel('R')
-        ax.set_ylabel('z')
+        ax.set_xlabel('R [m]')
+        ax.set_ylabel('z [m]')
 
         if len(self.R_w)==0:
             self._readwall()
         ax.plot(self.R_w , self.z_w, 'k', linewidth=3)
+        #=====================================================================================
+        # SET TICK LOCATION
+        #=====================================================================================
+
+        # Create your ticker object with M ticks
+        M = 4
+        yticks = ticker.MaxNLocator(M)
+        xticks = ticker.MaxNLocator(M)
+        # Set the yaxis major locator using your ticker object. You can also choose the minor
+        # tick positions with set_minor_locator.
+        ax.yaxis.set_major_locator(yticks)
+        #ax.yaxis.set_minor_locator(yticks_m)
+        ax.xaxis.set_major_locator(xticks)
+        #=====================================================================================
 
         ax.axis('equal')
         ax.axis([min(self.R_w), max(self.R_w), min(self.z_w), max(self.z_w)])
         #ax.set_xrange([min(self.R_w), max(self.R_w)])
-        #ax.set_yrange([min(self.z_w), max(self.z_w)])                   
+        #ax.set_yrange([min(self.z_w), max(self.z_w)])    
+        plt.subplots_adjust(top=0.95,bottom=0.12,left=0.25,right=0.9)
+                  
         plt.show()
 
 
@@ -143,25 +169,47 @@ class particles:
         """
         Method to plot XY of ionisation, without difference between the beams
         """
-
+        try:
+            R=self.data_i['Rprt']
+            z=self.data_i['zprt']
+            phi = self.data_i['phiprt']
+        except:
+            R=self.data_i['R']
+            z=self.data_i['z']
+            phi = self.data_i['phiprt']
+            
+            
+        if np.mean(R)==999. or np.mean(R)==-999.:
+            R=self.data_i['R']
+            z=self.data_i['z']
+            phi = self.data_i['phi']*math.pi/180.
         x=np.zeros(self.npart)
         y=np.zeros(self.npart)
-        
-        for i, el in enumerate(self.data_i['Rprt']):
-            x[i]=el*math.cos(self.data_i['phiprt'][i])
-            y[i]=el*math.sin(self.data_i['phiprt'][i])
+        R0=2.7
+
+        for i, el in enumerate(R):
+            x[i]=el*math.cos(phi[i])
+            y[i]=el*math.sin(phi[i])
             
-        f=plt.figure()
+        f=plt.figure(figsize=(12,10))
+        f.text(0.01, 0.95, self.id)
+
         ax=f.add_subplot(111)
         hb = ax.hist2d(x, y, bins=100, cmap=my_cmap, normed=True)
         f.colorbar(hb[3], ax=ax)
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
+        ax.set_xlabel('X [m]')
+        ax.set_ylabel('Y [m]')
+        ax.set_xlim([-5., 5.])
+        ax.set_ylim([-5., 5.])          
+        ax.axis('equal')        
         theta=np.arange(0,6.3,0.02*6.28)
         if len(self.R_w)==0:
             self._readwall()
         ax.plot(np.min(self.R_w)*np.cos(theta) , np.min(self.R_w)*np.sin(theta), 'k', linewidth=3)
         ax.plot(np.max(self.R_w)*np.cos(theta) , np.max(self.R_w)*np.sin(theta), 'k', linewidth=3)
+        circle1 = plt.Circle((0, 0), R0, color='r', fill=False, linestyle='--')        
+        ax.add_artist(circle1)
+        f.tight_layout()
         plt.show()
 
     def plot_ioniz_beams(self):
@@ -353,25 +401,28 @@ class particles:
         vphi = self.data_e['vphi'][ind]
         r = self.data_e['R'][ind]
         z = self.data_e['z'][ind]
-        theta = np.arctan2(z,r-3.)*180./math.pi
+        R0=self.infile['misc/geomCentr_rz'][0]
+        theta = np.arctan2(z,r-R0)
         phi = self.data_e['phi'][ind]
         x = r*np.cos(phi); y=r*np.sin(phi)        
-            
+      
+        
         
         plt.close('all')
-        plt.figure(); plt.hist(pitch, bins=20); plt.xlabel('Pitch'); plt.ylabel('Number of particles')
-        plt.figure(); plt.hist(energy, bins=30); plt.xlabel('Energy'); plt.ylabel('Number of particles')
-#        plt.figure(); plt.hist(vr*1e-3, bins=20); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel('Number of particles')
-#        plt.figure(); plt.hist(vz*1e-3, bins=20); plt.xlabel(r'$v_z$ [km/s]'); plt.ylabel('Number of particles')
-        plt.figure(); plt.hist(phi, bins=20); plt.xlabel('Phi (toroidal angle)'); plt.ylabel('Number of particles')
-        plt.figure(); plt.hist(theta, bins=20); plt.xlabel('theta (poloidal angle)'); plt.ylabel('Number of particles')
-
+#        plt.figure(); plt.hist(pitch, bins=20); plt.xlabel('Pitch'); plt.ylabel('Number of particles')
+#        plt.figure(); plt.hist(energy, bins=30); plt.xlabel('Energy'); plt.ylabel('Number of particles')
+##        plt.figure(); plt.hist(vr*1e-3, bins=20); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel('Number of particles')
+##        plt.figure(); plt.hist(vz*1e-3, bins=20); plt.xlabel(r'$v_z$ [km/s]'); plt.ylabel('Number of particles')
+#        plt.figure(); plt.hist(phi, bins=20); plt.xlabel('Phi (toroidal angle)'); plt.ylabel('Number of particles')
+#        plt.figure(); plt.hist(theta, bins=20); plt.xlabel('theta (poloidal angle)'); plt.ylabel('Number of particles')
+#
         plt.figure(); plt.plot(self.R_w, self.z_w, 'k', lw=2.3); plt.scatter(r,z, 100, c=energy); plt.title('Energy');plt.colorbar(); plt.xlabel('R'); plt.ylabel('z')
         plt.figure(); plt.scatter(x,y);  plt.grid('on'); plt.xlabel(r'x'); plt.ylabel('y')
-       
-        plt.figure(); plt.scatter(pitch, energy*1e-3);
-        plt.scatter(pitchi, energyi*1e-3, color='r');  plt.grid('on'); plt.xlabel(r'Pitch $v_\parallel/v$'); plt.ylabel('Energy [keV]')
+#       
+#        plt.figure(); plt.scatter(pitch, energy*1e-3);
+#        plt.scatter(pitchi, energyi*1e-3, color='r');  plt.grid('on'); plt.xlabel(r'Pitch $v_\parallel/v$'); plt.ylabel('Energy [keV]')
 
+        plt.figure(); plt.hist2d(phi, theta, bins=30, cmap=my_cmap); plt.xlabel(r'$\phi$'); plt.ylabel(r'$\theta$')
         #plt.figure(); plt.scatter(vphi*1e-3, np.sqrt(vr**2+vz**2)*1e-3);  plt.grid('on'); plt.xlabel(r'$v_\parallel$ [km/s]'); plt.ylabel(r'$v_\perp [km/s]$');
         #plt.figure(); plt.scatter(vr*1e-3, vz*1e-3);  plt.grid('on'); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel(r'$v_z$ [km/s]'); plt.axis('equal')
 
@@ -379,6 +430,24 @@ class particles:
         
         #ax=plt.axes(); ax.quiver(r,z,np.multiply(vr,1./norm_v), np.multiply(vz, 1./norm_v));
         plt.tight_layout()
+
+    def save_phitheta_losses(self):
+        """
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]
+        R0=self.infile['misc/geomCentr_rz'][0]
+        theta = np.arctan2(z,r-R0)
+        phi = self.data_e['phi'][ind]        
+        hist = np.histogram2d(theta, phi, bins=30)
+        f_name_hist='hist_phithetaloss_'+self.id+'.dat'
+        with open(f_name_hist, 'w+') as f_handle:
+            f_handle.write('phi '+ str(len(hist[1]))+'\n')
+            f_handle.write('theta '+str(len(hist[2]))+'\n')
+            np.savetxt(f_handle,hist[1]) #phi
+            np.savetxt(f_handle,hist[2]) #theta
+            np.savetxt(f_handle,hist[0])
         
     def _power_coupled(self):
         """
@@ -397,11 +466,15 @@ class particles:
         Reads the position of RZ surfaces from ascot file
         now the edge is set to the value for scenario 5 from JT60SA
         """       
-        f = h5py.File('ascot_'+self.id+'.h5')
+        f = h5py.File('ascot_'+str(self.id[0:3])+'055.h5')
+        print("READING SURF FROM ascot_"+self.id+".h5")
         self.RZsurf = f['bfield/2d/psi'].value
         self.Rsurf = f['bfield/r']
         self.zsurf = f['bfield/z']
         edge = np.abs(f['boozer/psiSepa'][:]); axis=np.abs(f['boozer/psiAxis'][:])
+        #if self.id[0:3]=='005':
+            #print("Multiply times -1")
+            #self.RZsurf=-1.*self.RZsurf
         self.RZsurf = (self.RZsurf - axis )/(edge-axis)
         self.RZsurf = np.sqrt(self.RZsurf)            
 
@@ -581,14 +654,13 @@ class dat_particles(particles):
         p = self.data_i['pitch']
         rho = self.data_i['rho']
         qpart = np.zeros(self.npart)
-        q = self.infile['/boozer/qprof'][:]
-        rho_q = self.infile['/boozer/psi'][:]**0.5
-        for i in range(self.npart):
-            ind = np.argmin(rho[i]-rho_q>0)
-            qpart[i] = q[ind]
+#        q = self.infile['/boozer/qprof'][:]
+#        rho_q = self.infile['/boozer/psi'][:]**0.5
+#        for i in range(self.npart):
+#            ind = np.argmin(rho[i]-rho_q>0)
+#            qpart[i] = q[ind]
             
         nbins=10; nsurf=20
-        
         hist_p, xedges_p, yedges_p = np.histogram2d(r[ind_p], z[ind_p], \
                                     bins=nbins)
         hist_t, xedges_t, yedges_t = np.histogram2d(r[ind_t], z[ind_t], \
@@ -598,33 +670,41 @@ class dat_particles(particles):
         if np.max(hist_p)> np.max(hist_t):
             ind_cb=0
             
-        f=plt.figure()
-        f.suptitle(self.id)
+        f=plt.figure(figsize=(11,10))
+        #f.suptitle(self.id)
+        f.text(0.01, 0.95, self.id)
         
         axrz = f.add_subplot(221)
         x = np.linspace(np.min(r[ind_p]), np.max(r[ind_p]), num=nbins)
         y = np.linspace(np.min(z[ind_p]), np.max(z[ind_p]), num=nbins)
         CL[0]=axrz.contourf(x,y,hist_p.T, nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
+#        CL[0]=axrz.pcolor(x,y,hist_p.T, cmap=my_cmap, vmin=0, vmax=vmaxt)
+        
         self._plot_RZsurf(axrz)
-        axrz.set_title('Passing n(R,Z)'); 
+        axrz.set_title('Passing N(R,Z)'); 
         axrz.set_xlabel('R [m]'); axrz.set_ylabel('Z [m]')        
-    
+        axrz.axis('equal');         
+#        axrz.set_xlim([np.min(x), np.max(x)]);
+        axrz.set_ylim([-1., 1.])
         axrz2 = f.add_subplot(222)
         x = np.linspace(np.min(r[ind_t]), np.max(r[ind_t]), num=nbins)
         y = np.linspace(np.min(z[ind_t]), np.max(z[ind_t]), num=nbins)
         CL[1]=axrz2.contourf(x,y,hist_t.T, nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
+#        CL[1]=axrz2.pcolor(x,y,hist_t.T, cmap=my_cmap, vmin=0, vmax=vmaxt)
+
         self._plot_RZsurf(axrz2)
-        axrz2.set_title('Trapped n(R,Z)'); 
+        axrz2.set_title('Trapped N(R,Z)'); 
         axrz2.set_xlabel('R [m]'); axrz2.set_ylabel('Z [m]')
         cbar_ax = f.add_axes([0.85, 0.6, 0.03, 0.3])
         f.colorbar(CL[ind_cb], cax=cbar_ax)
-        axrz.axis('equal'); axrz2.axis('equal')
-        axrz.set_xlim([np.min(x), np.max(x)]); axrz.set_ylim([np.min(y), np.max(y)])
-        axrz2.set_xlim([np.min(x), np.max(x)]); axrz2.set_ylim([np.min(y), np.max(y)])
+        axrz2.axis('equal')
+#        axrz2.set_xlim([np.min(x), np.max(x)]); 
+#        axrz2.set_ylim([np.min(y), np.max(y)])
+        axrz2.set_ylim([-1., 1.])
 
 
-        hist_t, yedges_t, xedges_t = np.histogram2d(rho[ind_t], p[ind_t], bins=nbins)
-        hist_p, yedges_p, xedges_p = np.histogram2d(rho[ind_p], p[ind_p], bins=nbins)
+        hist_t, yedges_t, xedges_t = np.histogram2d(rho[ind_t], p[ind_t],bins=nbins)
+        hist_p, yedges_p, xedges_p = np.histogram2d(rho[ind_p], p[ind_p],bins=nbins)
         vmaxt = max(np.max(hist_t), np.max(hist_p))   
 
         f2=plt.figure()
@@ -634,19 +714,25 @@ class dat_particles(particles):
         x = np.linspace(np.min(rho[ind_p]), np.max(rho[ind_p]), num=nbins)
         y = np.linspace(np.min(p[ind_p]), np.max(p[ind_p]), num=nbins)
         CL[0]=axrp.contourf(x,y,hist_p.T, nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
+#        CL[0]=axrp.pcolor(x,y,hist_p.T, cmap=my_cmap, vmin=0, vmax=vmaxt)
 
         ax2.contour(x,y,hist_p.T,nsurf,colors='k', label='Passing')
         
-        axrp.set_title(r'Passing n($\rho$, $\xi$)'); axrp.set_xlabel(r'$\rho$'); axrp.set_ylabel(r'$\xi$')  
-        axrp.set_xlim([np.min(x), np.max(x)]); axrp.set_ylim([np.min(y), np.max(y)])
+        axrp.set_title(r'Passing N($\rho$, $\xi$)'); axrp.set_xlabel(r'$\rho$'); axrp.set_ylabel(r'$\xi$')  
+#        axrp.set_xlim([np.min(x), np.max(x)]); axrp.set_ylim([np.min(y), np.max(y)])
+        axrp.set_xlim([0., 1.]); axrp.set_ylim([-1.,1])
         
         axrp2 = f.add_subplot(224)
         x = np.linspace(np.min(rho[ind_t]), np.max(rho[ind_t]), num=nbins)
         y = np.linspace(np.min(p[ind_t]), np.max(p[ind_t]), num=nbins)
         CL[1] = axrp2.contourf(x,y,hist_t.T, 10, cmap=my_cmap, vmin=0, vmax=vmaxt)
+#        CL[1] = axrp2.pcolor(x,y,hist_t.T, cmap=my_cmap, vmin=0, vmax=vmaxt)
         ax2.contour(x,y,hist_t.T,nsurf,colors='r', label='Trapped')
-        axrp2.set_title(r'Trapped n($\rho$, $\xi$)'); axrp2.set_xlabel(r'$\rho$'); axrp2.set_ylabel(r'$\xi$')  
-        axrp2.set_xlim([np.min(x), np.max(x)]); axrp2.set_ylim([np.min(y), np.max(y)])        
+        axrp2.set_title(r'Trapped N($\rho$, $\xi$)'); axrp2.set_xlabel(r'$\rho$'); axrp2.set_ylabel(r'$\xi$')  
+#        axrp2.set_xlim([np.min(x), np.max(x)]); axrp2.set_ylim([np.min(y), np.max(y)])  
+        axrp2.set_xlim([0., 1.]); axrp2.set_ylim([-1., 1])
+        
+        
         ax2.set_xlabel(r'$\rho$'); ax2.set_ylabel(r'$\xi$')
         ax2.legend(loc='upper right')
         for aa in [axrz, axrz2, axrp, axrp2]:        
@@ -656,8 +742,9 @@ class dat_particles(particles):
         f.subplots_adjust(right=0.8)
         cbar_ax = f.add_axes([0.85, 0.1, 0.03, 0.35])
         f.colorbar(CL[ind_cb], cax=cbar_ax)
-        plt.grid('on')
-
+        axrp.grid('on')
+        axrp2.grid('on')
+        
     def plot_trapped_energy_PNBs(self):
         """
         plots trapped particles as function of energy
@@ -670,26 +757,37 @@ class dat_particles(particles):
         num_full = len(np.where(e>80000)[0])
         num_half = len(np.where(np.logical_and(e>30000, e<80000))[0])
         num_thir = len(np.where(e<30000)[0])
-        
+        num_tot = num_full+num_half+num_thir
         f = plt.figure()
         f.suptitle(self.id)
         ax = f.add_subplot(111)
         x = [85000./3.,85000./2.,85000.]
         x = [0.33-width/2., 0.66-width/2., 1.-width/2.]
         y = [float(num_t_thir)/num_thir, float(num_t_half)/num_half, float(num_t_full)/num_full]
+        y1 = [float(num_thir)/num_tot, float(num_half)/num_tot, float(num_full)/num_tot]
+        y2 = [float(num_t_thir)/num_tot, float(num_t_half)/num_tot, float(num_t_full)/num_tot]
 
-        ax.bar(x, [1., 1., 1.], width, color='b', label='Passing')
-        ax.bar(x, y, width, color='r', label='Trapped')
+        ax.bar(x, y1, width, color='b', label='Passing')
+        ax.bar(x, y2, width, color='r', label='Trapped')
         ax.set_ylim([0, 1.4])
-        ax.legend(loc='best')
-        ax.grid('on')
+        ax.set_xticks([0.34, 0.66, 1.])
+        ax.set_xticklabels([r'$E_{inj}$/3', r'$E_{inj}$/2', r'$E_{inj}$'])
+        ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.])
+        
+        for i in range(3):
+            ax.text(x[i]+0.05, y1[i]+0.05, '{:.1f} %'.format(y[i]*100.), color='r')
 
+        ax.legend(loc='best')
+        ax.set_ylabel(r'Fraction to total number')
+        ax.yaxis.grid('on')
+
+        
     def plot_trapped_energy_NNBs(self):
         """
         plots trapped particles as function of energy
         """
         e = self.data_i['energy']; 
-        width=0.2
+        width=0.1
         num_t_full = len(np.where(self.trappind==1)[0])
         num_full = len(e)
 
@@ -700,12 +798,17 @@ class dat_particles(particles):
         x = [0.5]
         y = [float(num_t_full)/num_full]
 
-        ax.bar(x, [1., 1., 1.], width, color='b', label='Passing')
+        ax.bar(x, [1.], width, color='b', label='Passing')
         ax.bar(x, y, width, color='r', label='Trapped')
         ax.set_ylim([0, 1.4])
+        ax.set_xlim([0.45, 0.65])
         ax.legend(loc='best')
-        ax.grid('on')
-
+        ax.yaxis.grid('on')
+        ax.set_xticks([0.55])
+        ax.set_xticklabels([r'$E_{inj}$'])
+        ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.])
+        ax.set_ylabel(r'Fraction to total number')
+        ax.text(x[0], 1.05, '{:.1f} %'.format(y[0]*100.), color='r')
         
     def plot_trajectory(self):
         """
@@ -901,6 +1004,7 @@ class h5_particles(particles):
         particles.__init__(self)
         self.fname = fname
         dataf = h5py.File(self.fname)
+        self.infile=dataf
         self.id = self.fname[-9:-3]
         try:
             self.endgroup = 'shinethr' #this is for bbnbi
