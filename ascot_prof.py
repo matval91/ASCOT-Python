@@ -100,7 +100,7 @@ class profiles:
 
         data=np.transpose(data)
         #data.tofile(outfile, sep='\t', format='%15e')
-        np.savetxt(outfile, data, fmt='%.15e')
+        np.savetxt(outfile, data, fmt='%.5e')
         #outfile.close()
 
     def plot_profiles(self):
@@ -111,8 +111,8 @@ class profiles:
         # SET TEXT FONT AND SIZE
         #=====================================================================================
 #        plt.rc('linethick',2)
-        plt.rc('xtick', labelsize=12)
-        plt.rc('ytick', labelsize=12)
+        plt.rc('xtick', labelsize=15)
+        plt.rc('ytick', labelsize=15)
         plt.rc('axes', labelsize=15)
         #=====================================================================================
         fig=plt.figure()
@@ -183,7 +183,7 @@ class profiles:
         """
         Function that does an exponential fit over rho=1 surface. Is better to give it as input instead of letting it to ASCOT
         """
-        x = np.linspace(1.001, 1.2, self.nrho/2)
+        x = np.linspace(1.001, 1.2, self.nrho/5)
         dec_l = 0.01
         ni_ov = np.zeros((self.nion, len(x)), dtype=float)
         ninew = np.zeros((self.nion, self.nrho+len(x)),dtype=float)
@@ -195,8 +195,8 @@ class profiles:
             ni_ov[i,:] = self.ni[i,self.nrho-1]*np.exp(-(x-1.)/dec_l)
             ninew[i,:] = np.concatenate([self.ni[i,:], ni_ov[i,:]])
         self.ni = ninew
-        self.rho = np.concatenate([self.rho, x])
-        self.nrho += len(x)
+        self.rho = np.concatenate([self.rho1, x])
+        self.nrho = len(self.rho1)+len(x)
         self.ne  = np.concatenate([self.ne, ne_ov1])
         self.te  = np.concatenate([self.te, te_ov1])
         self.ti  = np.concatenate([self.ti, ti_ov1])
@@ -300,7 +300,7 @@ class h5_profiles(profiles):
         except:
             self.zeff_in  = np.zeros(self.nrho_in,dtype=float)
 
-        print(self.vt_in, self.te_in)
+        #print(self.vt_in, self.te_in)
         self.ni = np.zeros((self.nion, self.nrho),dtype = float)
         self.smooth()
 
@@ -309,6 +309,7 @@ class h5_profiles(profiles):
         smooth input data to grid wanted
         """
         self.rho = np.linspace(0,1,self.nrho)
+        self.rho1 = self.rho
         self.te = self._spline(self.rho_in, self.te_in, self.rho)
         self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
         self.ti = self._spline(self.rho_in, self.ti_in, self.rho)
@@ -539,10 +540,10 @@ class SA_datfiles(profiles):
 
     
     HIDDEN METHODS:
-    _readeqdsk(self): reads q and the poloidal flux from an eqdsk to convert phi2psi
+    _readeqdsk(self, shot): reads q and the poloidal flux from an eqdsk to convert phi2psi
     _phi2psi(self): Converts psi 2 phi
     """
-    def __init__(self, infile, nrho, nion, A, Z):
+    def __init__(self, infile, nrho, nion, A, Z, shot):
         profiles.__init__(self)
 
         self.A = A
@@ -550,12 +551,13 @@ class SA_datfiles(profiles):
         self.nrho = nrho
         self.nion = nion
         self.rho = np.linspace(0,1,self.nrho, dtype=float)
+        self.rho1 = self.rho
         #self.ni_in = np.zeros((self.nion, 2, self.nrho), dtype=float)
         self.ni = np.zeros((self.nion, self.nrho), dtype=float)
         self.coll_mode = np.ones(self.nion, dtype=float)
 
         #Read eqdsk to convert from rhotor to rhopol
-        self._readeqdsk()
+        self._readeqdsk(shot)
         self._phi2psi()
         
         lines = np.loadtxt(infile, skiprows=1, unpack=True)
@@ -575,20 +577,27 @@ class SA_datfiles(profiles):
             self.ion_densities()
         self.smooth()
 
-    def _readeqdsk(self):
+    def _readeqdsk(self, shot):
         """
         reads q and the poloidal flux from an eqdsk to convert phi2psi
         """
-        #dir_JT='/home/vallar/JT60-SA/'
-        dir_JT='./'
-        shot='005/'
-        shot='004/'
-        eqdsk_fname = dir_JT+'JT-60SA_scenario5_eqdsk'
-        eqdsk_fname = dir_JT+'JT-60SA_scenario4_uptowall.geq'
-        #eqdsk_fname = 'JT-60SA_scenario4_glf23_chease_cocos02.geq'
+        if shot==003:
+            dir_JT = '/home/vallar/JT60-SA/003/eqdsk_fromRUI_20170715_SCENARIO3/'
+            eqdsk_fname = 'Equil_JT60_prova01_e_refined.eqdsk'
+        if shot==004:
+            dir_JT = '/home/vallar/JT60-SA/004_2/input_from_EUrepository/'
+            eqdsk_fname = 'JT-60SA_scenario4_uptowall.geq'
+        else:
+            #dir_JT='/home/vallar/JT60-SA/'
+            dir_JT='./'
+            #shot='005/'
+            #shot='004/'
+            eqdsk_fname = dir_JT+'JT-60SA_scenario5_eqdsk'
+            #eqdsk_fname = dir_JT+'JT-60SA_scenario4_uptowall.geq'
+            #eqdsk_fname = 'JT-60SA_scenario4_glf23_chease_cocos02.geq'
         try:
-            b = ascot_Bfield.Bfield_eqdsk(eqdsk_fname,129,129, 'JT60SA', COCOS=3)
-            print("Opened ", eqdsk_fname)
+            b = ascot_Bfield.Bfield_eqdsk(dir_JT+eqdsk_fname,129,129, 'JT60SA', COCOS=3)
+            print("Opened ", dir_JT+eqdsk_fname)
         except:
             print("Impossible to open ", eqdsk_fname)
             raise ValueError

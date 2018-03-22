@@ -12,7 +12,7 @@ import numpy as np
 import h5py, math
 import matplotlib.pyplot as plt
 
-import ReadEQDSK
+import ReadEQDSK_python2
 from scipy.interpolate import griddata
 import scipy.optimize
 import scipy.interpolate as interp
@@ -288,7 +288,7 @@ class Bfield_eqdsk:
     
     
     
-        self.eqdsk= ReadEQDSK.ReadEQDSK(infile_eqdsk)
+        self.eqdsk= ReadEQDSK_python2.ReadEQDSK(infile_eqdsk)
         self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))
         # FREEBIE (JT60SA equilibria) has a -2pi factor to be added.
         # COCOS 03: eBp=1, sigmaBp=-1
