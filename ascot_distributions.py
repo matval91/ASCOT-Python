@@ -1020,14 +1020,14 @@ class distribution_2d:
         self.f_Ep_int = np.trapz(int_E, self.dict_dim['pitch'], axis=0)
 #        self.f_Ep_int = np.trapz(int_E, self.dict_dim['pitch'], axis=0)
 
-#        if 'rho' in self.dict_dim.keys():
-#            for i,el in enumerate(self.vol):
-#                self.f_Ep_int[0,i] *= el*el 
-#        elif 'R' in self.dict_dim and 'z' in self.dict_dim:
-#            dZ=np.abs(self.dict_dim['z'][-1]-self.dict_dim['z'][-2])
-#            dR=np.abs(self.dict_dim['R'][-1]-self.dict_dim['R'][-2])
-#            for i, el in enumerate(self.dict_dim['R']):
-#                self.f_Ep_int[i,:] /= (2*math.pi*el*dZ*dR)**2  
+        if 'rho' in self.dict_dim.keys():
+            for i,el in enumerate(self.vol):
+                self.f_Ep_int[0,i] *= el*el 
+        elif 'R' in self.dict_dim and 'z' in self.dict_dim:
+            dZ=np.abs(self.dict_dim['z'][-1]-self.dict_dim['z'][-2])
+            dR=np.abs(self.dict_dim['R'][-1]-self.dict_dim['R'][-2])
+            for i, el in enumerate(self.dict_dim['R']):
+                self.f_Ep_int[i,:] /= (2*math.pi*el*dZ*dR)  
     
     
     def _integrate_spaceE(self):

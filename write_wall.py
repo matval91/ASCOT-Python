@@ -19,6 +19,6 @@ def write_wall_2D(W_fname):
     out_fname = "input.wall_2d"
     outfile = open(out_fname, 'wa')
     outfile.write('{:d} (R,z) wall points & divertor flag (1 = divertor, 0 = wall)\n'.format(len(lines)))
-    np.savetxt(outfile, np.c_[R_W, Z_W, div_flag], fmt='%5.2f %5.2f %1d')
+    np.savetxt(outfile, np.c_[R_W, Z_W, div_flag], fmt='%5.4f %5.4f %1d')
 
 

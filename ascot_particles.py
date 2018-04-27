@@ -466,11 +466,20 @@ class particles:
         Reads the position of RZ surfaces from ascot file
         now the edge is set to the value for scenario 5 from JT60SA
         """
+        print(self.id[5:7])
+
         if self.id[0:3]=='003':
-            strt='000'
-        if self.id[0:3]=='005':
-            strt='053'
-        f = h5py.File('ascot_'+str(self.id[0:3])+strt+'.h5')
+            strt=str(self.id[0:3])+'000'
+        elif self.id[0:3]=='005':
+            strt=str(self.id[0:3])+'053'
+        elif self.id[0:5]=='57850' and self.id[5:7]=='1':
+            strt =str(self.id[0:5])+'908'
+        else:
+            print('Impossible to load RZ equiflux surfaces')
+            self.RZsurf = 0
+            return 
+
+        f = h5py.File('ascot_'+strt+'.h5')
         print("READING SURF FROM ascot_"+self.id+".h5")
         self.RZsurf = f['bfield/2d/psi'].value
         self.Rsurf = f['bfield/r']
@@ -487,9 +496,10 @@ class particles:
             self.RZsurf.mean()
         except:
             self._RZsurf()
-            
-        CS = ax.contour(self.Rsurf, self.zsurf, self.RZsurf, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
-        plt.clabel(CS, inline=1, fontsize=10)        
+
+        if self.RZsurf!=0:
+            CS = ax.contour(self.Rsurf, self.zsurf, self.RZsurf, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
+            plt.clabel(CS, inline=1, fontsize=10)        
         
 
 class dat_particles(particles):
