@@ -466,7 +466,7 @@ class particles:
         Reads the position of RZ surfaces from ascot file
         now the edge is set to the value for scenario 5 from JT60SA
         """       
-        f = h5py.File('ascot_'+str(self.id[0:3])+'055.h5')
+        f = h5py.File('ascot_'+str(self.id[0:3])+'004.h5')
         print("READING SURF FROM ascot_"+self.id+".h5")
         self.RZsurf = f['bfield/2d/psi'].value
         self.Rsurf = f['bfield/r']
@@ -519,7 +519,8 @@ class dat_particles(particles):
         self.field = np.array(self.field)
         self.unit = np.array(self.unit)
         if self.npart==-1:
-            self._compute_npart(lines[-2])
+            self.npart=50000
+            #self._compute_npart(lines[-2])
 
         tmpdict = dict.fromkeys(self.field,[])
         self.partdict = np.array([dict.copy(tmpdict) for x in range(self.npart)])
@@ -720,7 +721,7 @@ class dat_particles(particles):
         
         axrp.set_title(r'Passing N($\rho$, $\xi$)'); axrp.set_xlabel(r'$\rho$'); axrp.set_ylabel(r'$\xi$')  
 #        axrp.set_xlim([np.min(x), np.max(x)]); axrp.set_ylim([np.min(y), np.max(y)])
-        axrp.set_xlim([0., 1.]); axrp.set_ylim([-1.,1])
+        axrp.set_xlim([0., 1.]); axrp.set_ylim([0.4,1])
         
         axrp2 = f.add_subplot(224)
         x = np.linspace(np.min(rho[ind_t]), np.max(rho[ind_t]), num=nbins)
@@ -730,7 +731,7 @@ class dat_particles(particles):
         ax2.contour(x,y,hist_t.T,nsurf,colors='r', label='Trapped')
         axrp2.set_title(r'Trapped N($\rho$, $\xi$)'); axrp2.set_xlabel(r'$\rho$'); axrp2.set_ylabel(r'$\xi$')  
 #        axrp2.set_xlim([np.min(x), np.max(x)]); axrp2.set_ylim([np.min(y), np.max(y)])  
-        axrp2.set_xlim([0., 1.]); axrp2.set_ylim([-1., 1])
+        axrp2.set_xlim([0., 1.]); axrp2.set_ylim([0.4, 1])
         
         
         ax2.set_xlabel(r'$\rho$'); ax2.set_ylabel(r'$\xi$')

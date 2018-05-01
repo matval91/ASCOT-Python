@@ -936,8 +936,9 @@ class SA_1d(distribution_1d):
 
         self.fibp_particles = np.dot(self.fibp, volumes)
         if plot_flag == 1:
-            self.plot_1d(4, [rho, self.fibp, self.fibp_P_perp, self.fibp_P_tang, self.fibp_NNB], \
-                     ['TOT','P-perp','P-tang','N'], r'$\rho$', r'Fast ion birth profile $1/(s\cdot m^3)$')
+            plot_article(4, [rho, self.fibp, self.fibp_P_perp, self.fibp_P_tang, self.fibp_NNB], \
+                     ['TOT','P-perp','P-tang','N'], r'$\rho$', r'Fast ion birth profile $1/(s\cdot m^3)$',\
+                     title=str(shot)+str(run), ylim=[0, 3e19])
        
        
 class distribution_2d:
@@ -1114,18 +1115,25 @@ class distribution_2d:
         self._write4d('R','z','pitch','E', self.fdist_notnorm/self.norm, \
                          units=['m','m','adimensional', 'J'])
 
-    def _plot_1d(self, xlab, ylab):
+    def _plot_1d(self, xlab, ylab, **kwargs):
         """
         Hidden method to plot 1D functions
         """
 
-        fig = plt.figure()
-        fig.suptitle(self.id)
-        ax  = fig.add_subplot(111)
+
+        if not 'ax' in kwargs:
+            fig =  plt.figure()
+            tit=self.id
+            if 'title' in kwargs:
+                tit+= ' '+kwargs['title']
+            fig.suptitle(tit)
+            ax  = fig.add_subplot(111)
+        else:
+            ax = kwargs['ax']
         ax.plot(self.xplot, self.yplot, 'k', linewidth=2.3)
 
         ax.set_xlabel(xlab), ax.set_ylabel(ylab)
-        
+        ax.set_ylim([0, 3e13])
         plt.show()
 
     def _plot_2d(self, xlab, ylab, **kwargs):
@@ -1285,6 +1293,15 @@ class distribution_2d:
         self.norm = 1
         # 6th dimension is the one labelling the beams
         tmp = self.dist_h5['ordinate'].value
+#        print(np.shape(tmp))
+#        for i in range(np.shape(tmp)[0]):
+#            f=plt.figure()
+#            ax=f.add_subplot(111)
+#            distplot=np.sum(tmp, axis=-2)
+#            distplot=np.sum(distplot, axis=-2)
+#            f.suptitle(str(i))
+#            ax.contourf(distplot[i,0,:,:,0])
+#        tmp = tmp[[6,9,11,10],:,:,:,:,:,:]    
         fdist = np.sum(tmp, axis=0)[:,:,:,:,:,0] #time, E,pitch,z,r
         self.fdist_notnorm = fdist
         self._computenorm()
@@ -1387,12 +1404,38 @@ class frzpe(distribution_2d):
         int_R   = np.trapz(dist_toint, self.dict_dim['R'], axis = -1)
         int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
         self.f_space_int = int_Rz #E,pitch
+    
+    def plot_space_enslice(self, sliceind):
+        """
+        Function to plot over (R,z) on a E defined
+        """
+        self._integrate_pitch_enslice(sliceind)
+        self.zplot = self.f_xi_int
+        if 'R' in self.dict_dim and 'z' in self.dict_dim:
+            self.xplot = self.dict_dim['R']
+            self.yplot = self.dict_dim['z'] 
+            self._plot_2d('R [m]', 'z [m]', wall=1, surf=1, \
+                          title=str(sliceind))
+
+    def _integrate_pitch_enslice(self, sliceind):
+        """
+        Function to integrate over (R,z) on a E defined
+        """
+        sliceind*=1.602e-19
+        ind_E = np.argmin(self.dict_dim['E']-sliceind < 0)
+        print(ind_E, self.dict_dim['E'][ind_E])
+        dist_toint = self.fdist_notnorm[0,ind_E,:,:,:]/self.norm
+
+        int_xi  = np.trapz(dist_toint, self.dict_dim['pitch'], axis = 0)
+        self.f_xi_int = int_xi #E,pitch
         
     def _integrate_space_enslice(self, sliceind):
         """
         Function to integrate over (R,z) on a E defined
         """
-        dist_toint = self.fdist_notnorm[0,sliceind,:,:,:]/self.norm
+        sliceind/=1.602e-19
+        ind_E = np.argmin(self.dict_dim['E']-sliceind < 0)
+        dist_toint = self.fdist_notnorm[0,ind_E,:,:,:]/self.norm
 
         for i, el in enumerate(self.dict_dim['R']):
             dist_toint[:,:,i] *= 2*math.pi*el
@@ -1418,7 +1461,6 @@ class frzpe(distribution_2d):
         """
         makes a plot of E, pitch on a R,z position
         """
-        print(kwargs)
         ind_R = np.argmin(self.dict_dim['R']-sliceR < 0)
         ind_z = np.argmin(self.dict_dim['z']-slicez < 0)
         dist_toplot = self.fdist_notnorm[0,:,:,ind_R, ind_z]/self.norm
@@ -1432,8 +1474,37 @@ class frzpe(distribution_2d):
                           fname=kwargs['fname'])
         #else:
         #    self._plot_2d('pitch', 'E', title='R='+str(sliceR)+' z='+str(slicez))
-        
 
+    def _get_Eposition(self, sliceE):
+        """
+        """
+        try:
+            self.f_space_int.mean()
+        except:
+            self._integrate_space()
+        ind_E = np.argmin(self.dict_dim['E']/1.602e-19-sliceE*1000. < 0)
+        dist_toplot = self.f_space_int[ind_E, :]        
+        return dist_toplot
+    
+    def plot_Eposition(self, sliceE, **kwargs):
+        """
+        makes a plot of a slice of energy (sliceE is in keV) vs pitch integrated over 
+        configuration space
+        """
+        dist_toplot = self._get_Eposition(sliceE)
+
+        self.xplot = self.dict_dim['pitch']
+        self.yplot = dist_toplot
+        if 'ax' in kwargs:
+            self._plot_1d(r'$\xi$', r'E [keV]',\
+                          ax=kwargs['ax'])            
+        if 'fname' in kwargs:
+            self._plot_1d(r'$\xi$', r'E [keV]',\
+                          title='E='+str(sliceE), \
+                          fname=kwargs['fname'])
+        else:
+            self._plot_1d(r'$\xi$',r'E [keV]', title='E='+str(sliceE))        
+        
 class frhophipe(distribution_2d):
     
     def __init__(self, infile_n):
@@ -1521,6 +1592,7 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title, **kwargs):
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_title(title)
+        ax.grid('on')
         if 'ylim' in kwargs:
             ax.set_ylim(kwargs['ylim'])
         #ax.plot([0.85,0.85],[min(ax.get_ybound()), max(ax.get_ybound())],'k--', linewidth=3.)
