@@ -337,7 +337,7 @@ class Bfield_eqdsk:
         cocosout['sign_pprime_pos'] = -1
         cocosout['exp_Bp'] = 0
         cocosout['sigma_ip'] = +1
-        cocosout['sigma_b0'] = +1
+        cocosout['sigma_b0'] = -1
         
         # Define effective variables: sigma_Ip_eff, sigma_B0_eff, sigma_Bp_eff, exp_Bp_eff as in Appendix C
         #sigma_Ip_eff = cocosin['sigma_RphiZ'] * cocosout['sigma_RphiZ']

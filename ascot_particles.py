@@ -472,8 +472,10 @@ class particles:
             strt=str(self.id[0:3])+'000'
         elif self.id[0:3]=='005':
             strt=str(self.id[0:3])+'053'
-        elif self.id[0:5]=='57850' and self.id[5:7]=='1':
-            strt =str(self.id[0:5])+'908'
+        elif self.id[0:5]=='57850' and self.id[5:6]=='08':
+            strt =str(self.id[0:5])+'980'
+        elif self.id[0:5]=='57850' and self.id[5:6]=='14':
+            strt =str(self.id[0:5])+'914'            
         else:
             print('Impossible to load RZ equiflux surfaces')
             self.RZsurf = 0

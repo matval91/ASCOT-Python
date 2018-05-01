@@ -474,7 +474,7 @@ class distribution_1d:
         print("CD efficiency: ", self.eff, " [10^20 A / (W m^2)]")
 
 
-    def _slowingdown_3D(self):
+    def _slowingdown_3D(self, E0):
         """
         3D calculations for collisionality (rho, Te, taus):
         (1) at each rho computes Ec
@@ -498,7 +498,6 @@ class distribution_1d:
         Ec = self.param_ec(self.rho)
         ts = self.param_ts(self.rho)
         taus = np.zeros((len(self.rho), len(te_frac)), dtype=float)
-        E0 = 85e3*1.602e-19
         e_x = np.linspace(0, E0, num=100)
         for ind_te, i in enumerate(te_frac):
             for ind_ec,j in enumerate(Ec):
@@ -510,12 +509,14 @@ class distribution_1d:
                 
         self.taus=taus                
                 
-    def _ecrit(self):
+    def _ecrit(self, E0):
         """
         Calculates critical energy profiles
         Ec = 
         ts = 6.28e14*(A*te^1.5)/(Z^2*ne*lnlambda)
         """
+        print("Calculating Ec")
+        print("Calculating ts with E0="+str(E0)) 
         rho = self.infile['plasma/1d/rho'][:]
         te = self.infile['plasma/1d/te'][:]
         ne = self.infile['plasma/1d/ne'][:]
@@ -526,11 +527,15 @@ class distribution_1d:
         Z = self.infile['species/testParticle/znum'][0]
         summ = np.sum(np.multiply(nimp, Zi**2/Ai), axis=1)
         Ec = 14.8*te*(A**(1.5)/ne*summ)**(2./3.)
-        self.param_ec = interpolate.interp1d(rho,Ec)
-        self.ec_mean = np.trapz(self.param_ec(self.rho)*self._volumes)/np.sum(self._volumes)
+        param_ec = interpolate.interp1d(rho,Ec)
+        ec_mean = np.trapz(param_ec(self.rho)*self._volumes)/np.sum(self._volumes)
+        
         #Spitzer slowing-down time
         ts = 6.28e14*A*te**1.5/(Z**2*ne*17.)
-        self.param_ts = interpolate.interp1d(rho,ts)
+        taus=ts/3.*np.log((1+(E0/Ec)**1.5))
+        param_taus = interpolate.interp1d(rho,taus)
+        taus_mean = np.trapz(param_taus(self.rho)*self._volumes)/np.sum(self._volumes)
+        return param_ec, ec_mean, param_taus, taus_mean
 
 
 class TCV_1d(distribution_1d):
@@ -604,7 +609,10 @@ class TCV_1d(distribution_1d):
             ax[ind_row,ind_col].set_ylabel(yunits[i])
             ax[ind_row,ind_col].set_title(ylabels[i])
 
-        plt.show()        
+        plt.show()
+        
+    def calc_Ec(self):
+		self.param_ec, self.ec, self.param_ts, self.ts = self._ecrit(E0=25000)    
 
 
 class SA_1d(distribution_1d):
@@ -944,6 +952,11 @@ class SA_1d(distribution_1d):
             label = ['TOT','P-perp','P-tang','N']
             plot_article(4, ylines, label, r'$\rho$', 
                          r'Fast ion birth profile $1/(s\cdot m^3)$', self.id)
+                         
+                         
+    def calc_Ec(self):
+		self.param_ec, self.ec, self.param_ts85,  self.ts85  = self._ecrit(E0=85000)
+		self.param_ec, self.ec, self.param_ts500, self.ts500 = self._ecrit(E0=500000)		
        
        
 class distribution_2d:
