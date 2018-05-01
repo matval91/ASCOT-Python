@@ -948,11 +948,7 @@ class SA_1d(distribution_1d):
 
         self.fibp_particles = np.dot(self.fibp, volumes)
         if plot_flag == 1:
-<<<<<<< HEAD
-            plot_article(4, [rho, self.fibp, self.fibp_P_perp, self.fibp_P_tang, self.fibp_NNB], \
-                     ['TOT','P-perp','P-tang','N'], r'$\rho$', r'Fast ion birth profile $1/(s\cdot m^3)$',\
-                     title=str(shot)+str(run), ylim=[0, 3e19])
-=======
+
             ylines = [rho, self.fibp, self.fibp_P_perp, self.fibp_P_tang, self.fibp_NNB]
             label = ['TOT','P-perp','P-tang','N']
             plot_article(4, ylines, label, r'$\rho$', 
@@ -962,7 +958,6 @@ class SA_1d(distribution_1d):
     def calc_Ec(self):
 		self.param_ec, self.ec, self.param_ts85,  self.ts85  = self._ecrit(E0=85000)
 		self.param_ec, self.ec, self.param_ts500, self.ts500 = self._ecrit(E0=500000)		
->>>>>>> 0b7f2bac1d634cafe5f8503a758926bda0f63e0a
        
        
 class distribution_2d:
@@ -1534,9 +1529,9 @@ class frzpe(distribution_2d):
             self._plot_2d(r'$\xi$', 'E [keV]', \
                           title='R='+str(sliceR)+' z='+str(slicez), \
                           fname=kwargs['fname'])
-<<<<<<< HEAD
-        #else:
-        #    self._plot_2d('pitch', 'E', title='R='+str(sliceR)+' z='+str(slicez))
+        else:
+            self._plot_2d(r'$\xi$', 'E [keV]', \
+                          title='R='+str(sliceR)+' z='+str(slicez))
 
     def _get_Eposition(self, sliceE):
         """
@@ -1568,9 +1563,6 @@ class frzpe(distribution_2d):
         else:
             self._plot_1d(r'$\xi$',r'E [keV]', title='E='+str(sliceE))        
         
-=======
-        else:
-            self._plot_2d(r'$\xi$', 'E [keV]', title='R='+str(sliceR)+' z='+str(slicez))
         
 
     def write_allf(self):
@@ -1581,7 +1573,6 @@ class frzpe(distribution_2d):
                        units=['m','m','adimensional', 'J'])
 
             
->>>>>>> 0b7f2bac1d634cafe5f8503a758926bda0f63e0a
 class frhophipe(distribution_2d):
     
     def __init__(self, infile_n):

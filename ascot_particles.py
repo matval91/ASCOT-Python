@@ -465,28 +465,22 @@ class particles:
         """
         Reads the position of RZ surfaces from ascot file
         now the edge is set to the value for scenario 5 from JT60SA
-<<<<<<< HEAD
         """       
-        f = h5py.File('ascot_'+str(self.id[0:3])+'004.h5')
-=======
-        """
-        print(self.id[5:7])
 
         if self.id[0:3]=='003':
             strt=str(self.id[0:3])+'000'
         elif self.id[0:3]=='005':
             strt=str(self.id[0:3])+'053'
         elif self.id[0:5]=='57850' and self.id[5:6]=='08':
-            strt =str(self.id[0:5])+'980'
+            strt =str(self.id[0:5])+'008'
         elif self.id[0:5]=='57850' and self.id[5:6]=='14':
-            strt =str(self.id[0:5])+'914'            
+            strt =str(self.id[0:5])+'014'            
         else:
             print('Impossible to load RZ equiflux surfaces')
             self.RZsurf = 0
             return 
 
         f = h5py.File('ascot_'+strt+'.h5')
->>>>>>> 0b7f2bac1d634cafe5f8503a758926bda0f63e0a
         print("READING SURF FROM ascot_"+self.id+".h5")
         self.RZsurf = f['bfield/2d/psi'].value
         self.Rsurf = f['bfield/r']
@@ -744,11 +738,7 @@ class dat_particles(particles):
         
         axrp.set_title(r'Passing N($\rho$, $\xi$)'); axrp.set_xlabel(r'$\rho$'); axrp.set_ylabel(r'$\xi$')  
 #        axrp.set_xlim([np.min(x), np.max(x)]); axrp.set_ylim([np.min(y), np.max(y)])
-<<<<<<< HEAD
-        axrp.set_xlim([0., 1.]); axrp.set_ylim([0.4,1])
-=======
         axrp.set_xlim([0., 1.]); axrp.set_ylim(ylim)
->>>>>>> 0b7f2bac1d634cafe5f8503a758926bda0f63e0a
         
         axrp2 = f.add_subplot(224)
         x = np.linspace(np.min(rho[ind_t]), np.max(rho[ind_t]), num=nbins)
@@ -758,12 +748,7 @@ class dat_particles(particles):
         ax2.contour(x,y,hist_t.T,nsurf,colors='r', label='Trapped')
         axrp2.set_title(r'Trapped N($\rho$, $\xi$)'); axrp2.set_xlabel(r'$\rho$'); axrp2.set_ylabel(r'$\xi$')  
 #        axrp2.set_xlim([np.min(x), np.max(x)]); axrp2.set_ylim([np.min(y), np.max(y)])  
-<<<<<<< HEAD
-        axrp2.set_xlim([0., 1.]); axrp2.set_ylim([0.4, 1])
-=======
-        axrp2.set_xlim([0., 1.]); axrp2.set_ylim(ylim)
->>>>>>> 0b7f2bac1d634cafe5f8503a758926bda0f63e0a
-        
+        axrp2.set_xlim([0., 1.]); axrp2.set_ylim(ylim)      
         
         ax2.set_xlabel(r'$\rho$'); ax2.set_ylabel(r'$\xi$')
         ax2.legend(loc='upper right')
