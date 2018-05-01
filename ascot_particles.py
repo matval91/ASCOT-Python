@@ -465,16 +465,36 @@ class particles:
         """
         Reads the position of RZ surfaces from ascot file
         now the edge is set to the value for scenario 5 from JT60SA
+<<<<<<< HEAD
         """       
         f = h5py.File('ascot_'+str(self.id[0:3])+'004.h5')
+=======
+        """
+        print(self.id[5:7])
+
+        if self.id[0:3]=='003':
+            strt=str(self.id[0:3])+'000'
+        elif self.id[0:3]=='005':
+            strt=str(self.id[0:3])+'053'
+        elif self.id[0:5]=='57850' and self.id[5:6]=='08':
+            strt =str(self.id[0:5])+'980'
+        elif self.id[0:5]=='57850' and self.id[5:6]=='14':
+            strt =str(self.id[0:5])+'914'            
+        else:
+            print('Impossible to load RZ equiflux surfaces')
+            self.RZsurf = 0
+            return 
+
+        f = h5py.File('ascot_'+strt+'.h5')
+>>>>>>> 0b7f2bac1d634cafe5f8503a758926bda0f63e0a
         print("READING SURF FROM ascot_"+self.id+".h5")
         self.RZsurf = f['bfield/2d/psi'].value
         self.Rsurf = f['bfield/r']
         self.zsurf = f['bfield/z']
         edge = np.abs(f['boozer/psiSepa'][:]); axis=np.abs(f['boozer/psiAxis'][:])
         #if self.id[0:3]=='005':
-            #print("Multiply times -1")
-            #self.RZsurf=-1.*self.RZsurf
+        #    print("Multiply times -1")
+        #    self.RZsurf=-1.*self.RZsurf
         self.RZsurf = (self.RZsurf - axis )/(edge-axis)
         self.RZsurf = np.sqrt(self.RZsurf)            
 
@@ -483,9 +503,10 @@ class particles:
             self.RZsurf.mean()
         except:
             self._RZsurf()
-            
-        CS = ax.contour(self.Rsurf, self.zsurf, self.RZsurf, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
-        plt.clabel(CS, inline=1, fontsize=10)        
+
+        if self.RZsurf!=0:
+            CS = ax.contour(self.Rsurf, self.zsurf, self.RZsurf, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
+            plt.clabel(CS, inline=1, fontsize=10)        
         
 
 class dat_particles(particles):
@@ -647,6 +668,8 @@ class dat_particles(particles):
         plt.rc('axes', labelsize=20)    
         plt.rc('font', size=20)
 
+        ylim=[-1., -0.5]
+        
         self._RZsurf()
         ind_t = np.where(self.trappind==1)[0]
         ind_p = np.where(self.trappind==0)[0]     
@@ -721,7 +744,11 @@ class dat_particles(particles):
         
         axrp.set_title(r'Passing N($\rho$, $\xi$)'); axrp.set_xlabel(r'$\rho$'); axrp.set_ylabel(r'$\xi$')  
 #        axrp.set_xlim([np.min(x), np.max(x)]); axrp.set_ylim([np.min(y), np.max(y)])
+<<<<<<< HEAD
         axrp.set_xlim([0., 1.]); axrp.set_ylim([0.4,1])
+=======
+        axrp.set_xlim([0., 1.]); axrp.set_ylim(ylim)
+>>>>>>> 0b7f2bac1d634cafe5f8503a758926bda0f63e0a
         
         axrp2 = f.add_subplot(224)
         x = np.linspace(np.min(rho[ind_t]), np.max(rho[ind_t]), num=nbins)
@@ -731,7 +758,11 @@ class dat_particles(particles):
         ax2.contour(x,y,hist_t.T,nsurf,colors='r', label='Trapped')
         axrp2.set_title(r'Trapped N($\rho$, $\xi$)'); axrp2.set_xlabel(r'$\rho$'); axrp2.set_ylabel(r'$\xi$')  
 #        axrp2.set_xlim([np.min(x), np.max(x)]); axrp2.set_ylim([np.min(y), np.max(y)])  
+<<<<<<< HEAD
         axrp2.set_xlim([0., 1.]); axrp2.set_ylim([0.4, 1])
+=======
+        axrp2.set_xlim([0., 1.]); axrp2.set_ylim(ylim)
+>>>>>>> 0b7f2bac1d634cafe5f8503a758926bda0f63e0a
         
         
         ax2.set_xlabel(r'$\rho$'); ax2.set_ylabel(r'$\xi$')
@@ -762,6 +793,7 @@ class dat_particles(particles):
         f = plt.figure()
         f.suptitle(self.id)
         ax = f.add_subplot(111)
+        f.text(0.01, 0.95, str(float(self.ntrapp)/self.npart))
         x = [85000./3.,85000./2.,85000.]
         x = [0.33-width/2., 0.66-width/2., 1.-width/2.]
         y = [float(num_t_thir)/num_thir, float(num_t_half)/num_half, float(num_t_full)/num_full]
@@ -822,16 +854,16 @@ class dat_particles(particles):
             
         ind_t = np.where(self.trappind==1)[0]
         ind_p = np.where(self.trappind==0)[0]      
-        ind = np.linspace(0, len(ind_t)-1, 10)
+        ind = np.linspace(0, len(ind_t)-1, len(ind_t)-1)
         f = plt.figure()
         f.suptitle(self.fname)
         axtrajRZ = f.add_subplot(121)        
         for i in ind:
             axtrajRZ.plot(self.data_i['R'][ind_t[i]], self.data_i['z'][ind_t[i]], 'k*')
-            axtrajRZ.plot(self.partdict[ind_t[i]]['R'], self.partdict[ind_t[i]]['z'], 'k-') 
+            axtrajRZ.plot(self.partdict[ind_t[i]]['R'], self.partdict[ind_t[i]]['z'], 'kx') 
             #axtrajRZ.plot(self.data_i['R'][ind_p[i]], self.data_i['z'][ind_p[i]], 'r*')
             #axtrajRZ.plot(self.partdict[ind_p[i]]['R'], self.partdict[ind_p[i]]['z'], 'r-') 
-        self._plot_RZsurf(axtrajRZ)
+        #self._plot_RZsurf(axtrajRZ)
         axtrajRZ.set_xlabel(r'R (m)')
         axtrajRZ.set_ylabel(r'z (m)')
         

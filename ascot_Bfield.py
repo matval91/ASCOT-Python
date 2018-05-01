@@ -12,7 +12,7 @@ import numpy as np
 import h5py, math
 import matplotlib.pyplot as plt
 
-import ReadEQDSK
+import ReadEQDSK_python2
 from scipy.interpolate import griddata
 import scipy.optimize
 import scipy.interpolate as interp
@@ -163,7 +163,7 @@ class Bfield_ascot:
             #plt.title(val)
             #plot for mag surfaces 2D
             if val == "psi_2D":
-                yplot = (-1*self.vardict[val][:]-edge)/(axis-edge)
+                yplot = self.vardict[val][:]
                 r,z = self.vardict['r'], self.vardict['z']
                 CS = currax.contour(r,z,yplot, 20)
                 currax.contour(r,z,yplot,1, colors='k', linewidths=3.)
@@ -236,12 +236,12 @@ class Bfield_eqdsk:
         - OPTIONAL: [Dr, Dz]: array with shift in R and Z of the equilibrium (Dr>0: shift to right, Dz>0: shift up)
         """
         self.COCOS = COCOS
-        self._import_from_eqdsk(infile)
         self.devnam = devnam
+        self._read_wall()
+        self._import_from_eqdsk(infile)
         #these are the dimensions of the output arrays
         self.nR=nR
         self.nz=nz
-        self._read_wall()
         if len(args)!=0:
             self.dr, self.dz = np.asarray(args[0]), np.asarray(args[1])
             print("Shifting of quantity ", self.dr, " and ", self.dz)
@@ -285,35 +285,101 @@ class Bfield_eqdsk:
             self.rhopsi=rhopsi
         
         """    
-    
-    
-    
-        self.eqdsk= ReadEQDSK.ReadEQDSK(infile_eqdsk)
-        self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))
-        # FREEBIE (JT60SA equilibria) has a -2pi factor to be added.
-        # COCOS 03: eBp=1, sigmaBp=-1
-        # sigmabp is used for the magnetic field
-        if self.COCOS==3:
-            self.factor = -2.*math.pi
-            self.sigmabp = -1.
-        elif self.COCOS==13:
-            self.factor = -1.
-            self.sigmabp = -1.
-        #TCV 
-        elif self.COCOS==2:
-            self.sigmabp=-1.
-            self.factor = 2.*math.pi
-        else:
-            self.factor = 1
-            self.sigmabp = 1.
-        
-        self.eqdsk.psi     *= self.factor 
-        self.eqdsk.psiaxis *= self.factor
-        self.eqdsk.psiedge *= self.factor
+        self.eqdsk= ReadEQDSK_python2.ReadEQDSK(infile_eqdsk)
+        self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))  
         self.R_eqd = np.linspace(self.eqdsk.rboxleft, self.eqdsk.rboxleft+self.eqdsk.rboxlength, self.eqdsk.nrbox)
-        self.Z_eqd = np.linspace(-self.eqdsk.zboxlength/2., self.eqdsk.zboxlength/2., self.eqdsk.nzbox)       
-        self.psi_coeff = interp.interp2d(self.R_eqd, self.Z_eqd, self.eqdsk.psi)
+        self.Z_eqd = np.linspace(-self.eqdsk.zboxlength/2., self.eqdsk.zboxlength/2., self.eqdsk.nzbox)
+        self.cocos_transform(self.COCOS)  
+        self.psi_coeff = interp.RectBivariateSpline(self.R_eqd, self.Z_eqd, self.eqdsk.psi)
+        
+    def cocos_transform(self, COCOS):
+        print("COCOS tranformation from "+str(COCOS)+" to 5")
+        cocos_keys = ['sigma_Bp', 'sigma_RphiZ', 'sigma_rhothetaphi', 'sign_q_pos', 'sign_pprime_pos', 'exp_Bp']
+        pi = math.pi
+        cocosin = dict.fromkeys(cocos_keys)
+        if COCOS==17:
+            #These cocos are for LIUQE(17) - IN
+            cocosin['sigma_Bp'] = -1
+            cocosin['sigma_RphiZ'] = +1
+            cocosin['sigma_rhothetaphi'] = +1
+            cocosin['sign_q_pos'] = +1
+            cocosin['sign_pprime_pos'] = +1
+            cocosin['exp_Bp'] = +1 # if COCOS>=10, this should be 1
+        elif COCOS==3:
+            #These cocos are for EFIT (3) - IN
+            cocosin['sigma_Bp'] = -1
+            cocosin['sigma_RphiZ'] = +1
+            cocosin['sigma_rhothetaphi'] = -1
+            cocosin['sign_q_pos'] = -1
+            cocosin['sign_pprime_pos'] = +1
+            cocosin['exp_Bp'] = 0 # if COCOS>=10, this should be 1
+        elif COCOS==2:
+            #These cocos are for CHEASE (2) - IN
+            cocosin['sigma_Bp'] = +1
+            cocosin['sigma_RphiZ'] = -1
+            cocosin['sigma_rhothetaphi'] = +1
+            cocosin['sign_q_pos'] = +1
+            cocosin['sign_pprime_pos'] = -1
+            cocosin['exp_Bp'] = 0 # if COCOS>=10, this should be 1
+        else:
+            print(str(COCOS)+" Not Implemented \n")
+            exit
+        
+        cocosin['sigma_ip'] = np.sign(self.eqdsk.Ip)
+        cocosin['sigma_b0'] = np.sign(self.eqdsk.B0EXP)
 
+        #These cocos are for ASCOT - OUT
+        cocosout = dict.fromkeys(cocos_keys)
+        cocosout['sigma_Bp'] = 1
+        cocosout['sigma_RphiZ'] = +1
+        cocosout['sigma_rhothetaphi'] = +1
+        cocosout['sign_q_pos'] = +1
+        cocosout['sign_pprime_pos'] = -1
+        cocosout['exp_Bp'] = 0
+        cocosout['sigma_ip'] = +1
+        cocosout['sigma_b0'] = -1
+        
+        # Define effective variables: sigma_Ip_eff, sigma_B0_eff, sigma_Bp_eff, exp_Bp_eff as in Appendix C
+        #sigma_Ip_eff = cocosin['sigma_RphiZ'] * cocosout['sigma_RphiZ']
+        #sigma_B0_eff = cocosin['sigma_RphiZ'] * cocosout['sigma_RphiZ']
+        # Since we want sigmaip and sigmab0 defined, we must use
+        sigma_Ip_eff = cocosin['sigma_ip']*cocosout['sigma_ip']
+        sigma_B0_eff = cocosin['sigma_b0']*cocosout['sigma_b0']
+        sigma_Bp_eff = cocosin['sigma_Bp'] * cocosout['sigma_Bp']
+        exp_Bp_eff = cocosout['exp_Bp'] - cocosin['exp_Bp']
+        sigma_rhothetaphi_eff = cocosin['sigma_rhothetaphi'] * cocosout['sigma_rhothetaphi']
+        # Define input
+        F_in = self.eqdsk.T
+        FFprime_in = self.eqdsk.TTprime
+        pprime_in = self.eqdsk.pprime
+        psirz_in = self.eqdsk.psi
+        psiaxis_in = self.eqdsk.psiaxis
+        psiedge_in = self.eqdsk.psiedge
+        q_in = self.eqdsk.q
+        b0_in = self.eqdsk.B0EXP
+        ip_in = self.eqdsk.Ip
+        
+        # Transform
+        F = F_in * sigma_B0_eff
+        FFprime = FFprime_in*sigma_Ip_eff*sigma_Bp_eff/(2*pi)**exp_Bp_eff
+        pprime = pprime_in * sigma_Ip_eff * sigma_Bp_eff / (2*pi)**exp_Bp_eff
+        _fact_psi = sigma_Ip_eff * sigma_Bp_eff * (2*pi)**exp_Bp_eff
+        psirz = psirz_in * _fact_psi       
+        psiaxis = psiaxis_in * _fact_psi
+        psiedge = psiedge_in * _fact_psi
+        q = q_in * sigma_Ip_eff * sigma_B0_eff * sigma_rhothetaphi_eff
+        b0 = b0_in * sigma_B0_eff
+        ip = ip_in * sigma_Ip_eff
+        # Define output
+        self.eqdsk.T = F
+        self.eqdsk.TTprime = FFprime
+        self.eqdsk.pprime = pprime
+        self.eqdsk.psi = psirz
+        self.eqdsk.psiaxis = psiaxis
+        self.eqdsk.psiedge = psiedge
+        self.eqdsk.q = q
+        self.eqdsk.B0EXP = b0
+        self.eqdsk.Ip = ip
 
     def _shift_eq(self):
         """
@@ -341,29 +407,33 @@ class Bfield_eqdsk:
             self.param_bphi
         except:
             self.calc_field()
-        f = plt.figure()
+        f = plt.figure(figsize=(20, 8))
         ax2d = f.add_subplot(131)
         r,z = self.R_eqd, self.Z_eqd
-        CS = ax2d.contour(r,z, self.eqdsk.psi, 100)
-        plt.contour(r,z, self.eqdsk.psi, [self.eqdsk.psiedge], colors='k', linewidths=3.)
+        #r = np.linspace(float(np.around(np.min(self.R_w), decimals=2)), float(np.around(np.max(self.R_w), decimals=2)), self.nR)
+        #z = np.linspace(float(np.around(np.min(self.z_w), decimals=2)), float(np.around(np.max(self.z_w), decimals=2)), self.nz)
+
+ 
+        CS = ax2d.contour(r,z, self.psi_coeff(r,z), 20)
+        plt.contour(r,z, self.psi_coeff(r,z), [self.eqdsk.psiedge], colors='k', linewidths=3.)
 
         ax2d.set_xlabel("R")
         ax2d.set_ylabel("Z")
         CB = plt.colorbar(CS)
         if self.R_w[0]!=0:
             ax2d.plot(self.R_w, self.z_w, 'k',linewidth=2)
-
+        ax2d.axis('equal')
         axq = f.add_subplot(132)
-        axq.plot(self.eqdsk.rhopsi, self.eqdsk.q)
+        axq.plot(self.eqdsk.rhopsi, self.eqdsk.q, lw=2.3, color='k')
         axq.set_xlabel(r'$\rho_{POL}$')
         axq.set_ylabel(r'q')
 
         axf = f.add_subplot(133)
         #axf.plot(self.R_eqd, self.eqdsk.T)
-        axf.plot(r, self.param_bphi(r,z)[len(r)/2,:])
+        axf.plot(r, self.param_bphi(r,z)[len(r)/2,:], lw=2.3, color='k')
         axf.set_xlabel(r'R [m]')
         axf.set_ylabel(r'Bfield')
-
+        f.tight_layout()
         plt.show()
 
     def plot_Bfield(self):
@@ -453,9 +523,10 @@ class Bfield_eqdsk:
         # find axis
         self.ax = self._min_grad(x0=[self.eqdsk.Raxis, self.eqdsk.Zaxis])     
         self.axflux = self.psi_coeff(self.ax[0], self.ax[1])*(2*math.pi)
+        print("remember: I am multiplying psi axis times 2pi since in ascot it divides by it!")
 
         # poloidal flux of the special points (only one in this case)
-        self.hdr['PFxx'] = [self.axflux[0]]
+        self.hdr['PFxx'] = [self.axflux[0][0]]
         self.hdr['RPFx'] = [self.ax[0]]
         self.hdr['zPFx'] = [self.ax[1]]
         self.hdr['SSQ']  = [self.eqdsk.Raxis, self.eqdsk.Zaxis, 0, 0]
@@ -488,14 +559,15 @@ class Bfield_eqdsk:
         x0 = plt.ginput()
         plt.close(f)
         self.xpoint = self._min_grad(x0=x0)        
-        self.xflux = self.psi_coeff(self.xpoint[0], self.xpoint[1])
+        self.xflux = self.psi_coeff(self.xpoint[0], self.xpoint[1])*(2*math.pi)
         
         # find axis
         self.ax = self._min_grad(x0=[self.eqdsk.Raxis, self.eqdsk.Zaxis])     
-        self.axflux = self.psi_coeff(self.ax[0], self.ax[1])
+        self.axflux = self.psi_coeff(self.ax[0], self.ax[1])*(2*math.pi)
+        print("remember: I am multiplying psi axis and x-point times 2pi since in ascot it divides by it!")
 
         # poloidal flux of the special points.
-        self.hdr['PFxx'] = [self.xflux[0], self.axflux[0]]
+        self.hdr['PFxx'] = [self.xflux[0][0], self.axflux[0][0]]
         self.hdr['RPFx'] = [self.xpoint[0], self.ax[0]]
         self.hdr['zPFx'] = [self.xpoint[1], self.ax[1]]
         self.hdr['SSQ']  = [self.eqdsk.R0EXP, 0, 0, 0]
@@ -518,6 +590,9 @@ class Bfield_eqdsk:
 
         R_temp = np.linspace(self.eqdsk.rboxleft, self.eqdsk.rboxleft+self.eqdsk.rboxlength, self.nR)
         z_temp = np.linspace(-self.eqdsk.zboxlength/2., self.eqdsk.zboxlength/2., self.nz)
+        #R_temp = np.linspace(float(np.around(np.min(self.R_w), decimals=2)), float(np.around(np.max(self.R_w), decimals=2)), self.nR)
+        #z_temp = np.linspace(float(np.around(np.min(self.z_w), decimals=2)), float(np.around(np.max(self.z_w), decimals=2)), self.nz)
+
         psitemp = self.psi_coeff(R_temp, z_temp)
         bphitemp = self.param_bphi(R_temp, z_temp)
 
@@ -528,8 +603,9 @@ class Bfield_eqdsk:
                   'psi':[],\
                   'Bphi':bphitemp, 'BR':self.Br, 'Bz':self.Bz} 
 
-        self.bkg['psi'] = psitemp   
-        
+        self.bkg['psi'] = psitemp*2*math.pi #in ASCOT Bfield, the psi is divided by 2*pi and reverses sign. This prevents it from happening  
+        print("remember: I am multiplying psi times 2pi since in ascot it divides by it!")
+    
     def _calc_psi_deriv(self):
         """
         Compute the derivative of psi on a refined grid which
@@ -602,21 +678,21 @@ class Bfield_eqdsk:
         self.Bz = np.zeros((self.nR, self.nz))
         
         #Creating rhogrid and then Fgrid
-        rhogrid = np.sqrt((self.eqdsk.psi-self.eqdsk.psiaxis)/ \
-                    (self.eqdsk.psiedge-self.eqdsk.psiaxis))
-        Rtmp=np.linspace(self.eqdsk.rboxleft, \
-                        self.eqdsk.rboxleft+self.eqdsk.rboxlength,\
-                        self.eqdsk.nrbox)
-        ztmp = np.linspace(-self.eqdsk.zboxlength/2., self.eqdsk.zboxlength/2.,\
-                           self.eqdsk.nzbox)
-        rhogrid_p = interp.interp2d(Rtmp, ztmp,rhogrid, 'cubic')
+        psinorm_grid = (self.eqdsk.psi-self.eqdsk.psiaxis)/(self.eqdsk.psiedge-self.eqdsk.psiaxis)
+        rhogrid = np.sqrt(psinorm_grid)
+        Rtmp = self.R_eqd
+        ztmp = self.Z_eqd
+        rhogrid_p = interp.RectBivariateSpline(self.R_eqd, self.Z_eqd, rhogrid)
+        self.rhogrid_p = rhogrid_p
         self.rhogrid=rhogrid_p(self.R_eqd, self.Z_eqd)
-        Fgrid=griddata(self.eqdsk.rhopsi, self.eqdsk.T, rhogrid, method='cubic')
+
+        Fgrid=griddata(self.eqdsk.rhopsi, self.eqdsk.T, rhogrid, method='nearest')
         #Set values out of the separatrix (where Fgrid is NaN) to the value at the separatrix
         Fgrid[np.where(rhogrid>1.)] = self.eqdsk.T[-1]
+
         self.Fgrid=Fgrid 
 
-        Bphi = np.multiply(Fgrid,inv_R)*self.sigmabp
+        Bphi = np.multiply(Fgrid,inv_R)
         
         self.param_bphi = interp.interp2d(self.R_eqd, self.Z_eqd, Bphi)
     
@@ -772,11 +848,10 @@ class Bfield_eqdsk:
                 #fname = "/home/vallar/JT60-SA/PARETI_2D_SA/input.wall_2d_clamped"
             elif self.devnam == 'TCV':
                 fname = '/home/vallar/TCV/from_jari/input.wall_2d'
-           
+                #fname = '/home/vallar/TCV/TCV_vessel_coord.dat'
             wall = np.loadtxt(fname, skiprows=1)
             self.R_w = wall[:,0]
             self.z_w = wall[:,1]
-
         except:
             print("No wall to read")
             self.R_w=[0]

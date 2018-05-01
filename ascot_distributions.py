@@ -167,6 +167,7 @@ class distribution_1d:
 
         self.infile=h5py.File(infile_n)
         self.infile_n = infile_n
+        self.id = self.infile_n[-9:-3]
         rhonew=self.infile['plasma/1d/rho'][:]
         rhonew = rhonew[rhonew<1]
         try:
@@ -473,7 +474,7 @@ class distribution_1d:
         print("CD efficiency: ", self.eff, " [10^20 A / (W m^2)]")
 
 
-    def _slowingdown_3D(self):
+    def _slowingdown_3D(self, E0):
         """
         3D calculations for collisionality (rho, Te, taus):
         (1) at each rho computes Ec
@@ -497,7 +498,6 @@ class distribution_1d:
         Ec = self.param_ec(self.rho)
         ts = self.param_ts(self.rho)
         taus = np.zeros((len(self.rho), len(te_frac)), dtype=float)
-        E0 = 85e3*1.602e-19
         e_x = np.linspace(0, E0, num=100)
         for ind_te, i in enumerate(te_frac):
             for ind_ec,j in enumerate(Ec):
@@ -509,12 +509,14 @@ class distribution_1d:
                 
         self.taus=taus                
                 
-    def _ecrit(self):
+    def _ecrit(self, E0):
         """
         Calculates critical energy profiles
         Ec = 
         ts = 6.28e14*(A*te^1.5)/(Z^2*ne*lnlambda)
         """
+        print("Calculating Ec")
+        print("Calculating ts with E0="+str(E0)) 
         rho = self.infile['plasma/1d/rho'][:]
         te = self.infile['plasma/1d/te'][:]
         ne = self.infile['plasma/1d/ne'][:]
@@ -525,11 +527,15 @@ class distribution_1d:
         Z = self.infile['species/testParticle/znum'][0]
         summ = np.sum(np.multiply(nimp, Zi**2/Ai), axis=1)
         Ec = 14.8*te*(A**(1.5)/ne*summ)**(2./3.)
-        self.param_ec = interpolate.interp1d(rho,Ec)
-        self.ec_mean = np.trapz(Ec[rho<1]*self.volumes)/np.sum(self.volumes)
+        param_ec = interpolate.interp1d(rho,Ec)
+        ec_mean = np.trapz(param_ec(self.rho)*self._volumes)/np.sum(self._volumes)
+        
         #Spitzer slowing-down time
         ts = 6.28e14*A*te**1.5/(Z**2*ne*17.)
-        self.param_ts = interpolate.interp1d(rho,ts)
+        taus=ts/3.*np.log((1+(E0/Ec)**1.5))
+        param_taus = interpolate.interp1d(rho,taus)
+        taus_mean = np.trapz(param_taus(self.rho)*self._volumes)/np.sum(self._volumes)
+        return param_ec, ec_mean, param_taus, taus_mean
 
 
 class TCV_1d(distribution_1d):
@@ -603,7 +609,10 @@ class TCV_1d(distribution_1d):
             ax[ind_row,ind_col].set_ylabel(yunits[i])
             ax[ind_row,ind_col].set_title(ylabels[i])
 
-        plt.show()        
+        plt.show()
+        
+    def calc_Ec(self):
+		self.param_ec, self.ec, self.param_ts, self.ts = self._ecrit(E0=25000)    
 
 
 class SA_1d(distribution_1d):
@@ -858,9 +867,9 @@ class SA_1d(distribution_1d):
             self._plot_groups(self.peind,r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
             self._plot_groups([self.peind-1, self.peind],r'$P_{TOT}$ (kW/$m^3$)', factor=1e-3, ylim=[0, 500])
         if self.nions==2:
-            self._plot_groups(self.peind,r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
-            self._plot_groups(self.peind+1,r'$P_i\, 2$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
-            self._plot_groups([self.peind,self.peind+1],r'$P_i TOT$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+            self._plot_groups(self.peind,r'$P_i \, 1$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+            self._plot_groups(self.peind+1,r'$P_i \, 2$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+            self._plot_groups([self.peind,self.peind+1],r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
             self._plot_groups([self.peind-1, self.peind, self.peind+1],r'$P_{TOT}$ (kW/$m^3$)', factor=1e-3, ylim=[0, 500])
             
     def plot_pn_groups(self):
@@ -882,7 +891,10 @@ class SA_1d(distribution_1d):
             self.data_PPAR.mean()
         except:
             self.group_beams()
-        self._plot_groups([5,24],r'Torque to electrons (N $m^{-2}$)')
+        print(self.peind+4+self.nions-3, 'tq to e-')
+        print(self.name_dict)
+        self._plot_groups([5, self.name_dict['ctor_el']-1],r'Torque to electrons (N $m^{-2}$)')
+        self._plot_groups([5, self.name_dict['ctor_i1']-1],r'Torque to ions (N $m^{-2}$)')
 
 
     def SA_calc_FIBP(self, plot_flag, *args):
@@ -936,9 +948,21 @@ class SA_1d(distribution_1d):
 
         self.fibp_particles = np.dot(self.fibp, volumes)
         if plot_flag == 1:
+<<<<<<< HEAD
             plot_article(4, [rho, self.fibp, self.fibp_P_perp, self.fibp_P_tang, self.fibp_NNB], \
                      ['TOT','P-perp','P-tang','N'], r'$\rho$', r'Fast ion birth profile $1/(s\cdot m^3)$',\
                      title=str(shot)+str(run), ylim=[0, 3e19])
+=======
+            ylines = [rho, self.fibp, self.fibp_P_perp, self.fibp_P_tang, self.fibp_NNB]
+            label = ['TOT','P-perp','P-tang','N']
+            plot_article(4, ylines, label, r'$\rho$', 
+                         r'Fast ion birth profile $1/(s\cdot m^3)$', self.id)
+                         
+                         
+    def calc_Ec(self):
+		self.param_ec, self.ec, self.param_ts85,  self.ts85  = self._ecrit(E0=85000)
+		self.param_ec, self.ec, self.param_ts500, self.ts500 = self._ecrit(E0=500000)		
+>>>>>>> 0b7f2bac1d634cafe5f8503a758926bda0f63e0a
        
        
 class distribution_2d:
@@ -969,7 +993,7 @@ class distribution_2d:
         self.zplot = self.f_Ep_int
         if 'R' in self.dict_dim and 'z' in self.dict_dim:
             self.xplot = self.dict_dim['R']
-            self.yplot = self.dict_dim['z'] 
+            self.yplot = self.dict_dim['z']
             self._plot_2d('R [m]', 'z [m]', wall=1, surf=1)
         elif 'rho' in self.dict_dim and 'phi' in self.dict_dim:
             self.xplot = self.dict_dim['rho']
@@ -1010,11 +1034,21 @@ class distribution_2d:
         Hidden method to integrate over (E,p)
         """
         dist_toint = self.fdist_notnorm[0,:,:,:,:]/self.norm
-            
+#        int_p = np.trapz(dist_toint, self.dict_dim['pitch'], axis=1)        
         int_E = np.trapz(dist_toint, self.dict_dim['E'], axis=0)
         self.f_Ep_int = np.trapz(int_E, self.dict_dim['pitch'], axis=0)
+#        self.f_Ep_int = np.trapz(int_E, self.dict_dim['pitch'], axis=0)
 
-
+        if 'rho' in self.dict_dim.keys():
+            for i,el in enumerate(self.vol):
+                self.f_Ep_int[0,i] *= el*el 
+        elif 'R' in self.dict_dim and 'z' in self.dict_dim:
+            dZ=np.abs(self.dict_dim['z'][-1]-self.dict_dim['z'][-2])
+            dR=np.abs(self.dict_dim['R'][-1]-self.dict_dim['R'][-2])
+            for i, el in enumerate(self.dict_dim['R']):
+                self.f_Ep_int[i,:] /= (2*math.pi*el*dZ*dR)  
+    
+    
     def _integrate_spaceE(self):
         """
         Hidden method to integrate over (space,E)
@@ -1055,7 +1089,7 @@ class distribution_2d:
         except:
             self.integrate_spacep()
         
-        self.xplot = self.dict_dim['E']/1.6e-19
+        self.xplot = self.dict_dim['E']*1e-3/1.6e-19
         self.yplot = self.f_spacep_int
             
         self._plot_1d('E [keV]', "Normalized f")
@@ -1086,9 +1120,9 @@ class distribution_2d:
             self._integrate_space()
 
         self.xplot = self.dict_dim['pitch']
-        self.yplot = self.dict_dim['E']/1.6e-19
+        self.yplot = self.dict_dim['E']*1e-3/1.6e-19
         self.zplot = self.f_space_int
-        self._plot_2d('pitch', 'E')
+        self._plot_2d(r'$\xi$', 'E [keV]')
 
     def plot_Emu(self):
         """
@@ -1111,9 +1145,6 @@ class distribution_2d:
             self._integrate_space()
         self._write('pitch','E', self.f_space_int, units=['adimensional', 'J'])
 
-    def write_allf(self):
-        self._write4d('R','z','pitch','E', self.fdist_notnorm/self.norm, \
-                         units=['m','m','adimensional', 'J'])
 
     def _plot_1d(self, xlab, ylab, **kwargs):
         """
@@ -1141,20 +1172,51 @@ class distribution_2d:
         Hidden method to plot the 2D distribution
         wall: set to 1 if wall needed to plot (i.e. RZ function)
         """
+        #=====================================================================================
+        # SET TEXT FONT AND SIZE
+        #=====================================================================================
+        #plt.rc('font', family='serif', serif='Palatino')
+        #plt.rc('text', usetex=True)
+        plt.rc('xtick', labelsize=20)
+        plt.rc('ytick', labelsize=20)
+        plt.rc('axes', labelsize=20)
+        #=====================================================================================        
 
         flag_dict = kwargs
         title = 'Normalized f'
-        fig = plt.figure()
+        if 'wall' in flag_dict:
+            fig=plt.figure(figsize=(6,7))
+        else:
+            fig=plt.figure()
+        fig.text(0.01, 0.01, self.id)
         tit=self.id
         ax  = fig.add_subplot(111)
-        x,y = np.meshgrid(self.xplot, self.yplot)
-        CS  = ax.pcolor(x,y, self.zplot, cmap=my_cmap)
-        plt.colorbar(CS)
+        if len(self.yplot)!=1:
+            x,y = np.meshgrid(self.xplot, self.yplot)
+            CS  = ax.pcolor(x,y, self.zplot, cmap=my_cmap)
+            plt.colorbar(CS)
+        else:
+            ax.plot(self.xplot, self.zplot[0,:], 'k', lw=2.3)
+            ylab='Particle density'            
         #ax.plot([np.min(self.xplot),np.max(self.xplot)], [5e5, 5e5], linewidth=3., color='k')
-               
         if 'wall' in flag_dict and flag_dict['wall']==1:
             ax.plot(self.R_w, self.z_w, 'k', linewidth=2)
             ax.axis('equal')
+            #=====================================================================================
+            # SET TICK LOCATION
+            #=====================================================================================
+    
+            # Create your ticker object with M ticks
+            M = 4
+            yticks = ticker.MaxNLocator(M)
+            xticks = ticker.MaxNLocator(M)
+            # Set the yaxis major locator using your ticker object. You can also choose the minor
+            # tick positions with set_minor_locator.
+            ax.yaxis.set_major_locator(yticks)
+            #ax.yaxis.set_minor_locator(yticks_m)
+            ax.xaxis.set_major_locator(xticks)
+            #=====================================================================================
+
         if 'surf' in flag_dict and flag_dict['surf']==1:
             self._plot_RZsurf(ax)            
         if 'title' in flag_dict:
@@ -1251,7 +1313,6 @@ class distribution_2d:
         f_handle.write('# '+self.header+'\n')
         #for lab in x_labels:
         #    np.savetxt(f_handle, self.dict_dim[lab])
-        print(self.y[0,:,:,:,:].shape)
         for sl in self.y[0,:,:,:,:]:
             for ssll in sl:
                 np.savetxt(f_handle, ssll, fmt='%.5e')
@@ -1268,9 +1329,9 @@ class distribution_2d:
             except:
                 self._integrate_spacep()
                 
-            self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
+            #self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
             #print "NORM = ", self.norm
-        
+            self.norm=1
         elif "mu" in self.dict_dim:
             try:
                 self.f_spacemu_int()
@@ -1459,19 +1520,21 @@ class frzpe(distribution_2d):
 
     def plot_RZposition(self, sliceR, slicez, **kwargs):
         """
-        makes a plot of E, pitch on a R,z position
+        makes a plot of E, pitch on a R,z position, given in sliceR and sliceZ
         """
         ind_R = np.argmin(self.dict_dim['R']-sliceR < 0)
+        print(ind_R, self.dict_dim['R'][ind_R])
         ind_z = np.argmin(self.dict_dim['z']-slicez < 0)
         dist_toplot = self.fdist_notnorm[0,:,:,ind_R, ind_z]/self.norm
 
         self.xplot = self.dict_dim['pitch']
-        self.yplot = self.dict_dim['E']/1.6e-19
+        self.yplot = self.dict_dim['E']/1.6e-19*1e-3
         self.zplot = dist_toplot
         if 'fname' in kwargs:
-            self._plot_2d('pitch', 'E', \
+            self._plot_2d(r'$\xi$', 'E [keV]', \
                           title='R='+str(sliceR)+' z='+str(slicez), \
                           fname=kwargs['fname'])
+<<<<<<< HEAD
         #else:
         #    self._plot_2d('pitch', 'E', title='R='+str(sliceR)+' z='+str(slicez))
 
@@ -1505,6 +1568,20 @@ class frzpe(distribution_2d):
         else:
             self._plot_1d(r'$\xi$',r'E [keV]', title='E='+str(sliceE))        
         
+=======
+        else:
+            self._plot_2d(r'$\xi$', 'E [keV]', title='R='+str(sliceR)+' z='+str(slicez))
+        
+
+    def write_allf(self):
+        self._write4d('R','z','pitch','E', self.fdist_notnorm/self.norm, \
+                         units=['m','m','adimensional', 'J'])
+    def write_allf_notnorm(self):
+        self._write4d('R','z','pitch','E', self.fdist_notnorm, \
+                       units=['m','m','adimensional', 'J'])
+
+            
+>>>>>>> 0b7f2bac1d634cafe5f8503a758926bda0f63e0a
 class frhophipe(distribution_2d):
     
     def __init__(self, infile_n):
@@ -1537,10 +1614,37 @@ class frhophipe(distribution_2d):
             dist_toint[:,:,:,i] *= el/self.shape_dim['phi']       
             
         int_rho    = np.trapz(dist_toint, self.dict_dim['rho'], axis = -1)
+        
         #int_rhophi  = np.trapz(int_rho   , self.dict_dim['phi'], axis = -1) 
-        int_rhophi = int_rho[:,:,0]
+        int_rhophi = int_rho[:,:,0]*2*math.pi
         self.f_space_int = int_rhophi #E,pitch  
+        
+    def write_allf(self):
+        self._write4d('rho','phi','pitch','E', self.fdist_notnorm/self.norm, \
+                         units=['adim','rad','adim', 'J'])
 
+    def write_allf_notnorm(self):
+        self._write4d('rho','phi','pitch','E', self.fdist_notnorm, \
+                         units=['adim','rad','adim', 'J'])
+
+    def plot_rhoposition(self, slicerho,**kwargs):
+        """
+        makes a plot of E, pitch on a rho position, given in slicerho
+        """
+        ind_rho = np.argmin(self.dict_dim['rho']-slicerho< 0)
+        print(ind_rho, self.dict_dim['rho'][ind_rho])
+        dist_toplot = self.fdist_notnorm[0,:,:,0,ind_rho]/self.norm
+
+        self.xplot = self.dict_dim['pitch']
+        self.yplot = self.dict_dim['E']/1.6e-19*1e-3
+        self.zplot = dist_toplot
+        if 'fname' in kwargs:
+            self._plot_2d(r'$\xi$', 'E [keV]', \
+                          title=r'$\rho$='+str(slicerho), \
+                          fname=kwargs['fname'])
+        else:
+            self._plot_2d(r'$\xi$', 'E [keV]', title=r'$\rho$='+str(slicerho))
+        
 class frzmue(distribution_2d):
     
     def __init__(self, infile_n):
@@ -1615,6 +1719,7 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title, **kwargs):
         ax.yaxis.set_major_locator(yticks)
         #ax.yaxis.set_minor_locator(yticks_m)
         ax.xaxis.set_major_locator(xticks)
+        ax.grid('on')
         #=====================================================================================
         #ax.set_ylim([0,150])
         if data_labels[0]!='':
