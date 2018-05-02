@@ -38,14 +38,16 @@ class particles:
     def __init__(self):
         
         # Initialisation
-        self.npart   = 0
-        self.nfields = 0
-        self.field   = []
-        self.unit    = []
-        self.data_i  = collections.defaultdict(list)
-        self.data_e  = collections.defaultdict(list)
-        self.R_w = []
-        self.z_w = []
+		self.npart   = 0
+		self.nfields = 0
+		self.field   = []
+		self.unit    = []
+		self.data_i  = collections.defaultdict(list)
+		self.data_e  = collections.defaultdict(list)
+		self.R_w = []
+		self.z_w = []
+		self._RZsurf()
+		self._readwall()
 
     def _calc_binarea(self,x,y):
         """
@@ -78,94 +80,53 @@ class particles:
             ind = self.data_e['origin'][:]==i
             self.w_e[ind_i] = sum(self.data_e['weight'][ind])  
             self.w[ind_i]  = self.w_i[ind_i]+self.w_e[ind_i]
-
-
-    def TCV_calc_shinethr(self):
-        """
-        Method to calculate the shine-through with the weights
-        """
-        
-        if self.endgroup != 'shinethr':
-            print("WARNING! Check input file, which is ", self.fname)
-
-        self._calc_weight()
-        self.shinethr=np.zeros((1), dtype=float)
-        self.shinethr_abs=np.zeros((1), dtype=float)
-        power = 1e6
-
-        e = self.data_e['energy']
-        e = e*1.612e-19
-        w = self.data_e['weight']
-        self.shinethr_abs= np.sum(e*w)
-        self.shinethr=np.sum(e*w)/power
-
-        print("TCV Shine-through:", "{0:5f} %".format(self.shinethr*100),\
-                  "||  {0:3f} W".format(self.shinethr_abs))
-
-
             
+            
+    def TCV_calc_shinethr(self):
+         """
+         Method to calculate the shine-through with the weights
+         """
+
+         if self.endgroup != 'shinethr':
+             print("WARNING! Check input file, which is ", self.fname)
+
+         self._calc_weight()
+         self.shinethr=np.zeros((1), dtype=float)
+         self.shinethr_abs=np.zeros((1), dtype=float)
+         power = 1e6
+
+         e = self.data_e['energy']
+         e = e*1.612e-19
+         w = self.data_e['weight']
+         self.shinethr_abs= np.sum(e*w)
+         self.shinethr=np.sum(e*w)/power
+
+         print("TCV Shine-through:", "{0:5f} %".format(self.shinethr*100),\
+                                   "||  {0:3f} W".format(self.shinethr_abs))
+
     def plot_RZpart(self):
         """
-        Method to plot R vs z of the ionised particles, useful mostly with bbnbi
+        Method to plot R vs z of the ionised particles, useful mostly 
+        with bbnbi
         """
-        #=====================================================================================
-        # SET TEXT FONT AND SIZE
-        #=====================================================================================
-        #plt.rc('font', family='serif', serif='Palatino')
-        #plt.rc('text', usetex=True)
-        plt.rc('xtick', labelsize=20)
-        plt.rc('ytick', labelsize=20)
-        plt.rc('axes', labelsize=20)
-        #=====================================================================================        
-        
         try:
             x=self.data_i['Rprt']
             y=self.data_i['zprt']
         except:
             x=self.data_i['R']
             y=self.data_i['z']
+
         if np.mean(x)==999. or np.mean(x)==-999.:
             x=self.data_i['R']
             y=self.data_i['z']
-        #w, h = plt.figaspect(1.3)
-        f=plt.figure(figsize=(6,7))
-        f.suptitle(self.fname)
-        ax = f.add_subplot(111)
-        self._plot_RZsurf(ax)
-        #hb = ax.hexbin(x, y, gridsize=100, cmap=my_cmap)
-        hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
-        f.colorbar(hb[3], ax=ax)
-        ax.set_xlabel('R [m]')
-        ax.set_ylabel('z [m]')
+        xlab = 'R [m]'
+        ylab = 'z [m]'
+        wallrz= [self.R_w, self.z_w]
 
-        if len(self.R_w)==0:
-            self._readwall()
-        ax.plot(self.R_w , self.z_w, 'k', linewidth=3)
-        #=====================================================================================
-        # SET TICK LOCATION
-        #=====================================================================================
+        _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='RZ ionization',\
+                                 wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf])
 
-        # Create your ticker object with M ticks
-        M = 4
-        yticks = ticker.MaxNLocator(M)
-        xticks = ticker.MaxNLocator(M)
-        # Set the yaxis major locator using your ticker object. You can also choose the minor
-        # tick positions with set_minor_locator.
-        ax.yaxis.set_major_locator(yticks)
-        #ax.yaxis.set_minor_locator(yticks_m)
-        ax.xaxis.set_major_locator(xticks)
-        #=====================================================================================
-
-        ax.axis('equal')
-        ax.axis([min(self.R_w), max(self.R_w), min(self.z_w), max(self.z_w)])
-        #ax.set_xrange([min(self.R_w), max(self.R_w)])
-        #ax.set_yrange([min(self.z_w), max(self.z_w)])    
-        plt.subplots_adjust(top=0.95,bottom=0.12,left=0.25,right=0.9)
-                  
-        plt.show()
-
-
-    def plot_XYpart_singlebeam(self):
+    def plot_XY(self):
         """
         Method to plot XY of ionisation, without difference between the beams
         """
@@ -177,42 +138,27 @@ class particles:
             R=self.data_i['R']
             z=self.data_i['z']
             phi = self.data_i['phiprt']
-            
-            
+
         if np.mean(R)==999. or np.mean(R)==-999.:
             R=self.data_i['R']
             z=self.data_i['z']
             phi = self.data_i['phi']*math.pi/180.
         x=np.zeros(self.npart)
         y=np.zeros(self.npart)
-        R0=2.7
-
         for i, el in enumerate(R):
             x[i]=el*math.cos(phi[i])
             y[i]=el*math.sin(phi[i])
+        xlab = 'X [m]'
+        ylab = 'Y [m]' 
+        R0 = 0 
+        if self.R0:
+            R0 = self.R0
             
-        f=plt.figure(figsize=(12,10))
-        f.text(0.01, 0.95, self.id)
+        wallxy= [self.R_w, self.z_w]
+        _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='XY Ionization',\
+                 wallxy=wallxy, R0=R0)
 
-        ax=f.add_subplot(111)
-        hb = ax.hist2d(x, y, bins=100, cmap=my_cmap, normed=True)
-        f.colorbar(hb[3], ax=ax)
-        ax.set_xlabel('X [m]')
-        ax.set_ylabel('Y [m]')
-        ax.set_xlim([-5., 5.])
-        ax.set_ylim([-5., 5.])          
-        ax.axis('equal')        
-        theta=np.arange(0,6.3,0.02*6.28)
-        if len(self.R_w)==0:
-            self._readwall()
-        ax.plot(np.min(self.R_w)*np.cos(theta) , np.min(self.R_w)*np.sin(theta), 'k', linewidth=3)
-        ax.plot(np.max(self.R_w)*np.cos(theta) , np.max(self.R_w)*np.sin(theta), 'k', linewidth=3)
-        circle1 = plt.Circle((0, 0), R0, color='r', fill=False, linestyle='--')        
-        ax.add_artist(circle1)
-        f.tight_layout()
-        plt.show()
-
-    def plot_ioniz_beams(self):
+    def plot_beams_XY(self):
         """
         Method to plot XY of ionisation FOR EACH BEAM
         """
@@ -220,8 +166,8 @@ class particles:
             self.beamorigindict
         except:
             self._calc_originbeam()
-
             
+
         #x_range=[-5,5]
         axxy = plt.subplot2grid((1,2),(0,0))
         axrz = plt.subplot2grid((1,2),(0,1))
@@ -249,11 +195,7 @@ class particles:
                     y[j] = el*math.sin(ang[j])
                 axxy.scatter(x,y,c=col[i])            
                 axrz.scatter(R,z,c=col[i])
-        
-##         axxy.('X')
-##         axxy.ylabel('Y')
-##         axrz.xlabel('R')
-##         axrz.ylabel('z')
+                
         theta=np.arange(0,6.29,0.02*6.28)
         if len(self.R_w)==0:
             self._readwall()
@@ -264,11 +206,14 @@ class particles:
         axrz.axis([0,5,-4,4])
         axxy.axis('equal')
         axrz.axis('equal')
-        
+
         plt.show()
 
 
     def losses_prediction(self):
+        """
+        Plots the initial values of the particles depending on their endcondition
+        """
         endstate=self.data_e['endcond']
         R   = self.data_i['R']
         phi = self.data_i['phi']
@@ -282,7 +227,7 @@ class particles:
         plt.scatter(self.data_i['pitch'][ind_th],   self.data_i['energy'][ind_th], c='red',  label='th', marker='x')
         plt.scatter(self.data_i['pitch'][ind_emin], self.data_i['energy'][ind_emin],c='green', label='emin', marker='x')
         plt.legend(loc='best')
-
+        
         plt.figure()
         plt.scatter(R[ind_wall]*np.cos(phi[ind_wall]), R[ind_wall]*np.sin(phi[ind_wall]),c='blue', label='wall', marker='x')
         plt.scatter(R[ind_th]*np.cos(phi[ind_th]), R[ind_th]*np.sin(phi[ind_th]),c='red', label='th', marker='x')
@@ -299,12 +244,57 @@ class particles:
         try:
             wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
         except:
-            in_w_fname = '/home/vallar/ASCOT/runs/JT60SA/002/input.wall_2d'
+            if self.id[0:2]=='00':
+                in_w_fname = '/home/vallar/ASCOT/runs/JT60SA/002/input.wall_2d'
+            else:
+                in_w_fname = '/home/vallar/ASCOT/runs/TCV/57850/input.wall_2d'
             wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
+            
         self.R_w = wall[0,:]
         self.z_w = wall[1,:]
         self.R_w = np.array(self.R_w)
         self.z_w = np.array(self.z_w)
+
+    def _RZsurf(self):
+        """
+        Reads the position of RZ surfaces from ascot file
+        """       
+        
+        if self.id[0:3]=='003':
+            strt=str(self.id[0:3])+'000'
+        elif self.id[0:3]=='005':
+            strt=str(self.id[0:3])+'053'
+        elif self.id[0:5]=='57850' and self.id[5:7]=='08':
+            strt =str(self.id[0:5])+'080'
+        elif self.id[0:5]=='57850' and self.id[5:7]=='14':
+            strt =str(self.id[0:5])+'140'            
+        else:
+            print('Impossible to load RZ equiflux surfaces')
+            print('File ID:'+ self.id+' '+self.id[5:6])
+            self.RZsurf = 0
+            return 
+
+        f = h5py.File('ascot_'+strt+'.h5')
+        print("READING SURF FROM ascot_"+strt+".h5")
+        self.RZsurf = f['bfield/2d/psi'].value
+        self.Rsurf = f['bfield/r']
+        self.zsurf = f['bfield/z']
+        edge = f['boozer/psiSepa'][:]; axis=-1*f['boozer/psiAxis'][:]
+        self.R0 = f['misc/geomCentr_rz'][0]
+        #if self.id[0:3]=='005':
+        #    print("Multiply times -1")
+        #    self.RZsurf=-1.*self.RZsurf
+        self.RZsurf = (self.RZsurf-axis)/(edge-axis)
+        self.RZsurf = np.sqrt(self.RZsurf)            
+        
+    def _plot_RZsurf(self, ax):
+        try:
+            self.RZsurf.mean()
+        except:
+            self._RZsurf()
+            
+        CS = ax.contour(self.Rsurf, self.zsurf, self.RZsurf, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
+        plt.clabel(CS, inline=1, fontsize=10) 
 
     def endcondition(self):
         """
@@ -416,7 +406,15 @@ class particles:
 #        plt.figure(); plt.hist(phi, bins=20); plt.xlabel('Phi (toroidal angle)'); plt.ylabel('Number of particles')
 #        plt.figure(); plt.hist(theta, bins=20); plt.xlabel('theta (poloidal angle)'); plt.ylabel('Number of particles')
 #
-        plt.figure(); plt.plot(self.R_w, self.z_w, 'k', lw=2.3); plt.scatter(r,z, 100, c=energy); plt.title('Energy');plt.colorbar(); plt.xlabel('R'); plt.ylabel('z')
+
+        f= plt.figure()
+        ax=f.add_subplot(111)
+        ax.plot(self.R_w, self.z_w, 'k', lw=2.3)
+        ax.scatter(r,z, 100, c=energy)
+        #ax.title('Energy')
+        #ax.colorbar(); 
+        ax.set_xlabel('R'); ax.set_ylabel('z')
+        self._plot_RZsurf(ax)
         plt.figure(); plt.scatter(x,y);  plt.grid('on'); plt.xlabel(r'x'); plt.ylabel('y')
 #       
 #        plt.figure(); plt.scatter(pitch, energy*1e-3);
@@ -460,48 +458,6 @@ class particles:
         ind = np.where(np.logical_or(endcond == 1, endcond == 2))  #Tmax, Emin, cputmax
         p_res = np.dot(self.data_e['weight'][ind],self.data_e['energy'][ind])*1.602e-19
         self.pcoup = p_ini-p_end+p_res
-
-    def _RZsurf(self):
-        """
-        Reads the position of RZ surfaces from ascot file
-        now the edge is set to the value for scenario 5 from JT60SA
-        """       
-
-        if self.id[0:3]=='003':
-            strt=str(self.id[0:3])+'000'
-        elif self.id[0:3]=='005':
-            strt=str(self.id[0:3])+'053'
-        elif self.id[0:5]=='57850' and self.id[5:6]=='08':
-            strt =str(self.id[0:5])+'008'
-        elif self.id[0:5]=='57850' and self.id[5:6]=='14':
-            strt =str(self.id[0:5])+'014'            
-        else:
-            print('Impossible to load RZ equiflux surfaces')
-            self.RZsurf = 0
-            return 
-
-        f = h5py.File('ascot_'+strt+'.h5')
-        print("READING SURF FROM ascot_"+self.id+".h5")
-        self.RZsurf = f['bfield/2d/psi'].value
-        self.Rsurf = f['bfield/r']
-        self.zsurf = f['bfield/z']
-        edge = np.abs(f['boozer/psiSepa'][:]); axis=np.abs(f['boozer/psiAxis'][:])
-        #if self.id[0:3]=='005':
-        #    print("Multiply times -1")
-        #    self.RZsurf=-1.*self.RZsurf
-        self.RZsurf = (self.RZsurf - axis )/(edge-axis)
-        self.RZsurf = np.sqrt(self.RZsurf)            
-
-    def _plot_RZsurf(self, ax):
-        try:
-            self.RZsurf.mean()
-        except:
-            self._RZsurf()
-
-        if self.RZsurf!=0:
-            CS = ax.contour(self.Rsurf, self.zsurf, self.RZsurf, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
-            plt.clabel(CS, inline=1, fontsize=10)        
-        
 
 class dat_particles(particles):
     """
@@ -1009,103 +965,177 @@ class dat_particles(particles):
             factor = (R_torus/r)**1.5*R_torus/(math.sqrt(2)*vperp[i])
             ind = np.argmin(rho-self.partdict[i]['rho'][0]>0)
             self.tau_detrapp[i] = factor*q[ind]
-
-        
+       
 class h5_particles(particles):
-    """
-    Class (inherited from particles) handling h5 files (e.g. bbnbi.h5, ascot.h5)
-    """
-    def __init__(self, fname):
-        """
-        READ *.h5 FILE
-        """
-        particles.__init__(self)
-        self.fname = fname
-        dataf = h5py.File(self.fname)
-        self.infile=dataf
-        self.id = self.fname[-9:-3]
-        try:
-            self.endgroup = 'shinethr' #this is for bbnbi
-            self.field = dataf[self.endgroup].keys()
-        except:
-            self.endgroup = 'endstate' #this is for ascot
-            self.field = dataf[self.endgroup].keys()
-            
-        self.nfields=len(self.field)      
-        for key in self.field:
-            if key=='id':
-                self.data_i[key] = np.array(dataf['inistate/'+key], dtype=int)
-                self.data_e[key] = np.array(dataf[self.endgroup+'/'+key], dtype=int)
-            else:
-                self.data_i[key] = np.array(dataf["inistate/"+key], dtype=float)
-                self.data_e[key] = np.array(dataf[self.endgroup+"/"+key], dtype=float)
+	"""
+	Class (inherited from particles) handling h5 files (e.g. bbnbi.h5, ascot.h5)
+	"""
+	def __init__(self, fname):
+		"""
+		Initialising
+		"""
+		self.fname = fname
+		indd = self.fname[-9:-3]
+		self.id = indd
+		if indd[0:2] != '00':
+			self.id = self.fname[-11:-3]
+			
+		particles.__init__(self)
+		dataf = h5py.File(self.fname)
+		self.infile=dataf
+		try:
+			self.endgroup = 'shinethr' #this is for bbnbi
+			self.field = dataf[self.endgroup].keys()
+		except:
+			self.endgroup = 'endstate' #this is for ascot
+			self.field = dataf[self.endgroup].keys()
+			
+		self.nfields=len(self.field)      
+		for key in self.field:
+			if key=='id':
+				self.data_i[key] = np.array(dataf['inistate/'+key], dtype=int)
+				self.data_e[key] = np.array(dataf[self.endgroup+'/'+key], dtype=int)
+			else:
+				self.data_i[key] = np.array(dataf["inistate/"+key], dtype=float)
+				self.data_e[key] = np.array(dataf[self.endgroup+"/"+key], dtype=float)
 
-        if self.endgroup == 'endstate':
-            self._h5origins = dataf['species/testParticle/origin'].value
-        elif self.endgroup == 'shinethr':
-            self.origins = np.sort(np.array(list(set(self.data_i['origin']))))
+		if self.endgroup == 'endstate':
+			self._h5origins = dataf['species/testParticle/origin'].value
+		elif self.endgroup == 'shinethr':
+			self.origins = np.sort(np.array(list(set(self.data_i['origin']))))
 
-        # evaluate number of particles
-        self.npart = np.max(self.data_i['id'])
+		# evaluate number of particles
+		self.npart = np.max(self.data_i['id'])
 
-        #CONVERT PHI FROM DEG TO RAD
-        self.data_i['phiprt']=self.data_i['phiprt']*math.pi/180.
-        self.data_e['phiprt']=self.data_e['phiprt']*math.pi/180.
+		#CONVERT PHI FROM DEG TO RAD
+		self.data_i['phiprt']=self.data_i['phiprt']*math.pi/180.
+		self.data_e['phiprt']=self.data_e['phiprt']*math.pi/180.
 
-        print("FIELDS IN FILE ",self.fname,", section inistate and ",self.endgroup," :")
-        print(list(self.field))
+		print("FIELDS IN FILE ",self.fname,", section inistate and ",self.endgroup," :")
+		print(list(self.field))
 
-        # Swapping R and Rprt, since they are opposite to matlab
-        self.data_e['R']   = self.data_e['Rprt']
-        self.data_e['z']   = self.data_e['zprt']
-        self.data_e['phi'] = self.data_e['phiprt']
+		# Swapping R and Rprt, since they are opposite to matlab
+		self.data_e['R']   = self.data_e['Rprt']
+		self.data_e['z']   = self.data_e['zprt']
+		self.data_e['phi'] = self.data_e['phiprt']
 
-           
-    def calc_shinethr(self):
-        """
-        Method to calculate the shine-through with the weights
-        """
-#        try:
-#            self.originpower.mean()
-#        except:
-#            self._calc_originbeam()
-            
-            
-        if self.endgroup != 'shinethr':
-            print("WARNING! Check input file, which is ", self.fname)
+	def calc_shinethr(self):
+		"""
+		Method to calculate the shine-through with the weights
+		"""
+	#        try:
+	#            self.originpower.mean()
+	#        except:
+	#            self._calc_originbeam()
+			
+			
+		if self.endgroup != 'shinethr':
+			print("WARNING! Check input file, which is ", self.fname)
 
-        self._calc_weight()
-        self.shinethr=np.zeros((26), dtype=float)
-        self.shinethr_abs=np.zeros((26), dtype=float)
-        self.id2beamnum = \
-                        {\
-                        '45':1 ,  '46':1,    '47':2,    '48':2,   \
-                        '133':3,  '134':3,   '135':4,   '136':4,  \
-                        '221':5,  '222':5,   '223':6,   '224':6,  \
-                        '309':7,  '310':7,   '311':8,   '312':8,  \
-                        '3637':9, '3638':9,  '3639':10, '3640':10,\
-                        '5253':13,'5254':13, '5255':14, '5256':14,\
-                        '3031':99,'3032':101 \
-                        }
-        for ind_i,i in enumerate(self.id2beamnum):
-            ind = self.data_e['origin'][:]==int(i)
-            if len(self.data_e['origin'][ind])==0:
-                w=0
-                e=0
-                power = 1
-            else:  
-                power=1.e6
-                if int(i) in [3031, 3032]:
-                    power = 5.e6
-                    
-                e = self.data_e['energy'][ind][0]
-                e = e*1.612e-19
-                w = np.sum(self.data_e['weight'][ind_i])
-                #wtot = self.w[ind_i]
-            self.shinethr[ind_i]=float(e)*w/power
-            self.shinethr_abs[ind_i] = float(e)*w
-#            print("NBI:","{}".format(self.origindict[str(int(i))]),\
-#                  "Shine-through:", "{0:5f} %".format(self.shinethr[ind_i]*100),\
-#                  "||  {0:3f} W".format(e*w))
+		self._calc_weight()
+		self.shinethr=np.zeros((26), dtype=float)
+		self.shinethr_abs=np.zeros((26), dtype=float)
+		self.id2beamnum = \
+						{\
+						'45':1 ,  '46':1,    '47':2,    '48':2,   \
+						'133':3,  '134':3,   '135':4,   '136':4,  \
+						'221':5,  '222':5,   '223':6,   '224':6,  \
+						'309':7,  '310':7,   '311':8,   '312':8,  \
+						'3637':9, '3638':9,  '3639':10, '3640':10,\
+						'5253':13,'5254':13, '5255':14, '5256':14,\
+						'3031':99,'3032':101 \
+						}
+		for ind_i,i in enumerate(self.id2beamnum):
+			ind = self.data_e['origin'][:]==int(i)
+			if len(self.data_e['origin'][ind])==0:
+				w=0
+				e=0
+				power = 1
+			else:  
+				power=1.e6
+				if int(i) in [3031, 3032]:
+					power = 5.e6
+					
+				e = self.data_e['energy'][ind][0]
+				e = e*1.612e-19
+				w = np.sum(self.data_e['weight'][ind_i])
+				#wtot = self.w[ind_i]
+			self.shinethr[ind_i]=float(e)*w/power
+			self.shinethr_abs[ind_i] = float(e)*w
 
 
+def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0, **kwargs):
+	"""
+	Hidden method to plot the 2D histogram
+	wall: set to 1 if wall needed to plot (i.e. RZ function)
+	"""
+	#=====================================================================================
+	# SET TEXT FONT AND SIZE
+	#=====================================================================================
+	#plt.rc('font', family='serif', serif='Palatino')
+	#plt.rc('text', usetex=True)
+	plt.rc('xtick', labelsize=20)
+	plt.rc('ytick', labelsize=20)
+	plt.rc('axes', labelsize=20)
+	#=====================================================================================        
+	
+	flag_dict = kwargs
+	figsize=[8,8]
+	if wallrz == 1 :
+		figsize=[6,7]
+	# Defining figure and ax
+	fig = plt.figure(figsize=figsize)
+	fig.text(0.01, 0.01, Id)
+	tit = Id
+	ax  = fig.add_subplot(111)
+	#doing the actual plot
+	hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
+	fig.colorbar(hb[3], ax=ax)
+	ax.set_xlabel(xlab)
+	ax.set_ylabel(ylab)
+	#Checks for wall and plots it	
+	if wallrz != 0:
+		ax.plot(wallrz[0], wallrz[1], 'k', linewidth=3)
+		ax.axis('equal')
+	elif wallxy != 0:
+		theta=np.arange(0,6.3,0.02*6.28)
+		ax.plot(np.min(wallxy[0])*np.cos(theta), np.min(wallxy[0])*np.sin(theta), 'k', linewidth=3)
+		ax.plot(np.max(wallxy[0])*np.cos(theta), np.max(wallxy[0])*np.sin(theta), 'k', linewidth=3)
+		ax.axis('equal')
+	# Checks for magnetic axis plotting
+	if R0!=0:
+		circle1 = plt.Circle((0, 0), R0, color='r', fill=False, linestyle='--')        
+		ax.add_artist(circle1)
+	#Checks for magnetic surfaces and plots them
+	if surf!= 0:
+		try:
+			CS = ax.contour(surf[0], surf[1], surf[2], [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
+			plt.clabel(CS, inline=1, fontsize=10) 
+		except:
+			print("Impossible to plot RZ surfaces")     
+			       
+	tit+= ' '+title		
+		
+		
+	
+	#=====================================================================================
+	# SET TICK LOCATION
+	#=====================================================================================
+
+	# Create your ticker object with M ticks
+	M = 4
+	yticks = ticker.MaxNLocator(M)
+	xticks = ticker.MaxNLocator(M)
+	# Set the yaxis major locator using your ticker object. You can also choose the minor
+	# tick positions with set_minor_locator.
+	ax.yaxis.set_major_locator(yticks)
+	#ax.yaxis.set_minor_locator(yticks_m)
+	ax.xaxis.set_major_locator(xticks)
+	#=====================================================================================
+	
+	ax.set_title(tit)
+	ax.grid('on')
+	fig.tight_layout()
+	plt.show()
+	if 'fname' in flag_dict:
+		plt.savefig(flag_dict['fname'], bbox_inches='tight')

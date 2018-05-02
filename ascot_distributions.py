@@ -559,7 +559,7 @@ class TCV_1d(distribution_1d):
         else:
             shot = args[0]
             run = args[1]
-            new_fname = '/home/vallar/ASCOT/runs/TCV/'+"{:03d}".format(shot)+'/bbnbi_'+"{:03d}".format(shot)+"{:03d}".format(run)+'.h5'
+            new_fname = '/home/vallar/ASCOT/runs/TCV/'+"{:05d}".format(shot)+'/bbnbi_'+"{:05d}".format(shot)+"{:03d}".format(run)+'.h5'
             print("File opened: ", new_fname)
             bbfile = h5py.File(new_fname)
             #origins  = bbfile['inistate/origin'].value
@@ -575,8 +575,7 @@ class TCV_1d(distribution_1d):
             self.fibp[i] = weight/volumes[i]
 
         if plot_flag == 1:
-            plot_article(1,[rho, self.fibp], [''], r'$\rho$', r'Fast ion birth profile $1/(s\cdot m^3)$')
-
+            plot_article(1,[rho, self.fibp], [''], r'$\rho$', r'Fast ion birth profile $1/(s\cdot m^3)$', '')
     
     def TCV_plot_all(self, *args):
         """
