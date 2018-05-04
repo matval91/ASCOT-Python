@@ -93,7 +93,8 @@ class particles:
          self._calc_weight()
          self.shinethr=np.zeros((1), dtype=float)
          self.shinethr_abs=np.zeros((1), dtype=float)
-         power = 1e6
+         power = 0.62e6
+
 
          e = self.data_e['energy']
          e = e*1.612e-19
@@ -104,7 +105,7 @@ class particles:
          print("TCV Shine-through:", "{0:5f} %".format(self.shinethr*100),\
                                    "||  {0:3f} W".format(self.shinethr_abs))
 
-    def plot_RZpart(self):
+    def plot_RZpart(self, ax=0):
         """
         Method to plot R vs z of the ionised particles, useful mostly 
         with bbnbi
@@ -122,11 +123,11 @@ class particles:
         xlab = 'R [m]'
         ylab = 'z [m]'
         wallrz= [self.R_w, self.z_w]
-
+        surf=[self.Rsurf, self.zsurf, self.RZsurf]
         _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='RZ ionization',\
-                                 wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf])
-
-    def plot_XY(self):
+                 wallrz=wallrz, surf=surf, ax=ax)
+          
+    def plot_XY(self, ax=0):
         """
         Method to plot XY of ionisation, without difference between the beams
         """
@@ -156,7 +157,7 @@ class particles:
             
         wallxy= [self.R_w, self.z_w]
         _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='XY Ionization',\
-                 wallxy=wallxy, R0=R0)
+                 wallxy=wallxy, R0=R0, ax=ax)
 
     def plot_beams_XY(self):
         """
@@ -370,6 +371,52 @@ class particles:
         print("Total fraction to wall:", frac_tot_wall)
         print("Total fraction outside rho:", frac_tot_rho)
 
+    def plot_initial_wall_pos(self, ax=0):
+        """
+        Plot with final position of the particles colliding with wall and energy 
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        r = self.data_i['R'][ind]
+        z = self.data_i['z'][ind]
+        R0=self.infile['misc/geomCentr_rz'][0]
+        theta = np.arctan2(z,r-R0)
+        energy = self.data_e['energy'][ind]*1e-3
+        pitch = self.data_i['pitch'][ind]
+        ind = np.where(np.abs(theta)<0.4)
+        r = r[ind]
+        z = z[ind]
+        theta=theta[ind]
+        phi = self.data_i['phi'][ind]
+        wallrz= [self.R_w, self.z_w]
+        energy = energy[ind]
+        pitch = pitch[ind]
+
+        
+        _plot_2d(r,z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf], ax=ax)
+        ax=0
+        ax=plt.gca()
+        ax.axvline(x=np.max(self.R_w-0.1))
+        plt.figure()
+        plt.hist(pitch, bins=20)        
+        _plot_2d(phi, theta, xlab=r'$\phi$',ylab=r'$\theta$', Id = self.id, hist=1)
+
+    def plot_wall_losses(self, ax=0):
+        """
+        Plot with final position of the particles colliding with wall and energy 
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]
+        R0=self.infile['misc/geomCentr_rz'][0]
+        theta = np.arctan2(z,r-R0)
+        phi = self.data_e['phi'][ind]
+        wallrz= [self.R_w, self.z_w]
+        energy = self.data_e['energy'][ind]*1e-3
+
+        _plot_2d(r,z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=ax)
+        
+        #_plot_2d(phi, theta, xlab=r'$\phi$',ylab=r'$\theta$', Id = self.id, hist=1)
+
     def maxrho_histo(self):
         """
         Histogram with final theta position, pitch, energy and 2D plot of the particle velocity
@@ -385,7 +432,6 @@ class particles:
         pitchi = self.data_i['pitch'][ind]
         energyi = self.data_i['energy'][ind]
         pitch = self.data_e['pitch'][ind]
-        energy = self.data_e['energy'][ind]
         vr = self.data_e['vR'][ind]
         vz = self.data_e['vz'][ind]
         vphi = self.data_e['vphi'][ind]
@@ -398,7 +444,7 @@ class particles:
       
         
         
-        plt.close('all')
+        #plt.close('all')
 #        plt.figure(); plt.hist(pitch, bins=20); plt.xlabel('Pitch'); plt.ylabel('Number of particles')
 #        plt.figure(); plt.hist(energy, bins=30); plt.xlabel('Energy'); plt.ylabel('Number of particles')
 ##        plt.figure(); plt.hist(vr*1e-3, bins=20); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel('Number of particles')
@@ -407,20 +453,14 @@ class particles:
 #        plt.figure(); plt.hist(theta, bins=20); plt.xlabel('theta (poloidal angle)'); plt.ylabel('Number of particles')
 #
 
-        f= plt.figure()
-        ax=f.add_subplot(111)
-        ax.plot(self.R_w, self.z_w, 'k', lw=2.3)
-        ax.scatter(r,z, 100, c=energy)
-        #ax.title('Energy')
-        #ax.colorbar(); 
-        ax.set_xlabel('R'); ax.set_ylabel('z')
-        self._plot_RZsurf(ax)
+
+
         plt.figure(); plt.scatter(x,y);  plt.grid('on'); plt.xlabel(r'x'); plt.ylabel('y')
 #       
 #        plt.figure(); plt.scatter(pitch, energy*1e-3);
 #        plt.scatter(pitchi, energyi*1e-3, color='r');  plt.grid('on'); plt.xlabel(r'Pitch $v_\parallel/v$'); plt.ylabel('Energy [keV]')
 
-        plt.figure(); plt.hist2d(phi, theta, bins=30, cmap=my_cmap); plt.xlabel(r'$\phi$'); plt.ylabel(r'$\theta$')
+
         #plt.figure(); plt.scatter(vphi*1e-3, np.sqrt(vr**2+vz**2)*1e-3);  plt.grid('on'); plt.xlabel(r'$v_\parallel$ [km/s]'); plt.ylabel(r'$v_\perp [km/s]$');
         #plt.figure(); plt.scatter(vr*1e-3, vz*1e-3);  plt.grid('on'); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel(r'$v_z$ [km/s]'); plt.axis('equal')
 
@@ -463,12 +503,12 @@ class dat_particles(particles):
     """
     Class (inherited from particles) handling dat files (e.g. input.particles, test_ascot.orbits.dat)
     """
-    def __init__(self, fname):
+    def __init__(self, infile_n):
         """
         READ ASCII FILE
         """
         particles.__init__(self)
-        self.fname = fname
+        self.fname = infile_n
         in_f  = open(self.fname)
         lines = in_f.readlines()[3:]
         in_f.close()
@@ -1064,78 +1104,98 @@ class h5_particles(particles):
 			self.shinethr_abs[ind_i] = float(e)*w
 
 
-def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0, **kwargs):
+def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0, axin=0, scatter=0, hist=0,  **kwargs):
 	"""
 	Hidden method to plot the 2D histogram
 	wall: set to 1 if wall needed to plot (i.e. RZ function)
 	"""
-	#=====================================================================================
+	#==============================================
 	# SET TEXT FONT AND SIZE
-	#=====================================================================================
+	#==============================================
 	#plt.rc('font', family='serif', serif='Palatino')
 	#plt.rc('text', usetex=True)
 	plt.rc('xtick', labelsize=20)
 	plt.rc('ytick', labelsize=20)
 	plt.rc('axes', labelsize=20)
-	#=====================================================================================        
+	#==============================================
 	
 	flag_dict = kwargs
-	figsize=[8,8]
-	if wallrz == 1 :
-		figsize=[6,7]
-	# Defining figure and ax
-	fig = plt.figure(figsize=figsize)
-	fig.text(0.01, 0.01, Id)
-	tit = Id
-	ax  = fig.add_subplot(111)
-	#doing the actual plot
-	hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
-	fig.colorbar(hb[3], ax=ax)
-	ax.set_xlabel(xlab)
-	ax.set_ylabel(ylab)
+	figsize=[8,8]; flag_label=1
+
+	if axin==0:
+            if wallrz != 0 :
+                figsize=[6,7]
+            # Defining figure and ax
+            fig = plt.figure(figsize=figsize)
+            fig.text(0.01, 0.01, Id)
+            ax  = fig.add_subplot(111)
+        else:
+            ax=axin
+            flag_label=0
+            fig = plt.gcf()
+
+        
+        #doing the actual plot
+        if len(fig.axes)==1:
+            or_cb = 'vertical'
+        else:
+            or_cb = 'horizontal'
+        
+        if np.mean(scatter)!=0:
+            pp=ax.scatter(x, y, 100, c=scatter)
+            plt.colorbar(pp, ax=ax, orientation = or_cb)
+        elif hist != 0:
+            ax.hist2d(x, y, bins=30, cmap=my_cmap)
+        else:
+            hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
+            fig.colorbar(hb[3], ax=ax, orientation=or_cb)
+
+        
 	#Checks for wall and plots it	
 	if wallrz != 0:
-		ax.plot(wallrz[0], wallrz[1], 'k', linewidth=3)
-		ax.axis('equal')
+            ax.plot(wallrz[0], wallrz[1], 'k', linewidth=3)
+            ax.axis('equal')
 	elif wallxy != 0:
-		theta=np.arange(0,6.3,0.02*6.28)
-		ax.plot(np.min(wallxy[0])*np.cos(theta), np.min(wallxy[0])*np.sin(theta), 'k', linewidth=3)
-		ax.plot(np.max(wallxy[0])*np.cos(theta), np.max(wallxy[0])*np.sin(theta), 'k', linewidth=3)
-		ax.axis('equal')
+            rmin = np.min(wallxy[0])
+            rmax = np.max(wallxy[0])
+            circlemin = plt.Circle((0,0), rmin, color='k', fill=False, linewidth=3)
+            circlemax = plt.Circle((0,0), rmax, color='k', fill=False, linewidth=3)
+            ax.add_artist(circlemin); ax.add_artist(circlemax)
+            ax.axis('equal')
 	# Checks for magnetic axis plotting
 	if R0!=0:
-		circle1 = plt.Circle((0, 0), R0, color='r', fill=False, linestyle='--')        
-		ax.add_artist(circle1)
+            circle1 = plt.Circle((0, 0), R0, color='r', fill=False, linestyle='--')      
+            ax.add_artist(circle1)
 	#Checks for magnetic surfaces and plots them
-	if surf!= 0:
-		try:
-			CS = ax.contour(surf[0], surf[1], surf[2], [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
-			plt.clabel(CS, inline=1, fontsize=10) 
-		except:
-			print("Impossible to plot RZ surfaces")     
-			       
-	tit+= ' '+title		
+	if surf!= 0 and axin==0:
+            try:
+                llines = [0.2, 0.4, 0.6, 0.8, 1.0]
+                CS = ax.contour(surf[0], surf[1], surf[2], llines, colors='k')
+                plt.clabel(CS, inline=1, fontsize=10) 
+            except:
+                print("Impossible to plot RZ surfaces")     
 		
-		
-	
-	#=====================================================================================
-	# SET TICK LOCATION
-	#=====================================================================================
+	if flag_label==1 :
+            #==================================
+            # SET TICK LOCATION
+            #==================================
 
-	# Create your ticker object with M ticks
-	M = 4
-	yticks = ticker.MaxNLocator(M)
-	xticks = ticker.MaxNLocator(M)
-	# Set the yaxis major locator using your ticker object. You can also choose the minor
-	# tick positions with set_minor_locator.
-	ax.yaxis.set_major_locator(yticks)
-	#ax.yaxis.set_minor_locator(yticks_m)
-	ax.xaxis.set_major_locator(xticks)
-	#=====================================================================================
+            # Create your ticker object with M ticks
+            M = 4
+            yticks = ticker.MaxNLocator(M)
+            xticks = ticker.MaxNLocator(M)
+            # Set the yaxis major locator using your ticker object. You can also choose the minor
+            # tick positions with set_minor_locator.
+            ax.yaxis.set_major_locator(yticks)
+            #ax.yaxis.set_minor_locator(yticks_m)
+            ax.xaxis.set_major_locator(xticks)
+            #==================================
 	
-	ax.set_title(tit)
-	ax.grid('on')
-	fig.tight_layout()
-	plt.show()
+            ax.set_title(title)
+            ax.set_xlabel(xlab);ax.set_ylabel(ylab)	
+            ax.grid('on')
+
+        fig.tight_layout()
+        plt.show()
 	if 'fname' in flag_dict:
 		plt.savefig(flag_dict['fname'], bbox_inches='tight')

@@ -167,7 +167,10 @@ class distribution_1d:
 
         self.infile=h5py.File(infile_n)
         self.infile_n = infile_n
-        self.id = self.infile_n[-9:-3]
+        indd = self.infile_n[-9:-3]
+        self.id = indd
+        if indd[0:2] != '00':
+            self.id = self.infile_n[-11:-3]
         rhonew=self.infile['plasma/1d/rho'][:]
         rhonew = rhonew[rhonew<1]
         try:
@@ -269,19 +272,19 @@ class distribution_1d:
         return
        
        
-    def plot_current(self):
+    def plot_current(self, ax=0):
         """
         Plot the induced beam current density
         """
         if self.n_inj==1:
-            self.plot_totalcurrent()
+            self.plot_totalcurrent(ax=ax)
         
-    def plot_power(self):
+    def plot_power(self,ax=0):
         """
         Plot just the deposited power density
         """
         if self.n_inj==1:
-            self.plot_totalpower() 
+            self.plot_totalpower(ax) 
        
     def plot_torque(self):
         """
@@ -290,16 +293,30 @@ class distribution_1d:
         if self.n_inj==1:
             self.plot_totaltorque()  
 
-    def plot_totalcurrent(self):
+    def plot_totalcurrent(self, ax=0):
         """
         Plot sum of the induced beam current density
         """
         i_tot = self.slices_summed[0,:,12]*1e-3
         if np.mean(i_tot)<0:
             i_tot = -1*i_tot
-        plot_article(1,[self.rho, i_tot],[''],r'$\rho$', 'j (kA/$m^2$)', self.infile_n)
+        plot_article(1,[self.rho, i_tot],[''],r'$\rho$', 'j (kA/$m^2$)', self.infile_n, ax=ax)
+    
+    def plot_n(self, ax=0):
+        """
+        Plot fast particle density
+        """
+        n = self.slices_summed[0,:,0]
+        plot_article(1,[self.rho, n],[''],r'$\rho$', r'n (1/$m^3$)', self.infile_n, ax=ax)
 
-    def plot_totalpower(self):
+    def plot_p(self, ax=0):
+        """
+        Plot fast particle pressure
+        """
+        p = self.slices_summed[0,:,13]
+        plot_article(1,[self.rho, p*1e-3],[''],r'$\rho$', r'P (kN/$m^2$)', self.infile_n, ax=ax)
+
+    def plot_totalpower(self, ax=0):
         """
         Plot sum of the deposited power density
         """
@@ -311,14 +328,19 @@ class distribution_1d:
         if self.nions > 1:
             pi2 = self.slices_summed[0,:,ind+2]*1e-3
             if self.nions == 2:
-                plot_article(3,[self.rho, pe, pi1, pi2],['el.', 'i1', 'i2'],r'$\rho$', 'p (kW/$m^3$)', self.infile_n)        
-                
+                nlines=3; lines=[self.rho, pe, pi1, pi2]
+                labels=['el.', 'i1', 'i2']     
             elif self.nions == 3:
                 pi3 = self.slices_summed[0,:,ind+3]*1e-3
-                plot_article(4,[self.rho, pe, pi1, pi2, pi3],['el.', 'i1', 'i2', 'i3'],r'$\rho$', 'p (kW/$m^3$)', self.infile_n)        
+                nlines=4; lines=[self.rho, pe, pi1, pi2, pi3]
+                labels=['el.', 'i1', 'i2', 'i3']           
 
         else:
-            plot_article(2,[self.rho, pe, pi1],['el.', 'i1'], r'$\rho$', 'p (kW/$m^3$)', self.infile_n)        
+            nlines=2; lines=[self.rho, pe, pi1]
+            labels=['el.', 'i1']
+
+
+        plot_article(nlines, lines, labels, r'$\rho$', 'p (kW/$m^3$)', self.infile_n, ax=ax)
 
     def plot_totaltorque(self):
         """
@@ -967,32 +989,39 @@ class distribution_2d:
             raise Exception()
 
         self.infile=h5py.File(infile_n, 'r')
-        self.infile_n = infile_n
+        self.fname = infile_n
         if "rzPitchEdist" not in self.infile['distributions'].keys():
-            print("No rzPitchE dist in ", self.infile_n)
+            print("No rzPitchE dist in ", self.fname)
         if "rhoPhiPEdist" not in self.infile['distributions'].keys():
-            print("No rhoPhiPitchE dist in ", self.infile_n)
+            print("No rhoPhiPitchE dist in ", self.fname)
         if "rzMuEdist" not in self.infile['distributions'].keys():
-            print("No rzMuE dist in ", self.infile_n)
+            print("No rzMuE dist in ", self.fname)
         
-        self.id = self.infile_n[-9:-3]
+        indd = self.fname[-9:-3]
+        self.id = indd
+        if indd[0:2] != '00':
+            self.id = self.fname[-11:-3]
         self._readwall()
-        
-    def plot_space(self):
+        self._RZsurf()
+
+    def plot_space(self, ax=0):
         try:
             self.f_Ep_int.mean()
         except:
             self._integrate_Ep()
        
-        self.zplot = self.f_Ep_int
+        z = self.f_Ep_int
         if 'R' in self.dict_dim and 'z' in self.dict_dim:
-            self.xplot = self.dict_dim['R']
-            self.yplot = self.dict_dim['z']
-            self._plot_2d('R [m]', 'z [m]', wall=1, surf=1)
+            x = self.dict_dim['R']
+            y = self.dict_dim['z']
+            wallrz = [self.R_w, self.z_w]
+            surf = [self.Rsurf, self.zsurf, self.RZsurf]
+            _plot_2d(x, y, 'R [m]', 'z [m]', Id = self.id, \
+                     wallrz=wallrz, surf=surf, ax=ax, dist=z)
         elif 'rho' in self.dict_dim and 'phi' in self.dict_dim:
             self.xplot = self.dict_dim['rho']
             self.yplot = self.dict_dim['phi'] 
-            self._plot_2d('rho', 'phi', wall=0)
+            self._plot_2d('rho', 'phi', wall=0, ax=ax)
             
 
     def integrate_range_Ep(self, dim_range):
@@ -1104,7 +1133,7 @@ class distribution_2d:
         self._plot_1d(r'$\xi$ ($\frac{v_\parallel}{v}$)', "Normalized f")
 
 
-    def plot_Epitch(self):
+    def plot_Epitch(self, ax=0):
         """
         plot 2D (pitch, energy, int_space(fdist))
         """
@@ -1113,10 +1142,11 @@ class distribution_2d:
         except:
             self._integrate_space()
 
-        self.xplot = self.dict_dim['pitch']
-        self.yplot = self.dict_dim['E']*1e-3/1.6e-19
-        self.zplot = self.f_space_int
-        self._plot_2d(r'$\xi$', 'E [keV]')
+        x = self.dict_dim['pitch']
+        y = self.dict_dim['E']*1e-3/1.6e-19
+        z = self.f_space_int
+        
+        _plot_2d(x, y, dist=z, xlab=r'$\xi$', ylab='E [keV]', ax=ax, Id=self.id)
 
     def plot_Emu(self):
         """
@@ -1160,71 +1190,6 @@ class distribution_2d:
         ax.set_xlabel(xlab), ax.set_ylabel(ylab)
         ax.set_ylim([0, 3e13])
         plt.show()
-
-    def _plot_2d(self, xlab, ylab, **kwargs):
-        """
-        Hidden method to plot the 2D distribution
-        wall: set to 1 if wall needed to plot (i.e. RZ function)
-        """
-        #=====================================================================================
-        # SET TEXT FONT AND SIZE
-        #=====================================================================================
-        #plt.rc('font', family='serif', serif='Palatino')
-        #plt.rc('text', usetex=True)
-        plt.rc('xtick', labelsize=20)
-        plt.rc('ytick', labelsize=20)
-        plt.rc('axes', labelsize=20)
-        #=====================================================================================        
-
-        flag_dict = kwargs
-        title = 'Normalized f'
-        if 'wall' in flag_dict:
-            fig=plt.figure(figsize=(6,7))
-        else:
-            fig=plt.figure()
-        fig.text(0.01, 0.01, self.id)
-        tit=self.id
-        ax  = fig.add_subplot(111)
-        if len(self.yplot)!=1:
-            x,y = np.meshgrid(self.xplot, self.yplot)
-            CS  = ax.pcolor(x,y, self.zplot, cmap=my_cmap)
-            plt.colorbar(CS)
-        else:
-            ax.plot(self.xplot, self.zplot[0,:], 'k', lw=2.3)
-            ylab='Particle density'            
-        #ax.plot([np.min(self.xplot),np.max(self.xplot)], [5e5, 5e5], linewidth=3., color='k')
-        if 'wall' in flag_dict and flag_dict['wall']==1:
-            ax.plot(self.R_w, self.z_w, 'k', linewidth=2)
-            ax.axis('equal')
-            #=====================================================================================
-            # SET TICK LOCATION
-            #=====================================================================================
-    
-            # Create your ticker object with M ticks
-            M = 4
-            yticks = ticker.MaxNLocator(M)
-            xticks = ticker.MaxNLocator(M)
-            # Set the yaxis major locator using your ticker object. You can also choose the minor
-            # tick positions with set_minor_locator.
-            ax.yaxis.set_major_locator(yticks)
-            #ax.yaxis.set_minor_locator(yticks_m)
-            ax.xaxis.set_major_locator(xticks)
-            #=====================================================================================
-
-        if 'surf' in flag_dict and flag_dict['surf']==1:
-            self._plot_RZsurf(ax)            
-        if 'title' in flag_dict:
-            tit+= ' '+flag_dict['title']
-        fig.suptitle(tit)
-        
-        ax.set_xlabel(xlab)
-        ax.set_ylabel(ylab)
-        ax.set_title(title)
-        ax.grid('on')
-        fig.tight_layout()
-        plt.show()
-        if 'fname' in flag_dict:
-            plt.savefig(flag_dict['fname'], bbox_inches='tight')
             
     def _backup_file(self, fname):
         """
@@ -1248,7 +1213,7 @@ class distribution_2d:
         fname = self.id+'_'+args[0]+args[1]+'.dat'
         self._backup_file(fname)
 
-        self.info = '' + self.infile_n + ' ' + ' matteo.vallar@igi.cnr.it ' + \
+        self.info = '' + self.fname + ' ' + ' matteo.vallar@igi.cnr.it ' + \
                         time.strftime("%d/%m/%Y")
         self.info2 = 'For each dimension: name  units   number of bins     min     max'
         self.header = '' 
@@ -1286,7 +1251,7 @@ class distribution_2d:
         fname = self.id+'_'+args[0]+args[1]+'.dat'
         self._backup_file(fname)
 
-        self.info = '' + self.infile_n + ' ' + ' matteo.vallar@igi.cnr.it ' + \
+        self.info = '' + self.fname + ' ' + ' matteo.vallar@igi.cnr.it ' + \
                         time.strftime("%d/%m/%Y")
         self.info2 = 'For each dimension: name  units   number of bins     min     max'
         self.header = '' 
@@ -1421,8 +1386,12 @@ class distribution_2d:
         try:
             wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
         except:
-            in_w_fname = '/home/vallar/ASCOT/runs/JT60SA/002/input.wall_2d'
+            if self.id[0:2]=='00':
+                in_w_fname = '/home/vallar/ASCOT/runs/JT60SA/002/input.wall_2d'
+            else:
+                in_w_fname = '/home/vallar/ASCOT/runs/TCV/57850/input.wall_2d'
             wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
+
         self.R_w = wall[0,:]
         self.z_w = wall[1,:]
         self.R_w = np.array(self.R_w)
@@ -1668,38 +1637,131 @@ class frzmue(distribution_2d):
         self.f_space_int = int_Rz #E,pitch
 
 
-def plot_article(n_lines, data, data_labels, xlabel, ylabel, title, **kwargs):
-        #=====================================================================================
+def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, **kwargs):
+        #==============================
         # SET TEXT FONT AND SIZE
-        #=====================================================================================
+        #==============================
         #plt.rc('font', family='serif', serif='Palatino')
         #plt.rc('text', usetex=True)
         plt.rc('xtick', labelsize=20)
         plt.rc('ytick', labelsize=20)
         plt.rc('axes', labelsize=20)
-        #=====================================================================================
-        fig=plt.figure()
-        ax=fig.add_subplot(111)
+        #===============================
+	flag_dict = kwargs
+	figsize=[8,8]; flag_label=0
+        styles = ['-','--','-.']
+        n_l_oplot=0
+        if ax==0:
+            fig=plt.figure()
+            ax=fig.add_subplot(111)
+        else:
+            fig = plt.gcf()
+            n_l_oplot = np.shape(ax.lines)[0]
+            if n_l_oplot > 2:
+                n_l_oplot=2
+        if ax.get_xlabel()=='':
+            flag_label=1
+        
+        style = styles[n_l_oplot]
+        
         for i in range(n_lines):
-            ax.plot(data[0], data[i+1], label=str(data_labels[i]), linewidth=3, color=col[i])
-        ax.plot(data[0], np.zeros(len(data[0])), 'k',linewidth=2)
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.set_title(title)
-        ax.grid('on')
+            ax.plot(data[0], data[i+1], label=str(data_labels[i]), linewidth=3, color=col[i], linestyle=style)
+
         if 'ylim' in kwargs:
             ax.set_ylim(kwargs['ylim'])
         #ax.plot([0.85,0.85],[min(ax.get_ybound()), max(ax.get_ybound())],'k--', linewidth=3.)
-        #=====================================================================================
+        #==============================================
         # ADJUST SUBPLOT IN FRAME
-        #=====================================================================================
+        #==============================================
         plt.subplots_adjust(top=0.95,bottom=0.12,left=0.15,right=0.95)
-        #=====================================================================================
-        plt.show()
-        #=====================================================================================
-        # SET TICK LOCATION
-        #=====================================================================================
+        #==============================================
+        if flag_label==1:
+            #ax.plot(data[0], np.zeros(len(data[0])), 'k',linewidth=2)
 
+            #==============================================
+            # SET TICK LOCATION
+            #==============================================
+            
+            # Create your ticker object with M ticks
+            M = 4
+            yticks = ticker.MaxNLocator(M)
+            xticks = ticker.MaxNLocator(M)
+            # Set the yaxis major locator using your ticker object. You can also choose the minor
+            # tick positions with set_minor_locator.
+            ax.yaxis.set_major_locator(yticks)
+            #ax.yaxis.set_minor_locator(yticks_m)
+            ax.xaxis.set_major_locator(xticks)
+            ax.grid('on')
+            #==============================================
+            #ax.set_ylim([0,150])
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel(ylabel)
+            ax.set_title(title)
+            ax.grid('on')
+
+        if data_labels[0]!='':
+            ax.legend(loc='best')
+        fig.tight_layout()
+
+
+def _plot_2d(x, y, xlab, ylab, Id='', title='', wallrz=0, surf=0, ax=0, dist=0, **kwargs):
+    """
+    Hidden method to plot the 2D distribution
+    wall: set to 1 if wall needed to plot (i.e. RZ function)
+    """
+    #=================================
+    # SET TEXT FONT AND SIZE
+    #=================================
+    #plt.rc('font', family='serif', serif='Palatino')
+    #plt.rc('text', usetex=True)
+    plt.rc('xtick', labelsize=20)
+    plt.rc('ytick', labelsize=20)
+    plt.rc('axes', labelsize=20)
+    #=================================
+
+    flag_dict = kwargs
+    figsize=[8,8]; flag_label=0
+
+    if ax==0:
+        if wallrz!=0:
+            figsize=[6,7]
+        # Defining figure and ax
+        fig = plt.figure(figsize=figsize)
+        fig.text(0.01, 0.01, Id)
+        ax  = fig.add_subplot(111)
+    else:
+        fig = plt.gcf()
+    if ax.get_xlabel()!='':
+        flag_label=1
+
+    #Doing the actual plot
+    if len(fig.axes)==1:
+        or_cb = 'vertical'
+    else:
+        or_cb = 'horizontal'
+    if np.mean(dist)!=0:
+        x,y = np.meshgrid(x,y)
+        CS  = ax.pcolor(x,y, dist, cmap=my_cmap)
+        plt.colorbar(CS, ax=ax, orientation=or_cb)
+
+    #Checks for wall and plots it	
+    if wallrz !=0:
+        ax.plot(wallrz[0], wallrz[1], 'k', linewidth=3)
+        ax.axis('equal')
+    #Checks for magnetic surfaces and plots them
+    if surf!= 0:
+        try:
+            llines = [0.2, 0.4, 0.6, 0.8, 1.0]
+            CS = ax.contour(surf[0], surf[1], surf[2], llines, colors='k')
+            plt.clabel(CS, inline=1, fontsize=10) 
+        except:
+            print("Impossible to plot RZ surfaces")
+
+    if flag_label == 1:
+        #========================================================
+        # SET TICK LOCATION
+        #====================================================
+    
         # Create your ticker object with M ticks
         M = 4
         yticks = ticker.MaxNLocator(M)
@@ -1709,10 +1771,13 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title, **kwargs):
         ax.yaxis.set_major_locator(yticks)
         #ax.yaxis.set_minor_locator(yticks_m)
         ax.xaxis.set_major_locator(xticks)
-        ax.grid('on')
-        #=====================================================================================
-        #ax.set_ylim([0,150])
-        if data_labels[0]!='':
-            ax.legend(loc='best')
-        fig.tight_layout()
+        #========================================================
 
+        ax.set_title(title)        
+        ax.set_xlabel(xlab); ax.set_ylabel(ylab)
+        ax.grid('on')
+
+    fig.tight_layout()
+    plt.show()
+    if 'fname' in flag_dict:
+        plt.savefig(flag_dict['fname'], bbox_inches='tight')
