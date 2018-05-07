@@ -12,7 +12,9 @@ def main(argv):
     d.plot_space()
     ax = plt.gca()
     p.plot_wall_losses(ax)
-
-
+    ax.grid('on')
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+    
 if __name__=='__main__':
     main(sys.argv)

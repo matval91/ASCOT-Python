@@ -316,31 +316,62 @@ class distribution_1d:
         p = self.slices_summed[0,:,13]
         plot_article(1,[self.rho, p*1e-3],[''],r'$\rho$', r'P (kN/$m^2$)', self.infile_n, ax=ax)
 
-    def plot_totalpower(self, ax=0):
+    def _plot_pe(self):
         """
-        Plot sum of the deposited power density
+        Plots power deposited to electrons
         """
         ind = self.name_dict['pel']-1
         if self.slices.shape[2] == 27:
             ind=ind-1
-        pe = self.slices_summed[0,:,ind]*1e-3
+        pe = self.slices_summed[0,:,ind]*1e-3        
+        nlines=1; lines=[self.rho, pe]
+        labels=['el.']
+        return nlines, lines, labels
+
+    def plot_pe(self, ax=0):
+        nlines, lines, labels = self._plot_pe()
+        plot_article(nlines, lines, labels, r'$\rho$', 'p (kW/$m^3$)', self.infile_n, ax=ax)
+        
+    def _plot_pi(self):
+        """
+        Plots power deposited to ions
+        """
+        ind = self.name_dict['pel']-1
+        if self.slices.shape[2] == 27:
+            ind=ind-1
         pi1 = self.slices_summed[0,:,ind+1]*1e-3
         if self.nions > 1:
             pi2 = self.slices_summed[0,:,ind+2]*1e-3
             if self.nions == 2:
-                nlines=3; lines=[self.rho, pe, pi1, pi2]
-                labels=['el.', 'i1', 'i2']     
+                nlines=2; lines=[self.rho, pi1, pi2]
+                labels=['i1', 'i2']     
             elif self.nions == 3:
                 pi3 = self.slices_summed[0,:,ind+3]*1e-3
-                nlines=4; lines=[self.rho, pe, pi1, pi2, pi3]
-                labels=['el.', 'i1', 'i2', 'i3']           
+                nlines=3; lines=[self.rho, pi1, pi2, pi3]
+                labels=['i1', 'i2', 'i3']           
 
         else:
-            nlines=2; lines=[self.rho, pe, pi1]
+            nlines=2; lines=[self.rho, pi1]
             labels=['el.', 'i1']
 
+        return nlines, lines, labels
 
+    def plot_pi(self, ax=0):
+        nlines, lines, labels = self._plot_pi()
         plot_article(nlines, lines, labels, r'$\rho$', 'p (kW/$m^3$)', self.infile_n, ax=ax)
+
+    def plot_totalpower(self, ax=0):
+        """
+        Plot sum of the deposited power density
+        """
+        nlinese, linese, labelse = self._plot_pe()
+        nlinesi, linesi, labelsi = self._plot_pi()
+        linesi=np.delete(linesi, 0, axis=0)
+        nlines = nlinese+nlinesi
+        lines = np.concatenate((linese, linesi), axis=0)
+        labels = np.append(labelse, labelsi)
+        plot_article(nlines, lines, labels, r'$\rho$', 'p (kW/$m^3$)', self.infile_n, ax=ax)
+
 
     def plot_totaltorque(self):
         """
@@ -456,14 +487,16 @@ class distribution_1d:
         print("JxB torque ", self.tjxb, " Nm")
         print("Torque to electrons", self.tore, " Nm")
         print("Torque to ions", self.tori1, " Nm")
-        if self.nions > 1:
-            print("Torque to ion 2 ", self.tori2*1e-6, " Nm")
-            textra += self.tori2*1e-6
-            if self.nions > 2:
-                print("Torque to ion 3 ", self.tori3*1e-6, " Nm")
-                textra += self.tori3*1e-6
-        print("Torque delivered    ", (self.tori1+self.tore+textra)*1e-6, " Nm")
-#            
+        try:
+            if self.nions > 1:
+                print("Torque to ion 2 ", self.tori2*1e-6, " Nm")
+                textra += self.tori2*1e-6
+                if self.nions > 2:
+                    print("Torque to ion 3 ", self.tori3*1e-6, " Nm")
+                    textra += self.tori3*1e-6
+            print("Torque delivered    ", (self.tori1+self.tore+textra)*1e-6, " Nm")
+        except:
+            print("No torque to ions to plot")
             
     def calc_eff(self):                
         """
@@ -1174,8 +1207,6 @@ class distribution_2d:
         """
         Hidden method to plot 1D functions
         """
-
-
         if not 'ax' in kwargs:
             fig =  plt.figure()
             tit=self.id

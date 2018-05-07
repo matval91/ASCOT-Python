@@ -107,7 +107,7 @@ class profiles:
         tit=str(tit)
         self.plot_profiles(title=tit)
 
-    def plot_profiles(self, **kwargs):
+    def plot_profiles(self, f=0, **kwargs):
         """
         Method to plot the profiles
         """
@@ -119,14 +119,23 @@ class profiles:
         plt.rc('ytick', labelsize=15)
         plt.rc('axes', labelsize=15)
         #=====================================================================================
+        title=''
+        
         if 'title' in kwargs:
-            fig = plt.figure(kwargs['title'])
+            title=kwargs['title']
+
+        if f==0:
+            fig=plt.figure(title)
+            axte = fig.add_subplot(221)
+            axne = fig.add_subplot(222, sharex=axte)
+            axti = fig.add_subplot(223)
+            axni = fig.add_subplot(224)
         else:
-            fig = plt.figure()
-        axte = fig.add_subplot(221)
-        axne = fig.add_subplot(222, sharex=axte)
-        axti = fig.add_subplot(223)
-        axni = fig.add_subplot(224)
+            fig=f
+            axte = fig.axes[0]
+            axne = fig.axes[1]
+            axti = fig.axes[2]
+            axni = fig.axes[3]
         #axvt = fig.add_subplot(325)
         lw=2.
         axte.plot(self.rho, self.te*1e-3,'k', linewidth=lw)
@@ -152,29 +161,31 @@ class profiles:
         # Put a legend to the right of the current axis
         #axni.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-        for ax in [axte, axne, axti, axni]:#, axvt]:
-            ax.set_xlabel(r'$\rho$')
-            ax.set_xlim([0,1])
+        if f == 0:
+            for ax in [axte, axne, axti, axni]:#, axvt]:
+                ax.set_xlabel(r'$\rho$')
+                ax.set_xlim([0,1])
 
-            #=====================================================================================
-            # Create your ticker object with M ticks
-            M = 4
-            yticks = ticker.MaxNLocator(M)
-            xticks = ticker.MaxNLocator(M)
-            # Set the yaxis major locator using your ticker object. You can also choose the minor
-            # tick positions with set_minor_locator.
-            ax.yaxis.set_major_locator(yticks)
-            ax.xaxis.set_major_locator(xticks)
-            #=====================================================================================
-            ax.grid('on')
+                #=====================================================================================
+                # Create your ticker object with M ticks
+                M = 4
+                yticks = ticker.MaxNLocator(M)
+                xticks = ticker.MaxNLocator(M)
+                # Set the yaxis major locator using your ticker object. You can also choose the minor
+                # tick positions with set_minor_locator.
+                ax.yaxis.set_major_locator(yticks)
+                ax.xaxis.set_major_locator(xticks)
+                #=====================================================================================
+                ax.grid('on')
 
 
-        axte.set_ylabel(r'$T_e$ [keV]')
-        axne.set_ylabel(r'$n_e$ [1/$m^3$]')
-        axti.set_ylabel(r'$T_i$ [keV]')
-        axni.set_ylabel(r'$n_i$ [1/$m^3$]')
-        #axvt.set_ylabel(r'$V_{tor} [rad/s]$')
-        fig.tight_layout() # Or equivalently,  "plt.tight_layout()"
+                axte.set_ylabel(r'$T_e$ [keV]')
+                axne.set_ylabel(r'$n_e$ [1/$m^3$]')
+                axti.set_ylabel(r'$T_i$ [keV]')
+                axni.set_ylabel(r'$n_i$ [1/$m^3$]')
+                #axvt.set_ylabel(r'$V_{tor} [rad/s]$')
+       
+                fig.tight_layout() # Or equivalently,  "plt.tight_layout()"
         plt.show()
 
 

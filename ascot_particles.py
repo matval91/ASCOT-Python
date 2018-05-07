@@ -1134,7 +1134,6 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0
             flag_label=0
             fig = plt.gcf()
 
-        
         #doing the actual plot
         if len(fig.axes)==1:
             or_cb = 'vertical'
