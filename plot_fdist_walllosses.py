@@ -15,6 +15,7 @@ def main(argv):
     ax.grid('on')
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-    
+    ax.set_xlabel(r'R [m]'); ax.set_ylabel('z [m]')
+    plt.tight_layout()
 if __name__=='__main__':
     main(sys.argv)

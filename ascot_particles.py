@@ -260,16 +260,14 @@ class particles:
         """
         Reads the position of RZ surfaces from ascot file
         """       
-        
-        if self.id[0:3]=='003':
-            strt=str(self.id[0:3])+'000'
-        elif self.id[0:3]=='005':
-            strt=str(self.id[0:3])+'053'
-        elif self.id[0:5]=='57850' and self.id[5:7]=='08':
-            strt =str(self.id[0:5])+'080'
-        elif self.id[0:5]=='57850' and self.id[5:7]=='14':
-            strt =str(self.id[0:5])+'140'            
-        else:
+        try:
+            if self.id[0:3]=='003':
+                strt=str(self.id[0:3])+'000'
+            elif self.id[0:3]=='005':
+                strt=str(self.id[0:3])+'053'
+            else: 
+                strt =str(self.id[0:7])+'0'           
+        except:
             print('Impossible to load RZ equiflux surfaces')
             print('File ID:'+ self.id+' '+self.id[5:6])
             self.RZsurf = 0
@@ -301,27 +299,40 @@ class particles:
         """
         Computes the endcondition of the particles and stores a dict with the amount of MC particles with that final condition
         """
+        pieplot_label = ['CPU', 'tmax', 'emin', 'wall', 'th.']
+        pieplot_x = dict.fromkeys(pieplot_label, 0.)
+        npart = float(len(self.data_e['endcond']))
+
+
         errendcond  = {'aborted':-2, 'rejected':-1}
         counter = 0
         for key in errendcond:
             ind = np.where(self.data_e['endcond']==errendcond[key])[0]
             if len(ind)!=0:
                 counter += len(ind)
+                pieplot_x['CPU'] += len(ind)/npart
                 print("STRANGE END CONDITION! {} ({:d}) : {:d} particles".format(key, errendcond[key], len(ind)))
 
-        physcond = {'none':0,'tmax':1,'emin':2,'wall':3,'thermalisation':4}
+        physcond = {'none':0,'tmax':1,'emin':2,'wall':3,'th.':4}
         for key in physcond:
             ind = np.where(self.data_e['endcond']== physcond[key])[0]
             counter += len(ind)
-            print("{} ({:2d}) : {:4d} particles".format(key, physcond[key], len(ind)))
+            if key!='none':
+                pieplot_x[key] += len(ind)/npart
+            pow_lost = np.dot(self.data_e['energy'][ind], self.data_e['weight'][ind])*1.602e-19*1e-3
+            print("{} ({:2d}) : {:4d} particles, {:7.2f} kW".format(key, physcond[key], len(ind), pow_lost))
 
         infcond = {'cputmax':17, 'outsidemaxrho':10, 'outsidewall':16}
         for key in infcond:
             ind = np.where(self.data_e['endcond']== infcond[key])[0]
             counter += len(ind)
+            pieplot_x['CPU'] += len(ind)/npart
             print("{} ({:2d}) : {:4d} particles".format(key, infcond[key], len(ind)))    
 
-        print("Total particles counted :", counter/len(self.data_e['endcond'])*100., ' %')
+        print("Total particles counted :", counter/npart*100., ' %')
+        
+        x = np.array(pieplot_x.values())
+        _plot_pie(pieplot_x.values(), lab=pieplot_x.keys(), Id=self.id)
 
     def particle_status(self):
         """
@@ -400,6 +411,19 @@ class particles:
         plt.hist(pitch, bins=20)        
         _plot_2d(phi, theta, xlab=r'$\phi$',ylab=r'$\theta$', Id = self.id, hist=1)
 
+    def plot_histo_wall(self, ax=0):
+        """
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]
+        R0=self.infile['misc/geomCentr_rz'][0]
+        theta = np.arctan2(z,r-R0)
+        phi = self.data_e['phi'][ind]
+        wallrz= [self.R_w, self.z_w]
+        energy = self.data_e['energy'][ind]*1e-3
+        _plot_2d(phi, theta, xlab=r'$\phi$ [rad]',ylab=r'$\theta$ [rad]', Id = self.id, hist=1)
+
     def plot_wall_losses(self, ax=0):
         """
         Plot with final position of the particles colliding with wall and energy 
@@ -415,7 +439,6 @@ class particles:
 
         _plot_2d(r,z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=ax)
         
-        #_plot_2d(phi, theta, xlab=r'$\phi$',ylab=r'$\theta$', Id = self.id, hist=1)
 
     def maxrho_histo(self):
         """
@@ -1142,12 +1165,12 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0
         
         if np.mean(scatter)!=0:
             pp=ax.scatter(x, y, 100, c=scatter)
-            plt.colorbar(pp, ax=ax, orientation = or_cb)
+            #plt.colorbar(pp, ax=ax, orientation = or_cb)
         elif hist != 0:
             ax.hist2d(x, y, bins=30, cmap=my_cmap)
         else:
             hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
-            fig.colorbar(hb[3], ax=ax, orientation=or_cb)
+            #fig.colorbar(hb[3], ax=ax, orientation=or_cb)
 
         
 	#Checks for wall and plots it	
@@ -1195,6 +1218,80 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0
             ax.grid('on')
 
         fig.tight_layout()
+        plt.show()
+	if 'fname' in flag_dict:
+		plt.savefig(flag_dict['fname'], bbox_inches='tight')
+
+
+
+
+
+def _plot_pie(x, lab, Id='', title='', axin=0, **kwargs):
+	"""
+	Hidden method to plot a pie chart
+	"""
+	#==============================================
+	# SET TEXT FONT AND SIZE
+	#==============================================
+	#plt.rc('font', family='serif', serif='Palatino')
+	#plt.rc('text', usetex=True)
+	plt.rc('xtick', labelsize=20)
+	plt.rc('ytick', labelsize=20)
+	plt.rc('axes', labelsize=20)
+	#==============================================
+	
+	flag_dict = kwargs
+	figsize=[8,8]; flag_label=1
+
+	if axin==0:
+            # Defining figure and ax
+            fig = plt.figure(figsize=figsize)
+            fig.text(0.01, 0.01, Id)
+            ax  = fig.add_subplot(111)
+        else:
+            ax=axin
+            flag_label=0
+            fig = plt.gcf()
+
+        #doing the actual plot
+        plt.pie(x, labels=lab)
+        
+        # if len(fig.axes)==1:
+        #     or_cb = 'vertical'
+        # else:
+        #     or_cb = 'horizontal'
+        
+        # if np.mean(scatter)!=0:
+        #     pp=ax.scatter(x, y, 100, c=scatter)
+        #     #plt.colorbar(pp, ax=ax, orientation = or_cb)
+        # elif hist != 0:
+        #     ax.hist2d(x, y, bins=30, cmap=my_cmap)
+        # else:
+        #     hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
+        #     #fig.colorbar(hb[3], ax=ax, orientation=or_cb)  
+		
+	if flag_label==1 :
+            ax.axis('equal')
+            # #==================================
+            # # SET TICK LOCATION
+            # #==================================
+
+            # # Create your ticker object with M ticks
+            # M = 4
+            # yticks = ticker.MaxNLocator(M)
+            # xticks = ticker.MaxNLocator(M)
+            # # Set the yaxis major locator using your ticker object. You can also choose the minor
+            # # tick positions with set_minor_locator.
+            # ax.yaxis.set_major_locator(yticks)
+            # #ax.yaxis.set_minor_locator(yticks_m)
+            # ax.xaxis.set_major_locator(xticks)
+            # #==================================
+	
+            # ax.set_title(title)
+            # ax.set_xlabel(xlab);ax.set_ylabel(ylab)	
+            # ax.grid('on')
+
+        #fig.tight_layout()
         plt.show()
 	if 'fname' in flag_dict:
 		plt.savefig(flag_dict['fname'], bbox_inches='tight')

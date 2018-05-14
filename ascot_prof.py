@@ -545,8 +545,12 @@ class ufiles(profiles):
             elif pre == 'T':
                 if suff == 'ELE':
                     self.te_in = tmp_uf.fvalues[ind]
-                else:
-                    self.ti_in = tmp_uf.fvalues[ind]
+                else: #T ION
+                    print(tmp_uf.fvalues)
+                    if tmp_uf.fvalues.shape[1] == self.nrho_in:
+                        self.ti_in = tmp_uf.fvalues[ind]
+                    else:
+                        self.ti_in = np.swapaxes(tmp_uf.fvalues, 0,1)[ind]
             elif pre == 'Z':
                 self.zeff_in = tmp_uf.fvalues[0]
                 print("Set Zeff from file "+fname)
@@ -740,3 +744,70 @@ class SA_datfiles(profiles):
         psi = psi/max(psi)
         rhopsi = psi**0.5
         self.param_psi = interpolate.interp1d(np.linspace(0,1,tmpnum), rhopsi)
+
+
+class TCV_datfiles(profiles):
+    """
+    Reads a dat file with the columns as follows:
+    rho pol, ne [m^-3], te[eV], ti[eV]
+    """
+    def __init__(self, infile, **kwargs):
+        profiles.__init__(self)
+        
+        self.A = [2, 12]
+        self.Z = [1, 6]
+        self.nion = 2
+        #self.ni_in = np.zeros((self.nion, 2, self.nrho), dtype=float)
+
+        
+        lines = np.loadtxt(infile, skiprows=1, unpack=True)
+        self.rho_in = lines[0,:] #already poloidal rho
+        self.nrho_in = len(self.rho_in)
+        self.rho = self.rho_in
+        self.nrho = self.nrho_in
+        self.ne_in  = lines[1,:]
+        self.te_in  = lines[2,:]
+        self.ti_in  = lines[3,:]
+
+        self.ni = np.zeros((self.nion, self.nrho), dtype=float)
+        self.vt = np.zeros((self.nrho), dtype=float)
+        self.coll_mode = np.ones(self.nion, dtype=float)
+        
+        if 'ZEFF' in kwargs:
+            self.zeff_in = np.full((self.nrho_in), kwargs['ZEFF'], dtype = float)
+            print("Set Zeff from argument ZEFF: "+str(kwargs['ZEFF']))
+        else:
+            self.zeff_in = np.zeros(self.nrho_in, dtype = float)
+
+        self.ni_in  = np.zeros((self.nion, len(self.rho_in)),dtype=float)
+        self.ni = np.zeros((self.nion, self.nrho), dtype=float)
+        if len(self.Z)>1:
+            self.ion_densities()
+        self.smooth()
+
+    def ion_densities(self):
+        """
+        Compute C ion densities starting from ni_in, ne_in and zeff
+        Solving the following system (valid only if D and C(6+) are the ion species):
+            (1) Zeff = sum(ni*Zi**2)/sum(ni*Zi)
+            (2) ne   = nD + 6*nC
+        """
+        nD = self.ne_in*(6-self.zeff_in)/(5.)
+        nC = self.ne_in*(self.zeff_in-1)/(30.)
+        print("nC/nD: "+str(np.mean(nC/nD)*100.)+" %")
+        self.ni_in[0,:] = nD
+        self.ni_in[1,:] = nC
+
+    def smooth(self):
+        """
+        smooth input data to grid wanted
+        """
+        self.te = self._spline(self.rho_in, self.te_in, self.rho)
+        self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
+        self.ti = self._spline(self.rho_in, self.ti_in, self.rho)
+        for i in range(self.nion):
+            self.ni[i,:]=self._spline(self.rho_in, self.ni_in[i,:], self.rho)
+
+        self.zeff = self._spline(self.rho_in, self.zeff_in, self.rho)
+
+        self._extrapolate()

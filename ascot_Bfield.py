@@ -181,6 +181,7 @@ class Bfield_ascot:
                 currax.plot(self.rho, -1*self.vardict[val].value, 'k', lw=2.3)
                 currax.set_xlabel(r'$\rho_{POL}$')
                 currax.set_ylabel(r'q')
+                currax.set_ylim([0, 8])
 #                box1 = currax.get_position()
 #                print(val)
 #                print(box1.x0, box1.y0, box1.width, box1.height)

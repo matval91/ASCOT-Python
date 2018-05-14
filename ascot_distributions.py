@@ -1762,7 +1762,7 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallrz=0, surf=0, ax=0, dist=0, 
         ax  = fig.add_subplot(111)
     else:
         fig = plt.gcf()
-    if ax.get_xlabel()!='':
+    if ax.get_xlabel()=='':
         flag_label=1
 
     #Doing the actual plot
@@ -1773,7 +1773,7 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallrz=0, surf=0, ax=0, dist=0, 
     if np.mean(dist)!=0:
         x,y = np.meshgrid(x,y)
         CS  = ax.pcolor(x,y, dist, cmap=my_cmap)
-        plt.colorbar(CS, ax=ax, orientation=or_cb)
+        #plt.colorbar(CS, ax=ax, orientation=or_cb)
 
     #Checks for wall and plots it	
     if wallrz !=0:
