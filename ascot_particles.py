@@ -432,6 +432,7 @@ class particles:
         r = self.data_e['R'][ind]
         z = self.data_e['z'][ind]
         R0=self.infile['misc/geomCentr_rz'][0]
+        print(R0)
         theta = np.arctan2(z,r-R0)
         phi = self.data_e['phi'][ind]
         wallrz= [self.R_w, self.z_w]
@@ -530,13 +531,19 @@ class dat_particles(particles):
         """
         READ ASCII FILE
         """
-        particles.__init__(self)
         self.fname = infile_n
+
+        indd = self.fname[-12:-5]
+        self.id = indd
+        if indd[0:2] != '00':
+            self.id = self.fname[-12:-5]
+        
+        self.infile = h5py.File('ascot_'+self.id+'.h5')
+        
+        particles.__init__(self)
         in_f  = open(self.fname)
         lines = in_f.readlines()[3:]
         in_f.close()
-        self.id = self.fname[-10:-4]
-        self.infile = h5py.File('ascot_'+self.id+'.h5')
         #Read lines of comment
         n_comm = int(lines[0].split()[0])
         
