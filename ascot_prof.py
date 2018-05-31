@@ -19,6 +19,7 @@ from scipy import interpolate, integrate
 import scipy.io as sio
 import ufiles as uf
 import ascot_Bfield
+import MDSplus as mds
 
 colours = ['k','b','r','c','g',\
            'k','b','r','c','g',\
@@ -814,3 +815,144 @@ class TCV_datfiles(profiles):
         self.zeff = self._spline(self.rho_in, self.zeff_in, self.rho)
 
         self._extrapolate()
+
+
+class TCV_mds(profiles):
+    def __init__(self, indict):
+        self.indict = indict
+        self.shot = indict['shot']
+        self.t = indict['t']
+        self.nrho = indict['nrho']
+        self.rho = np.linspace(0, 1, num=self.nrho)
+        try:
+            self.zeff = indict['zeff']
+        except:
+            print("No Zeff set! setting it to 2.")
+            self.zeff = 2.
+        self.nion = 2
+        self.A = [2, 12 ]
+        self.Z = [1, 6  ]
+        self.coll_mode = np.ones(self.nion+1)
+        # open the tree
+        self.tree = mds.Tree('tcv_shot', self.shot)
+
+        # we build the appropriate dictionary similarly to what done
+        # for the 1D signal
+        self.signals = {'ne': {'string': r'\tcv_shot::top.results.thomson.profiles.auto:ne'},
+                        'te': {'string': r'\tcv_shot::top.results.thomson.profiles.auto:te'},
+                        'ti': {'string': r'\tcv_shot::top.results.cxrs.proffit:ti'}}
+
+        print("\n")
+        print("===================")
+        print("Initialisation of 2D signals  Done")
+        print("===================")
+        print("\n")
+
+
+    def _getBivecSpline(self):
+        """
+        Hidden method for reading the signal storing their bivacspline
+        representation on a grid (time, rho_tor)
+        """
+        self._brep = {}
+
+        for k in self.signals.keys():
+            print('Reading signal ' + self.signals[k]['string'])
+            tim = self.tree.getNode(self.signals[k]['string']).getDimensionAt(0).data()
+            if k=='ti':
+                tim = self.tree.getNode(self.signals[k]['string']).getDimensionAt(1).data()
+            _idx = np.argmin(tim-self.t < 0)
+            tim = tim[_idx]
+            if k=='ti':
+                # CXRS
+                data = self.tree.getNode(self.signals[k]['string']).data()[_idx,:]
+                rhop = self.tree.getNode(self.signals[k]['string']).getDimensionAt(0).data()[_idx,:]
+                indsort = np.argsort(rhop)
+                data = data[indsort]
+                rhop = rhop[indsort]
+            else:
+                data = self.tree.getNode(self.signals[k]['string']).data()[:, _idx]
+                rhop = self.tree.getNode(r'\results::thomson.profiles.auto:rho').data()
+            dummy = interpolate.interp1d(rhop, data, fill_value='extrapolate')
+            self._brep[k] = dict([('spline', dummy)])
+
+            
+    def read_2d(self):
+        """
+        Method to get the signal defined in an attribute of the
+        class with the appropriate resolution in rho_toroidal
+        and time. It create the attribute self.rsig with a dictionary
+        with all the signals with corresponding time and rho basis
+        """
+        try:
+            self._brep
+        except:
+            self._getBivecSpline()
+            
+        self.rsig = {}
+        for k in self.signals.keys():
+            y = self._brep[k]['spline'](self.rho)
+            self.rsig[k] = dict([('signal',y), 
+                                 ('rho', self.rho)])
+
+        self._tosuperclass()
+            
+        print("\n")
+        print("===================")
+        print("END READING 2D")
+        print("===================")
+        print("\n")
+
+
+    def _tosuperclass(self):
+        """
+        Converts the input read from MDS to superclass useful input
+        """        
+        self.ne_in = self.rsig['ne']['signal']
+        self.ne = self.ne_in
+        self.te_in = self.rsig['te']['signal']
+        self.ti_in = self.rsig['ti']['signal']
+        self.ni_in = np.zeros((self.nion, len(self.ne_in)),dtype=float)
+        self.zeff_in = np.full(self.nrho, self.zeff)
+        self.vt_in = np.zeros(len(self.ne_in),dtype=float)
+        self.vt = np.zeros(len(self.ne_in),dtype=float)
+        self._ion_densities()
+        self.ni = self.ni_in
+        self.te = self.te_in
+        self.ti = self.ti_in
+        # no need to smooth since they are already smoothed
+        self._extrapolate()
+                        
+    def _ion_densities(self):
+        """
+        Compute C ion densities starting from ni_in, ne_in and zeff
+        Solving the following system (valid only if D and C(6+) are the ion species):
+            (1) Zeff = sum(ni*Zi**2)/sum(ni*Zi)
+            (2) ne   = nD + 6*nC
+        """
+        nD = self.ne_in*(6-self.zeff_in)/(5.)
+        nC = self.ne_in*(self.zeff_in-1)/(30.)
+        print("nC/nD: "+str(np.mean(nC/nD)*100.)+" %")
+        self.ni_in[0,:] = nD
+        self.ni_in[1,:] = nC
+
+    def smooth(self):
+        """
+        smooth input data to grid wanted
+        """
+        self.te = self._spline(self.rho_in, self.te_in, self.rho)
+        self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
+        self.ti = self._spline(self.rho_in, self.ti_in, self.rho)
+        for i in range(self.nion):
+            self.ni[i,:]=self._spline(self.rho_in, self.ni_in[i,:], self.rho)
+
+        self.zeff = self._spline(self.rho_in, self.zeff_in, self.rho)
+
+        self._extrapolate()
+        print("nC/nD:", nC/nD)
+        self.ni_in[0,:] = nD
+        self.ni_in[1,:] = nC
+
+    def write_tcv(self):
+        suffix = '_'+str(self.shot)+'_'+str(int(self.t*1e3))
+        self.write_input(suffix=suffix)
