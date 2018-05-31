@@ -118,6 +118,8 @@ class profiles:
         plt.rc('xtick', labelsize=15)
         plt.rc('ytick', labelsize=15)
         plt.rc('axes', labelsize=15)
+        plt.rc('figure', facecolor='white')
+
         #=====================================================================================
         title=''
         
@@ -777,6 +779,7 @@ class TCV_datfiles(profiles):
             self.zeff_in = np.full((self.nrho_in), kwargs['ZEFF'], dtype = float)
             print("Set Zeff from argument ZEFF: "+str(kwargs['ZEFF']))
         else:
+            print('Zeff not set, putting it to 0')
             self.zeff_in = np.zeros(self.nrho_in, dtype = float)
 
         self.ni_in  = np.zeros((self.nion, len(self.rho_in)),dtype=float)

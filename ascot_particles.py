@@ -36,27 +36,20 @@ class particles:
     
     """
     def __init__(self):
-        
         # Initialisation
-		self.npart   = 0
-		self.nfields = 0
-		self.field   = []
-		self.unit    = []
-		self.data_i  = collections.defaultdict(list)
-		self.data_e  = collections.defaultdict(list)
-		self.R_w = []
-		self.z_w = []
-		self._RZsurf()
-		self._readwall()
-
-    def _calc_binarea(self,x,y):
-        """
-        hidden method to calculate the XY area of the bin for XY ionisation plot
-        """
-        Dx = x[1]-x[0]
-        Dy = y[1]-y[0]
-        area = Dx*Dy
-        return area
+        self.npart   = 0
+        self.nfields = 0
+        self.field   = []
+        self.unit    = []
+        self.data_i  = collections.defaultdict(list)
+        self.data_e  = collections.defaultdict(list)
+        self.R_w = []
+        self.z_w = []
+        self.Rsurf = []
+        self.zsurf = []
+        self.RZsurf = []
+        self.Rsurf, self.zsurf, self.RZsurf = _RZsurf(self.id)
+        self.R_w, self.z_w = _readwall(self.device)
 
     def _calc_weight(self):
         """
@@ -80,468 +73,20 @@ class particles:
             ind = self.data_e['origin'][:]==i
             self.w_e[ind_i] = sum(self.data_e['weight'][ind])  
             self.w[ind_i]  = self.w_i[ind_i]+self.w_e[ind_i]
-            
-            
-    def TCV_calc_shinethr(self):
-         """
-         Method to calculate the shine-through with the weights
-         """
-
-         if self.endgroup != 'shinethr':
-             print("WARNING! Check input file, which is ", self.fname)
-
-         self._calc_weight()
-         self.shinethr=np.zeros((1), dtype=float)
-         self.shinethr_abs=np.zeros((1), dtype=float)
-         power = 0.62e6
-
-
-         e = self.data_e['energy']
-         e = e*1.612e-19
-         w = self.data_e['weight']
-         self.shinethr_abs= np.sum(e*w)
-         self.shinethr=np.sum(e*w)/power
-
-         print("TCV Shine-through:", "{0:5f} %".format(self.shinethr*100),\
-                                   "||  {0:3f} W".format(self.shinethr_abs))
-
-    def plot_RZpart(self, ax=0):
-        """
-        Method to plot R vs z of the ionised particles, useful mostly 
-        with bbnbi
-        """
-        try:
-            x=self.data_i['Rprt']
-            y=self.data_i['zprt']
-        except:
-            x=self.data_i['R']
-            y=self.data_i['z']
-
-        if np.mean(x)==999. or np.mean(x)==-999.:
-            x=self.data_i['R']
-            y=self.data_i['z']
-        xlab = 'R [m]'
-        ylab = 'z [m]'
-        wallrz= [self.R_w, self.z_w]
-        surf=[self.Rsurf, self.zsurf, self.RZsurf]
-        _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='RZ ionization',\
-                 wallrz=wallrz, surf=surf, ax=ax)
-          
-    def plot_XY(self, ax=0):
-        """
-        Method to plot XY of ionisation, without difference between the beams
-        """
-        try:
-            R=self.data_i['Rprt']
-            z=self.data_i['zprt']
-            phi = self.data_i['phiprt']
-        except:
-            R=self.data_i['R']
-            z=self.data_i['z']
-            phi = self.data_i['phiprt']
-
-        if np.mean(R)==999. or np.mean(R)==-999.:
-            R=self.data_i['R']
-            z=self.data_i['z']
-            phi = self.data_i['phi']*math.pi/180.
-        x=np.zeros(self.npart)
-        y=np.zeros(self.npart)
-        for i, el in enumerate(R):
-            x[i]=el*math.cos(phi[i])
-            y[i]=el*math.sin(phi[i])
-        xlab = 'X [m]'
-        ylab = 'Y [m]' 
-        R0 = 0 
-        if self.R0:
-            R0 = self.R0
-            
-        wallxy= [self.R_w, self.z_w]
-        _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='XY Ionization',\
-                 wallxy=wallxy, R0=R0, ax=ax)
-
-    def plot_beams_XY(self):
-        """
-        Method to plot XY of ionisation FOR EACH BEAM
-        """
-        try:
-            self.beamorigindict
-        except:
-            self._calc_originbeam()
-            
-
-        #x_range=[-5,5]
-        axxy = plt.subplot2grid((1,2),(0,0))
-        axrz = plt.subplot2grid((1,2),(0,1))
-        ind = np.zeros((2,self.npart), dtype=bool)
-        
-        for i,el in enumerate(self.beamorigindict):
-            if el != 'NNBI_U' and el!='NNBI_L':
-                ind[0,:] = self.data_i['origin']==self.beamorigindict[el][0]
-                ind[1,:] = self.data_i['origin']==self.beamorigindict[el][1]
-            elif el=='NNBI_L':
-                continue
-            else:
-                ind[0,:] = self.data_i['origin']==self.beamorigindict[el]
-                ind[1,:] = self.data_i['origin']==self.beamorigindict['NNBI_L']
-
-
-            for jj in (0,1):
-                R   = self.data_i['Rprt'][ind[jj,:]]
-                ang = self.data_i['phiprt'][ind[jj,:]]
-                z   = self.data_i['zprt'][ind[jj,:]]
-                x = np.zeros(len(R))
-                y = np.zeros(len(R))
-                for j, el in enumerate(R):
-                    x[j] = el*math.cos(ang[j])
-                    y[j] = el*math.sin(ang[j])
-                axxy.scatter(x,y,c=col[i])            
-                axrz.scatter(R,z,c=col[i])
-                
-        theta=np.arange(0,6.29,0.02*6.28)
-        if len(self.R_w)==0:
-            self._readwall()
-        axxy.plot(np.min(self.R_w)*np.cos(theta) , np.min(self.R_w)*np.sin(theta), 'm')
-        axxy.plot(np.max(self.R_w)*np.cos(theta) , np.max(self.R_w)*np.sin(theta), 'm')
-        axrz.plot(self.R_w , self.z_w, 'm')
-        axxy.axis([-5,5,-5,5])
-        axrz.axis([0,5,-4,4])
-        axxy.axis('equal')
-        axrz.axis('equal')
-
-        plt.show()
-
-
-    def losses_prediction(self):
-        """
-        Plots the initial values of the particles depending on their endcondition
-        """
-        endstate=self.data_e['endcond']
-        R   = self.data_i['R']
-        phi = self.data_i['phi']
-        plt.figure()
-        plt.scatter(R*np.cos(phi), R*np.sin(phi))
-        ind_th   = endstate == 4
-        ind_wall = endstate == 3
-        ind_emin = endstate == 2
-        plt.figure()
-        plt.scatter(self.data_i['pitch'][ind_wall], self.data_i['energy'][ind_wall],c='blue', label='wall', marker='x')
-        plt.scatter(self.data_i['pitch'][ind_th],   self.data_i['energy'][ind_th], c='red',  label='th', marker='x')
-        plt.scatter(self.data_i['pitch'][ind_emin], self.data_i['energy'][ind_emin],c='green', label='emin', marker='x')
-        plt.legend(loc='best')
-        
-        plt.figure()
-        plt.scatter(R[ind_wall]*np.cos(phi[ind_wall]), R[ind_wall]*np.sin(phi[ind_wall]),c='blue', label='wall', marker='x')
-        plt.scatter(R[ind_th]*np.cos(phi[ind_th]), R[ind_th]*np.sin(phi[ind_th]),c='red', label='th', marker='x')
-        plt.scatter(R[ind_emin]*np.cos(phi[ind_emin]), R[ind_emin]*np.sin(phi[ind_emin]),c='green', label='emin', marker='x')
-        
-        plt.legend(loc='best')
-
-
-    def _readwall(self):
-        """
-        Hidden method to read the wall
-        """
-        in_w_fname = 'input.wall_2d'
-        try:
-            wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
-        except:
-            if self.id[0:2]=='00':
-                in_w_fname = '/home/vallar/ASCOT/runs/JT60SA/002/input.wall_2d'
-            else:
-                in_w_fname = '/home/vallar/ASCOT/runs/TCV/57850/input.wall_2d'
-            wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
-            
-        self.R_w = wall[0,:]
-        self.z_w = wall[1,:]
-        self.R_w = np.array(self.R_w)
-        self.z_w = np.array(self.z_w)
-
-    def _RZsurf(self):
-        """
-        Reads the position of RZ surfaces from ascot file
-        """       
-        try:
-            if self.id[0:3]=='003':
-                strt=str(self.id[0:3])+'000'
-            elif self.id[0:3]=='005':
-                strt=str(self.id[0:3])+'053'
-            else: 
-                strt =str(self.id[0:7])+'0'           
-        except:
-            print('Impossible to load RZ equiflux surfaces')
-            print('File ID:'+ self.id+' '+self.id[5:6])
-            self.RZsurf = 0
-            return 
-
-        f = h5py.File('ascot_'+strt+'.h5')
-        print("READING SURF FROM ascot_"+strt+".h5")
-        self.RZsurf = f['bfield/2d/psi'].value
-        self.Rsurf = f['bfield/r']
-        self.zsurf = f['bfield/z']
-        edge = f['boozer/psiSepa'][:]; axis=-1*f['boozer/psiAxis'][:]
-        self.R0 = f['misc/geomCentr_rz'][0]
-        #if self.id[0:3]=='005':
-        #    print("Multiply times -1")
-        #    self.RZsurf=-1.*self.RZsurf
-        self.RZsurf = (self.RZsurf-axis)/(edge-axis)
-        self.RZsurf = np.sqrt(self.RZsurf)            
-        
-    def _plot_RZsurf(self, ax):
-        try:
-            self.RZsurf.mean()
-        except:
-            self._RZsurf()
-            
-        CS = ax.contour(self.Rsurf, self.zsurf, self.RZsurf, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
-        plt.clabel(CS, inline=1, fontsize=10) 
-
-    def endcondition(self):
-        """
-        Computes the endcondition of the particles and stores a dict with the amount of MC particles with that final condition
-        """
-        pieplot_label = ['CPU', 'tmax', 'emin', 'wall', 'th.']
-        pieplot_x = dict.fromkeys(pieplot_label, 0.)
-        npart = float(len(self.data_e['endcond']))
-
-
-        errendcond  = {'aborted':-2, 'rejected':-1}
-        counter = 0
-        for key in errendcond:
-            ind = np.where(self.data_e['endcond']==errendcond[key])[0]
-            if len(ind)!=0:
-                counter += len(ind)
-                pieplot_x['CPU'] += len(ind)/npart
-                print("STRANGE END CONDITION! {} ({:d}) : {:d} particles".format(key, errendcond[key], len(ind)))
-
-        physcond = {'none':0,'tmax':1,'emin':2,'wall':3,'th.':4}
-        for key in physcond:
-            ind = np.where(self.data_e['endcond']== physcond[key])[0]
-            counter += len(ind)
-            if key!='none':
-                pieplot_x[key] += len(ind)/npart
-            pow_lost = np.dot(self.data_e['energy'][ind], self.data_e['weight'][ind])*1.602e-19*1e-3
-            print("{} ({:2d}) : {:4d} particles, {:7.2f} kW".format(key, physcond[key], len(ind), pow_lost))
-
-        infcond = {'cputmax':17, 'outsidemaxrho':10, 'outsidewall':16}
-        for key in infcond:
-            ind = np.where(self.data_e['endcond']== infcond[key])[0]
-            counter += len(ind)
-            pieplot_x['CPU'] += len(ind)/npart
-            print("{} ({:2d}) : {:4d} particles".format(key, infcond[key], len(ind)))    
-
-        print("Total particles counted :", counter/npart*100., ' %')
-        
-        x = np.array(pieplot_x.values())
-        _plot_pie(pieplot_x.values(), lab=pieplot_x.keys(), Id=self.id)
-
-    def particle_status(self):
-        """
-        With this function you can plot the histogram with thermalised and lost particles
-        """
-        # text font for plot
-        plt.rc('font', family='serif', serif='Palatino')
-        #plt.rc('text', usetex=True)
-        plt.rc('xtick', labelsize=20)
-        plt.rc('ytick', labelsize=20)
-        plt.rc('axes', labelsize=20)
-        #=========================
-
-        width=0.8
-
-        fig=plt.figure(figsize=(12,5))
-        ax=fig.add_subplot(111)
-        ax.bar(np.arange(14)+0.5,self.endstatus[:,2], width, color='g', label='Th.')
-        if n_wall!=0:      
-            ax.bar(np.arange(14)+0.5,self.endstatus[:,1], width, bottom=self.endstatus[:,2], color='r', label='Wall')
-            frac_wall = self.endstatus[:,1]/self.npart_arr[:]
-            frac_tot_wall = np.sum(self.endstatus[:,1])/np.sum(self.npart_arr)
-        ax.bar(np.arange(14)+0.5,self.endstatus[:,3], width, bottom=self.endstatus[:,2]+self.endstatus[:,1], color='y', label='$E_{min}$')        
-        if n_rho!=0:        
-            ax.bar(np.arange(14)+0.5,self.endstatus[:,4], width, bottom=self.endstatus[:,3]+self.endstatus[:,2]+self.endstatus[:,1], color='b', label=r'$\rho_{MAX}$')        
-            frac_rho = self.endstatus[:,4]/self.npart_arr[:]
-            frac_tot_rho = np.sum(self.endstatus[:,4])/np.sum(self.npart_arr)
-
-        # Create your ticker object with M ticks
-        M = 4
-        yticks = ticker.MaxNLocator(M)
-        # Set the yaxis major locator using your ticker object. You can also choose the minor
-        # tick positions with set_minor_locator.
-        ax.yaxis.set_major_locator(yticks)
-
-        #SET TICKS LABELS ON X AXIS
-        ax.xaxis.set_ticks(['NBI'])
-        ax.xaxis.set_ticklabels(xlab)
-
-        
-        plt.ylabel('Particles')
-        plt.xlabel('Beam index')
-        plt.legend(loc='best', prop={'size':20})
-
-        print("Fraction to the wall:",frac_wall)
-        print("Fraction outside the rho:", frac_rho)
-        print("Total fraction to wall:", frac_tot_wall)
-        print("Total fraction outside rho:", frac_tot_rho)
-
-    def plot_initial_wall_pos(self, ax=0):
-        """
-        Plot with final position of the particles colliding with wall and energy 
-        """
-        ind = np.where(self.data_e['endcond']== 3)[0] #wall
-        r = self.data_i['R'][ind]
-        z = self.data_i['z'][ind]
-        R0=self.infile['misc/geomCentr_rz'][0]
-        theta = np.arctan2(z,r-R0)
-        energy = self.data_e['energy'][ind]*1e-3
-        pitch = self.data_i['pitch'][ind]
-        ind = np.where(np.abs(theta)<0.4)
-        r = r[ind]
-        z = z[ind]
-        theta=theta[ind]
-        phi = self.data_i['phi'][ind]
-        wallrz= [self.R_w, self.z_w]
-        energy = energy[ind]
-        pitch = pitch[ind]
-
-        
-        _plot_2d(r,z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf], ax=ax)
-        ax=0
-        ax=plt.gca()
-        ax.axvline(x=np.max(self.R_w-0.1))
-        plt.figure()
-        plt.hist(pitch, bins=20)        
-        _plot_2d(phi, theta, xlab=r'$\phi$',ylab=r'$\theta$', Id = self.id, hist=1)
-
-    def plot_histo_wall(self, ax=0):
-        """
-        """
-        ind = np.where(self.data_e['endcond']== 3)[0] #wall
-        r = self.data_e['R'][ind]
-        z = self.data_e['z'][ind]
-        R0=self.infile['misc/geomCentr_rz'][0]
-        theta = np.arctan2(z,r-R0)
-        phi = self.data_e['phi'][ind]
-        wallrz= [self.R_w, self.z_w]
-        energy = self.data_e['energy'][ind]*1e-3
-        _plot_2d(phi, theta, xlab=r'$\phi$ [rad]',ylab=r'$\theta$ [rad]', Id = self.id, hist=1)
-
-    def plot_wall_losses(self, ax=0):
-        """
-        Plot with final position of the particles colliding with wall and energy 
-        """
-        ind = np.where(self.data_e['endcond']== 3)[0] #wall
-        r = self.data_e['R'][ind]
-        z = self.data_e['z'][ind]
-        R0=self.infile['misc/geomCentr_rz'][0]
-        print(R0)
-        theta = np.arctan2(z,r-R0)
-        phi = self.data_e['phi'][ind]
-        wallrz= [self.R_w, self.z_w]
-        energy = self.data_e['energy'][ind]*1e-3
-
-        _plot_2d(r,z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=ax)
-        
-
-    def maxrho_histo(self):
-        """
-        Histogram with final theta position, pitch, energy and 2D plot of the particle velocity
-        """
-        try:
-            self.R_w.mean()
-        except:
-            self._readwall()
-        #ind = np.where(self.data_e['endcond']== 10)[0] #rho=1
-        ind = np.where(self.data_e['endcond']== 3)[0] #wall
-        #ind = np.arange(len(self.data_e['endcond'])) #all particles
-        
-        pitchi = self.data_i['pitch'][ind]
-        energyi = self.data_i['energy'][ind]
-        pitch = self.data_e['pitch'][ind]
-        vr = self.data_e['vR'][ind]
-        vz = self.data_e['vz'][ind]
-        vphi = self.data_e['vphi'][ind]
-        r = self.data_e['R'][ind]
-        z = self.data_e['z'][ind]
-        R0=self.infile['misc/geomCentr_rz'][0]
-        theta = np.arctan2(z,r-R0)
-        phi = self.data_e['phi'][ind]
-        x = r*np.cos(phi); y=r*np.sin(phi)        
-      
-        
-        
-        #plt.close('all')
-#        plt.figure(); plt.hist(pitch, bins=20); plt.xlabel('Pitch'); plt.ylabel('Number of particles')
-#        plt.figure(); plt.hist(energy, bins=30); plt.xlabel('Energy'); plt.ylabel('Number of particles')
-##        plt.figure(); plt.hist(vr*1e-3, bins=20); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel('Number of particles')
-##        plt.figure(); plt.hist(vz*1e-3, bins=20); plt.xlabel(r'$v_z$ [km/s]'); plt.ylabel('Number of particles')
-#        plt.figure(); plt.hist(phi, bins=20); plt.xlabel('Phi (toroidal angle)'); plt.ylabel('Number of particles')
-#        plt.figure(); plt.hist(theta, bins=20); plt.xlabel('theta (poloidal angle)'); plt.ylabel('Number of particles')
-#
-
-
-
-        plt.figure(); plt.scatter(x,y);  plt.grid('on'); plt.xlabel(r'x'); plt.ylabel('y')
-#       
-#        plt.figure(); plt.scatter(pitch, energy*1e-3);
-#        plt.scatter(pitchi, energyi*1e-3, color='r');  plt.grid('on'); plt.xlabel(r'Pitch $v_\parallel/v$'); plt.ylabel('Energy [keV]')
-
-
-        #plt.figure(); plt.scatter(vphi*1e-3, np.sqrt(vr**2+vz**2)*1e-3);  plt.grid('on'); plt.xlabel(r'$v_\parallel$ [km/s]'); plt.ylabel(r'$v_\perp [km/s]$');
-        #plt.figure(); plt.scatter(vr*1e-3, vz*1e-3);  plt.grid('on'); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel(r'$v_z$ [km/s]'); plt.axis('equal')
-
-        #plt.figure(); plt.scatter(r,z, c=pitch); plt.colorbar(); plt.xlabel('R'); plt.ylabel('z')
-        
-        #ax=plt.axes(); ax.quiver(r,z,np.multiply(vr,1./norm_v), np.multiply(vz, 1./norm_v));
-        plt.tight_layout()
-
-    def save_phitheta_losses(self):
-        """
-        """
-        ind = np.where(self.data_e['endcond']== 3)[0] #wall
-        r = self.data_e['R'][ind]
-        z = self.data_e['z'][ind]
-        R0=self.infile['misc/geomCentr_rz'][0]
-        theta = np.arctan2(z,r-R0)
-        phi = self.data_e['phi'][ind]        
-        hist = np.histogram2d(theta, phi, bins=30)
-        f_name_hist='hist_phithetaloss_'+self.id+'.dat'
-        with open(f_name_hist, 'w+') as f_handle:
-            f_handle.write('phi '+ str(len(hist[1]))+'\n')
-            f_handle.write('theta '+str(len(hist[2]))+'\n')
-            np.savetxt(f_handle,hist[1]) #phi
-            np.savetxt(f_handle,hist[2]) #theta
-            np.savetxt(f_handle,hist[0])
-        
-    def _power_coupled(self):
-        """
-        Calculates the power coupled to the plasma:
-        Power_ini - power_end + power_residual
-        """
-        p_ini = np.dot(self.data_i['weight'], self.data_i['energy'])*1.602e-19
-        p_end = np.dot(self.data_e['weight'], self.data_e['energy'])*1.602e-19
-        endcond = self.data_e['endcond']        
-        ind = np.where(np.logical_or(endcond == 1, endcond == 2))  #Tmax, Emin, cputmax
-        p_res = np.dot(self.data_e['weight'][ind],self.data_e['energy'][ind])*1.602e-19
-        self.pcoup = p_ini-p_end+p_res
-
+                                    
 class dat_particles(particles):
     """
-    Class (inherited from particles) handling dat files (e.g. input.particles, test_ascot.orbits.dat)
+    superClass (inherited from particles) handling dat files (e.g. input.particles, test_ascot.orbits.dat)
     """
     def __init__(self, infile_n):
         """
         READ ASCII FILE
         """
-        self.fname = infile_n
-
-        indd = self.fname[-12:-5]
-        self.id = indd
-        if indd[0:2] != '00':
-            self.id = self.fname[-12:-5]
-        
+        self._fname = infile_n       
         self.infile = h5py.File('ascot_'+self.id+'.h5')
         
         particles.__init__(self)
-        in_f  = open(self.fname)
+        in_f  = open(self._fname)
         lines = in_f.readlines()[3:]
         in_f.close()
         #Read lines of comment
@@ -595,8 +140,9 @@ class dat_particles(particles):
 #                self.data_i[key] = np.array(self.data_i[key], dtype=float)
 
         #CONVERT PHI FROM DEG TO RAD
+        self.data_i['phi'] *= math.pi/180.
         #self.origins = np.array(list(set(self.data_i['origin'])))
-        print("FIELDS IN FILE ",self.fname," :")
+        print("FIELDS IN FILE ",self._fname," :")
         print(self.field)
         self.banana_orbit()
 
@@ -686,11 +232,10 @@ class dat_particles(particles):
         plt.rc('xtick', labelsize=20)
         plt.rc('ytick', labelsize=20)
         plt.rc('axes', labelsize=20)    
-        plt.rc('font', size=20)
+        #plt.rc('font', size=20)
 
         ylim=[-1., -0.5]
         
-        self._RZsurf()
         ind_t = np.where(self.trappind==1)[0]
         ind_p = np.where(self.trappind==0)[0]     
         CL = ['','']
@@ -698,11 +243,6 @@ class dat_particles(particles):
         p = self.data_i['pitch']
         rho = self.data_i['rho']
         qpart = np.zeros(self.npart)
-#        q = self.infile['/boozer/qprof'][:]
-#        rho_q = self.infile['/boozer/psi'][:]**0.5
-#        for i in range(self.npart):
-#            ind = np.argmin(rho[i]-rho_q>0)
-#            qpart[i] = q[ind]
             
         nbins=10; nsurf=20
         hist_p, xedges_p, yedges_p = np.histogram2d(r[ind_p], z[ind_p], \
@@ -724,7 +264,7 @@ class dat_particles(particles):
         CL[0]=axrz.contourf(x,y,hist_p.T, nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
 #        CL[0]=axrz.pcolor(x,y,hist_p.T, cmap=my_cmap, vmin=0, vmax=vmaxt)
         
-        self._plot_RZsurf(axrz)
+        _plot_RZsurf(self.R, self.z, self.RZsurf,axrz)
         axrz.set_title('Passing N(R,Z)'); 
         axrz.set_xlabel('R [m]'); axrz.set_ylabel('Z [m]')        
         axrz.axis('equal');         
@@ -736,7 +276,7 @@ class dat_particles(particles):
         CL[1]=axrz2.contourf(x,y,hist_t.T, nsurf, cmap=my_cmap, vmin=0, vmax=vmaxt)
 #        CL[1]=axrz2.pcolor(x,y,hist_t.T, cmap=my_cmap, vmin=0, vmax=vmaxt)
 
-        self._plot_RZsurf(axrz2)
+        _plot_RZsurf(self.R, self.z, self.RZsurf,axrz2)
         axrz2.set_title('Trapped N(R,Z)'); 
         axrz2.set_xlabel('R [m]'); axrz2.set_ylabel('Z [m]')
         cbar_ax = f.add_axes([0.85, 0.6, 0.03, 0.3])
@@ -788,72 +328,6 @@ class dat_particles(particles):
         axrp.grid('on')
         axrp2.grid('on')
         
-    def plot_trapped_energy_PNBs(self):
-        """
-        plots trapped particles as function of energy
-        """
-        e = self.data_i['energy']; 
-        width=0.2
-        num_t_full = len(np.where(np.logical_and(self.trappind==1, e>80000))[0])
-        num_t_half = len(np.where(np.logical_and(self.trappind==1, np.logical_and(e>30000, e<80000)))[0])
-        num_t_thir = len(np.where(np.logical_and(self.trappind==1, e<30000))[0])
-        num_full = len(np.where(e>80000)[0])
-        num_half = len(np.where(np.logical_and(e>30000, e<80000))[0])
-        num_thir = len(np.where(e<30000)[0])
-        num_tot = num_full+num_half+num_thir
-        f = plt.figure()
-        f.suptitle(self.id)
-        ax = f.add_subplot(111)
-        f.text(0.01, 0.95, str(float(self.ntrapp)/self.npart))
-        x = [85000./3.,85000./2.,85000.]
-        x = [0.33-width/2., 0.66-width/2., 1.-width/2.]
-        y = [float(num_t_thir)/num_thir, float(num_t_half)/num_half, float(num_t_full)/num_full]
-        y1 = [float(num_thir)/num_tot, float(num_half)/num_tot, float(num_full)/num_tot]
-        y2 = [float(num_t_thir)/num_tot, float(num_t_half)/num_tot, float(num_t_full)/num_tot]
-
-        ax.bar(x, y1, width, color='b', label='Passing')
-        ax.bar(x, y2, width, color='r', label='Trapped')
-        ax.set_ylim([0, 1.4])
-        ax.set_xticks([0.34, 0.66, 1.])
-        ax.set_xticklabels([r'$E_{inj}$/3', r'$E_{inj}$/2', r'$E_{inj}$'])
-        ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.])
-        
-        for i in range(3):
-            ax.text(x[i]+0.05, y1[i]+0.05, '{:.1f} %'.format(y[i]*100.), color='r')
-
-        ax.legend(loc='best')
-        ax.set_ylabel(r'Fraction to total number')
-        ax.yaxis.grid('on')
-
-        
-    def plot_trapped_energy_NNBs(self):
-        """
-        plots trapped particles as function of energy
-        """
-        e = self.data_i['energy']; 
-        width=0.1
-        num_t_full = len(np.where(self.trappind==1)[0])
-        num_full = len(e)
-
-        f = plt.figure()
-        f.suptitle(self.id)
-        ax = f.add_subplot(111)
-        x = [500e3]
-        x = [0.5]
-        y = [float(num_t_full)/num_full]
-
-        ax.bar(x, [1.], width, color='b', label='Passing')
-        ax.bar(x, y, width, color='r', label='Trapped')
-        ax.set_ylim([0, 1.4])
-        ax.set_xlim([0.45, 0.65])
-        ax.legend(loc='best')
-        ax.yaxis.grid('on')
-        ax.set_xticks([0.55])
-        ax.set_xticklabels([r'$E_{inj}$'])
-        ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.])
-        ax.set_ylabel(r'Fraction to total number')
-        ax.text(x[0], 1.05, '{:.1f} %'.format(y[0]*100.), color='r')
-        
     def plot_trajectory(self):
         """
         Plots trajectory of the particles
@@ -867,7 +341,7 @@ class dat_particles(particles):
         ind_p = np.where(self.trappind==0)[0]      
         ind = np.linspace(0, len(ind_t)-1, len(ind_t)-1)
         f = plt.figure()
-        f.suptitle(self.fname)
+        f.suptitle(self._fname)
         axtrajRZ = f.add_subplot(121)        
         for i in ind:
             axtrajRZ.plot(self.data_i['R'][ind_t[i]], self.data_i['z'][ind_t[i]], 'k*')
@@ -921,6 +395,625 @@ class dat_particles(particles):
         ts = 6.28e14*A*te**1.5/(Z**2*ne*17.)
         self.param_ts = interpolate.interp1d(rho,ts)
 
+    def detrapping(self):
+        """
+        Calculates the detrapping condition for the particles
+        As calculated in the Wesson book (3.12.11), the condition for the detrapping
+        to happen is
+            tau_coll \leq (R_0/r)^{1.5} q R_0/(sqrt(2)v_perp)
+        where
+            v_perp = sqrt(2)* v_thermal = sqrt(2)*sqrt(kB T/m)
+        The tau_coll to use for comparison is the spitzer E
+        """
+        try:
+            self.taucoll_e.mean()
+        except:
+            self._colltimes()
+        kB = 1.38064852e-23
+        me = 9.10938356e-31
+        mp = 1.6726219e-27
+        e = 1.602e-19
+        R_torus = 2.96 #in meters
+        a = 1.11
+        rho = self.infile['/boozer/psi'][:]**0.5
+        q = self.infile['boozer/qprof'][:]*(-1)
+        self.epsilon = a/R_torus
+        print("Epsilon used is for scenario 5")           
+        te = self.infile['plasma/1d/te'][:]      
+        vperp = np.zeros(self.npart)   
+        self.tau_detrapp = np.zeros(self.npart)
+
+        for i in range(self.npart):        
+            E = self.partdict[i]['energy'][0]*e
+            m = self.partdict[i]['mass'][0]*mp
+            v = math.sqrt(2.*E/m)
+            angle = np.arccos(self.partdict[i]['pitch'][0])
+            vperp[i] = v*math.sin(angle)
+            R,z = self.partdict[i]['R'][0], self.partdict[i]['z'][0]            
+            r = math.sqrt((R-R_torus)**2+z**2)
+            factor = (R_torus/r)**1.5*R_torus/(math.sqrt(2)*vperp[i])
+            ind = np.argmin(rho-self.partdict[i]['rho'][0]>0)
+            self.tau_detrapp[i] = factor*q[ind]
+
+class h5_particles(particles):
+    """
+    superClass (inherited from particles) handling h5 files (e.g. bbnbi.h5, ascot.h5)
+    """
+    def __init__(self, fname):
+        """
+        Initialising
+        """
+        self._fname = fname
+        indd = self._fname[-9:-3]
+        self.id = indd
+        if indd[0:2] != '00':
+            self.id = self._fname[-11:-3]
+            
+        particles.__init__(self)
+        dataf = h5py.File(self._fname)
+        self.infile=dataf
+        try:
+            self._endgroup = 'shinethr' #this is for bbnbi
+            self.field = dataf[self._endgroup].keys()
+        except:
+            self._endgroup = 'endstate' #this is for ascot
+            self.field = dataf[self._endgroup].keys()
+            self.origins = np.sort(np.array(list(set(self.data_i['origin']))))
+                    
+        self.nfields=len(self.field)      
+        for key in self.field:
+            tt=float
+            if key=='id':
+                tt=int
+            self.data_i[key] = np.array(dataf['inistate/'+key], dtype=tt)
+            self.data_e[key] = np.array(dataf[self._endgroup+'/'+key], dtype=tt)
+                
+        # evaluate number of particles
+        self.npart = np.max(self.data_i['id'])
+            
+        #CONVERT PHI FROM DEG TO RAD
+        self.data_i['phiprt']=self.data_i['phiprt']*math.pi/180.
+        self.data_e['phiprt']=self.data_e['phiprt']*math.pi/180.
+        self.data_i['phi']=self.data_i['phi']*math.pi/180.
+
+        print("FIELDS IN FILE ",self._fname,", section inistate and ",self._endgroup," :")
+        print(list(self.field))
+        
+        # Swapping R and Rprt, since they are opposite to matlab
+        self.data_e['R']   = self.data_e['Rprt']
+        self.data_e['z']   = self.data_e['zprt']
+        self.data_e['phi'] = self.data_e['phiprt']
+        self.R0 = dataf['misc/geomCentr_rz'][0]
+        self.z0 = 0.1
+
+    def plot_RZ(self, ax=0):
+        """
+        Method to plot R vs z of the ionised particles, useful mostly 
+        with bbnbi
+        """
+        try:
+            x=self.data_i['Rprt']
+            y=self.data_i['zprt']
+        except:
+            x=self.data_i['R']
+            y=self.data_i['z']
+
+        if np.mean(x)==999. or np.mean(x)==-999.:
+            x=self.data_i['R']
+            y=self.data_i['z']
+        xlab = 'R [m]'
+        ylab = 'z [m]'
+        wallrz= [self.R_w, self.z_w]
+        surf=[self.Rsurf, self.zsurf, self.RZsurf]
+        _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='RZ ionization',\
+                 wallrz=wallrz, surf=surf, ax=ax)
+          
+    def plot_XY(self, ax=0):
+        """
+        Method to plot XY of ionisation, without difference between the beams
+        """
+        try:
+            R=self.data_i['Rprt']
+            z=self.data_i['zprt']
+            phi = self.data_i['phiprt']
+        except:
+            R=self.data_i['R']
+            z=self.data_i['z']
+            phi = self.data_i['phiprt']
+
+        if np.mean(R)==999. or np.mean(R)==-999.:
+            R=self.data_i['R']
+            z=self.data_i['z']
+            phi = self.data_i['phi']*math.pi/180.
+        x=np.zeros(self.npart)
+        y=np.zeros(self.npart)
+        for i, el in enumerate(R):
+            x[i]=el*math.cos(phi[i])
+            y[i]=el*math.sin(phi[i])
+        xlab = 'X [m]'
+        ylab = 'Y [m]' 
+        R0=self.infile['misc/geomCentr_rz'][0]
+            
+        wallxy= [self.R_w, self.z_w]
+        _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='XY Ionization',\
+                 wallxy=wallxy, R0=R0, ax=ax)
+
+    def endcondition(self):
+        """
+        Computes the endcondition of the particles and stores a dict with the amount of MC particles with that final condition
+        """
+        pieplot_label = ['CPU', 'tmax', 'emin', 'wall', 'th.']
+        pieplot_x = dict.fromkeys(pieplot_label, 0.)
+        npart = float(len(self.data_e['endcond']))
+
+        errendcond  = {'aborted':-2, 'rejected':-1}
+        counter = 0; pwall=0; pth=0;
+        for key in errendcond:
+            ind = np.where(self.data_e['endcond']==errendcond[key])[0]
+            if len(ind)!=0:
+                counter += len(ind)
+                pieplot_x['CPU'] += len(ind)/npart
+                print("STRANGE END CONDITION! {} ({:d}) : {:d} ({:.2f}%) particles".format(key, errendcond[key], len(ind), len(ind)/npart*100.))
+
+        physcond = {'none':0,'tmax':1,'emin':2,'wall':3,'th.':4}
+        for key in physcond:
+            ind = np.where(self.data_e['endcond']== physcond[key])[0]
+            counter += len(ind)
+            if key!='none':
+                pieplot_x[key] += len(ind)/npart
+            pow_lost = np.dot(self.data_e['energy'][ind], self.data_e['weight'][ind])*1.602e-19*1e-3
+            print("{} ({:2d}) : {:4d} ({:.2f}%) particles, {:7.2f} kW".format(key, physcond[key], len(ind), len(ind)/npart*100., pow_lost))
+            if key == 'wall':
+                pwall = len(ind)/npart*100.
+            elif key == 'th.':
+                pth = len(ind)/npart*100.
+
+        infcond = {'cputmax':17, 'outsidemaxrho':10, 'outsidewall':16}
+        for key in infcond:
+            ind = np.where(self.data_e['endcond']== infcond[key])[0]
+            counter += len(ind)
+            pieplot_x['CPU'] += len(ind)/npart
+            print("{} ({:2d}) : {:4d} ({:.2f}%) particles".format(key, infcond[key], len(ind), len(ind)/npart*100.))    
+         
+        print("Total particles counted :", counter/npart*100., ' %')
+        
+        x = np.array(pieplot_x.values())
+        _plot_pie(pieplot_x.values(), lab=pieplot_x.keys(), Id=self.id)
+
+    def plot_initial_wall_pos(self, theta_f=[-3.14, 3.14], phi_f=[-3.14, 3.14]):
+        """
+        Plot with final position of the particles colliding with wall and energy 
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        xlim = [0, 25.]; ylim=[0., 1.]
+        #Filtering on the range desired in phi, theta
+        if np.mean(theta_f)==0. and np.mean(phi_f)==0.:
+            self.plot_histo_wall()
+            ax=plt.gca()
+            p1, p2 = plt.ginput(n=2)
+            theta_f = [p1[1], p2[1]]
+            phi_f = [p1[0], p2[0]]   
+            plt.close()
+        if theta_f[0]==theta_f[1] and phi_f[0]==phi_f[1]:
+            theta_f = [-3.14, 3.14]
+            phi_f = [-3.14, 3.14]    
+          
+        #==========================================================
+        # Finding index where particle meet the conditions
+        #==========================================================        
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]        
+        R0 = self.infile['misc/geomCentr_rz'][0]
+        z0 = self.z0
+        theta = np.arctan2(z-z0,r-R0)
+        phi = self.data_e['phiprt'][ind]
+        ind_inist = np.where(np.logical_and(\
+                                np.logical_and(\
+                                               theta>np.min(theta_f), theta<np.max(theta_f)\
+                                           ),\
+                                np.logical_and(\
+                                               phi>np.min(phi_f), phi<np.max(phi_f)\
+                                           )))
+        ind_inistate = ind[ind_inist]
+        n_wall = len(ind_inistate)
+        # #==========================================================
+        # # Define inistate variables
+        # #==========================================================
+        # r = self.data_i['R'][ind_inistate]
+        # z = self.data_i['z'][ind_inistate]
+        # rho = self.data_i['rho'][ind_inistate]
+        # energy = self.data_i['energy'][ind_inistate]*1e-3
+        # pitch = self.data_i['pitch'][ind_inistate]
+        # wallrz= [self.R_w, self.z_w]
+        # phi = self.data_i['phi'][ind_inistate]
+        # x = r*np.cos(phi)
+        # y = r*np.sin(phi)
+        # #==========================================================
+        # # PLOT OF INITIAL STATE
+        # #==========================================================
+        # fig = plt.figure(figsize=(10,12), dpi=70)
+        # fig.text(0.1, 0.01, self.id)
+        # fig.canvas.set_window_title('Initial State '+self.id)
+        # tit = r'$\theta$=[{:.2f}$\div${:.2f}] | $\phi$=[{:.2f}$\div${:.2f}]'.\
+        #       format(np.min(theta_f), np.max(theta_f), np.min(phi_f), np.max(phi_f))
+        # fig.suptitle(tit, fontsize=16)
+        # nrow=3; ncol=2
+        # axrz = fig.add_subplot(nrow, ncol, 1)
+        # _plot_2d(r, z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, \
+        #          surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=axrz, multip=1)
+        # axrz.axvline(x=np.max(self.R_w-0.1))
+        # axrz.axvline(x=np.min(self.R_w+0.1))
+        # axxy = fig.add_subplot(nrow, ncol,2)
+        # _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, axin=axxy, multip=1, R0=self.R0)
+        # axep = fig.add_subplot(nrow,ncol,3)
+        # _plot_2d(energy, pitch, xlab=r'E [keV]',ylab=r'$\xi$', Id = self.id, hist=1, axin=axep, multip=1,\
+        #          xlim=xlim, ylim=ylim)
+        # axrho = fig.add_subplot(nrow, ncol,4)
+        # _plot_1d(rho, xlab=r'$\rho$', ylab=r'# markers', Id=self.id, hist=1, axin=axrho, multip=1)
+        # axr = fig.add_subplot(nrow, ncol,5)
+        # _plot_1d(r, xlab=r'R [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axr, multip=1)
+        # axr.axvline(x=self.R0)
+        # axr2 = axr.twiny()
+        # axr2.set_xlim(axr.get_xlim())
+        # axr2.set_xticks([self.R0])
+        # axr2.set_xticklabels(['R0']); plt.setp(axr2.get_xticklabels(), rotation='45', fontsize=16)
+        # axz = fig.add_subplot(nrow, ncol,6)
+        # _plot_1d(z, xlab=r'z [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axz, multip=1)
+        # axz.axvline(x=self.z0)
+        # axz2 = axz.twiny()
+        # axz2.set_xlim(axz.get_xlim())
+        # axz2.set_xticks([self.z0])
+        # axz2.set_xticklabels(['z0']); plt.setp(axz2.get_xticklabels(), rotation='45', fontsize=16)
+        # plt.tight_layout()
+        # plt.subplots_adjust(top=0.95)
+        # #==========================================================
+        # # Define enstate variables
+        # #==========================================================
+        # r = self.data_e['R'][ind_inistate]
+        # z = self.data_e['z'][ind_inistate]
+        # rho = self.data_e['rho'][ind_inistate]
+        # energy = self.data_e['energy'][ind_inistate]*1e-3
+        # deltaE = (self.data_i['energy'][ind_inistate]-\
+        #           self.data_e['energy'][ind_inistate])*1e-3
+        # pitch = self.data_e['pitch'][ind_inistate]
+        # wallrz= [self.R_w, self.z_w]
+        # phi = self.data_e['phi'][ind_inistate]
+        
+        # x = r*np.cos(phi)
+        # y = r*np.sin(phi)
+
+        # #==========================================================
+        # # PLOT OF END STATE
+        # #==========================================================
+        # fig = plt.figure(figsize=(10,12), dpi=70)
+        # fig.canvas.set_window_title('End State '+self.id)
+        # fig.text(0.1, 0.01, self.id)
+        # tit = r'$\theta$=[{:.2f}$\div${:.2f}] | $\phi$=[{:.2f}$\div${:.2f}]'.\
+        #       format(np.min(theta_f), np.max(theta_f), np.min(phi_f), np.max(phi_f))
+        # fig.suptitle(tit, fontsize=16)
+        # nrow=3; ncol=2
+        # axrz = fig.add_subplot(nrow, ncol, 1)
+        # _plot_2d(r, z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, \
+        #          surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=axrz, multip=1)
+        # axrz.axvline(x=np.max(self.R_w-0.1))
+        # axrz.axvline(x=np.min(self.R_w+0.1))
+        # axxy = fig.add_subplot(nrow, ncol,2)
+        # _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, axin=axxy, multip=1, R0=self.R0)
+        # axep = fig.add_subplot(nrow,ncol,3)
+        # _plot_2d(energy, pitch, xlab=r'E [keV]',ylab=r'$\xi$', Id = self.id, hist=1, axin=axep, multip=1, \
+        #          xlim=xlim, ylim=ylim)
+        # axrho = fig.add_subplot(nrow, ncol,4)
+        # _plot_1d(rho, xlab=r'$\rho$', ylab=r'# markers', Id=self.id, hist=1, axin=axrho, multip=1)
+        # axr = fig.add_subplot(nrow, ncol,5)
+        # _plot_1d(deltaE, xlab=r'$\Delta E$ [keV]', ylab=r'# markers', Id=self.id, hist=1, axin=axr, multip=1)
+        # #axr.axvline(x=self.R0)
+        # axz = fig.add_subplot(nrow, ncol,6)
+        # _plot_1d(z, xlab=r'z [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axz, multip=1)
+        # axz.axvline(x=z0)
+        # fig.tight_layout()
+        # plt.subplots_adjust(top=0.95)
+
+        # particles born with R<R0:
+        r = self.data_i['R'][ind_inistate]
+        ind_r0 = r<self.R0
+        r = self.data_i['R'][ind_inistate][ind_r0]
+        print('PARTICLES WITH R<R0: {:d} = {:.2f} %'.format(len(r), float(len(r))/n_wall*100.))
+        z = self.data_i['z'][ind_inistate][ind_r0]
+        rho = self.data_i['rho'][ind_inistate][ind_r0]
+        energy = self.data_i['energy'][ind_inistate][ind_r0]*1e-3
+        pitch = self.data_i['pitch'][ind_inistate][ind_r0]
+        wallrz= [self.R_w, self.z_w]
+        phi = self.data_i['phi'][ind_inistate][ind_r0]
+        deltaE = (self.data_i['energy'][ind_inistate][ind_r0]-\
+                  self.data_e['energy'][ind_inistate][ind_r0])*1e-3
+        # Plot of DE of particles born at R<R0
+        fig = plt.figure(figsize=(10,12), dpi=70)
+        fig.canvas.set_window_title('End State '+self.id)
+        fig.text(0.1, 0.01, self.id)
+        axr = fig.add_subplot(111)
+        _plot_1d(deltaE, xlab=r'$\Delta E$ [keV]', ylab=r'# markers', Id=self.id, hist=1, axin=axr, multip=1)        
+
+
+    def plot_histo_wall(self, ax=0):
+        """
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]
+        R0=self.infile['misc/geomCentr_rz'][0]
+        #z0 = self.infile['misc/geomCentr_rz'][1]
+        z0=self.z0
+        theta = np.arctan2(z-z0,r-R0)
+        phi = self.data_e['phi'][ind]
+        wallrz= [self.R_w, self.z_w]
+        energy = self.data_e['energy'][ind]*1e-3
+        _plot_2d(phi, theta, xlab=r'$\phi$ [rad]',ylab=r'$\theta$ [rad]', Id = self.id, hist=1, xlim=[-3.14, 3.14],ylim=[-3.14, 1.57])
+
+    def plot_wall_losses(self, ax=0):
+        """
+        Plot with final position of the particles colliding with wall and energy 
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]
+        R0=self.infile['misc/geomCentr_rz'][0]
+        wallrz= [self.R_w, self.z_w]
+        energy = self.data_e['energy'][ind]*1e-3
+
+        _plot_2d(r,z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=ax)
+        
+    def maxrho_histo(self):
+        """
+        Histogram with final theta position, pitch, energy and 2D plot of the particle velocity
+        """
+        try:
+            self.R_w.mean()
+        except:
+            self._readwall()
+        #ind = np.where(self.data_e['endcond']== 10)[0] #rho=1
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        #ind = np.arange(len(self.data_e['endcond'])) #all particles
+        
+        pitchi = self.data_i['pitch'][ind]
+        energyi = self.data_i['energy'][ind]
+        pitch = self.data_e['pitch'][ind]
+        vr = self.data_e['vR'][ind]
+        vz = self.data_e['vz'][ind]
+        vphi = self.data_e['vphi'][ind]
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]
+        R0=self.infile['misc/geomCentr_rz'][0]
+        theta = np.arctan2(z,r-R0)
+        phi = self.data_e['phi'][ind]
+        x = r*np.cos(phi); y=r*np.sin(phi)        
+      
+        
+        
+        #plt.close('all')
+#        plt.figure(); plt.hist(pitch, bins=20); plt.xlabel('Pitch'); plt.ylabel('Number of particles')
+#        plt.figure(); plt.hist(energy, bins=30); plt.xlabel('Energy'); plt.ylabel('Number of particles')
+##        plt.figure(); plt.hist(vr*1e-3, bins=20); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel('Number of particles')
+##        plt.figure(); plt.hist(vz*1e-3, bins=20); plt.xlabel(r'$v_z$ [km/s]'); plt.ylabel('Number of particles')
+#        plt.figure(); plt.hist(phi, bins=20); plt.xlabel('Phi (toroidal angle)'); plt.ylabel('Number of particles')
+#        plt.figure(); plt.hist(theta, bins=20); plt.xlabel('theta (poloidal angle)'); plt.ylabel('Number of particles')
+#
+
+
+
+        plt.figure(); plt.scatter(x,y);  plt.grid('on'); plt.xlabel(r'x'); plt.ylabel('y')
+#       
+#        plt.figure(); plt.scatter(pitch, energy*1e-3);
+#        plt.scatter(pitchi, energyi*1e-3, color='r');  plt.grid('on'); plt.xlabel(r'Pitch $v_\parallel/v$'); plt.ylabel('Energy [keV]')
+
+
+        #plt.figure(); plt.scatter(vphi*1e-3, np.sqrt(vr**2+vz**2)*1e-3);  plt.grid('on'); plt.xlabel(r'$v_\parallel$ [km/s]'); plt.ylabel(r'$v_\perp [km/s]$');
+        #plt.figure(); plt.scatter(vr*1e-3, vz*1e-3);  plt.grid('on'); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel(r'$v_z$ [km/s]'); plt.axis('equal')
+
+        #plt.figure(); plt.scatter(r,z, c=pitch); plt.colorbar(); plt.xlabel('R'); plt.ylabel('z')
+        
+        #ax=plt.axes(); ax.quiver(r,z,np.multiply(vr,1./norm_v), np.multiply(vz, 1./norm_v));
+        plt.tight_layout()
+
+    def save_phitheta_losses(self):
+        """
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]
+        R0=self.infile['misc/geomCentr_rz'][0]
+        theta = np.arctan2(z,r-R0)
+        phi = self.data_e['phi'][ind]        
+        hist = np.histogram2d(theta, phi, bins=30)
+        f_name_hist='hist_phithetaloss_'+self.id+'.dat'
+        with open(f_name_hist, 'w+') as f_handle:
+            f_handle.write('phi '+ str(len(hist[1]))+'\n')
+            f_handle.write('theta '+str(len(hist[2]))+'\n')
+            np.savetxt(f_handle,hist[1]) #phi
+            np.savetxt(f_handle,hist[2]) #theta
+            np.savetxt(f_handle,hist[0])
+        
+    def _power_coupled(self):
+        """
+        Calculates the power coupled to the plasma:
+        Power_ini - power_end + power_residual
+        """
+        p_ini = np.dot(self.data_i['weight'], self.data_i['energy'])*1.602e-19
+        p_end = np.dot(self.data_e['weight'], self.data_e['energy'])*1.602e-19
+        endcond = self.data_e['endcond']        
+        ind = np.where(np.logical_or(endcond == 1, endcond == 2))  #Tmax, Emin, cputmax
+        p_res = np.dot(self.data_e['weight'][ind],self.data_e['energy'][ind])*1.602e-19
+        self.pcoup = p_ini-p_end+p_res    
+
+class SA_iniend(h5_particles):
+    def __init__(self, infile_n):
+        self.device = 'JT60SA'
+        self.id = infile_n[-9:-3]
+        h5_particles.__init__(self, infile_n)
+
+    def plot_beams_XY(self):
+        """
+        Method to plot XY of ionisation FOR EACH BEAM
+        """
+        try:
+            self.beamorigindict
+        except:
+            self._calc_originbeam()
+            
+
+        #x_range=[-5,5]
+        axxy = plt.subplot2grid((1,2),(0,0))
+        axrz = plt.subplot2grid((1,2),(0,1))
+        ind = np.zeros((2,self.npart), dtype=bool)
+        
+        for i,el in enumerate(self.beamorigindict):
+            if el != 'NNBI_U' and el!='NNBI_L':
+                ind[0,:] = self.data_i['origin']==self.beamorigindict[el][0]
+                ind[1,:] = self.data_i['origin']==self.beamorigindict[el][1]
+            elif el=='NNBI_L':
+                continue
+            else:
+                ind[0,:] = self.data_i['origin']==self.beamorigindict[el]
+                ind[1,:] = self.data_i['origin']==self.beamorigindict['NNBI_L']
+
+
+            for jj in (0,1):
+                R   = self.data_i['Rprt'][ind[jj,:]]
+                ang = self.data_i['phiprt'][ind[jj,:]]
+                z   = self.data_i['zprt'][ind[jj,:]]
+                x = np.zeros(len(R))
+                y = np.zeros(len(R))
+                for j, el in enumerate(R):
+                    x[j] = el*math.cos(ang[j])
+                    y[j] = el*math.sin(ang[j])
+                axxy.scatter(x,y,c=col[i])            
+                axrz.scatter(R,z,c=col[i])
+                
+        theta=np.arange(0,6.29,0.02*6.28)
+        if len(self.R_w)==0:
+            self._readwall()
+        axxy.plot(np.min(self.R_w)*np.cos(theta) , np.min(self.R_w)*np.sin(theta), 'm')
+        axxy.plot(np.max(self.R_w)*np.cos(theta) , np.max(self.R_w)*np.sin(theta), 'm')
+        axrz.plot(self.R_w , self.z_w, 'm')
+        axxy.axis([-5,5,-5,5])
+        axrz.axis([0,5,-4,4])
+        axxy.axis('equal')
+        axrz.axis('equal')
+
+        plt.show()
+
+
+    def calc_shinethr(self):
+        """
+        Method to calculate the shine-through with the weights
+        """
+        
+        if self._endgroup != 'shinethr':
+            print("WARNING! Check input file, which is ", self._fname)
+            
+        self._calc_weight()
+        self.shinethr=np.zeros((26), dtype=float)
+        self.shinethr_abs=np.zeros((26), dtype=float)
+        self.id2beamnum = \
+                          {\
+                           '45':1 ,  '46':1,    '47':2,    '48':2,   \
+                           '133':3,  '134':3,   '135':4,   '136':4,  \
+                           '221':5,  '222':5,   '223':6,   '224':6,  \
+                           '309':7,  '310':7,   '311':8,   '312':8,  \
+                           '3637':9, '3638':9,  '3639':10, '3640':10,\
+                           '5253':13,'5254':13, '5255':14, '5256':14,\
+                           '3031':99,'3032':101 \
+                       }
+        for ind_i,i in enumerate(self.id2beamnum):
+            ind = self.data_e['origin'][:]==int(i)
+            if len(self.data_e['origin'][ind])==0:
+                w=0
+                e=0
+                power = 1
+            else:  
+                power=1.e6
+                if int(i) in [3031, 3032]:
+                    power = 5.e6
+                
+            e = self.data_e['energy'][ind][0]
+            e = e*1.612e-19
+            w = np.sum(self.data_e['weight'][ind_i])
+            #wtot = self.w[ind_i]
+        self.shinethr[ind_i]=float(e)*w/power
+        self.shinethr_abs[ind_i] = float(e)*w
+
+
+
+class SA_orbits(dat_particles):
+    def __init__(self, infile_n):
+        self.device = 'JT60SA'
+        self.id = infile_n[-10:-4]
+        dat_particles.__init__(self, infile_n)
+
+    def plot_trapped_energy_PNBs(self):
+        """
+        plots trapped particles as function of energy
+        """
+        e = self.data_i['energy']; 
+        width=0.2
+        num_t_full = len(np.where(np.logical_and(self.trappind==1, e>80000))[0])
+        num_t_half = len(np.where(np.logical_and(self.trappind==1, np.logical_and(e>30000, e<80000)))[0])
+        num_t_thir = len(np.where(np.logical_and(self.trappind==1, e<30000))[0])
+        num_full = len(np.where(e>80000)[0])
+        num_half = len(np.where(np.logical_and(e>30000, e<80000))[0])
+        num_thir = len(np.where(e<30000)[0])
+        num_tot = num_full+num_half+num_thir
+        f = plt.figure()
+        f.suptitle(self.id)
+        ax = f.add_subplot(111)
+        f.text(0.01, 0.95, str(float(self.ntrapp)/self.npart))
+        x = [85000./3.,85000./2.,85000.]
+        x = [0.33-width/2., 0.66-width/2., 1.-width/2.]
+        y = [float(num_t_thir)/num_thir, float(num_t_half)/num_half, float(num_t_full)/num_full]
+        y1 = [float(num_thir)/num_tot, float(num_half)/num_tot, float(num_full)/num_tot]
+        y2 = [float(num_t_thir)/num_tot, float(num_t_half)/num_tot, float(num_t_full)/num_tot]
+
+        ax.bar(x, y1, width, color='b', label='Passing')
+        ax.bar(x, y2, width, color='r', label='Trapped')
+        ax.set_ylim([0, 1.4])
+        ax.set_xticks([0.34, 0.66, 1.])
+        ax.set_xticklabels([r'$E_{inj}$/3', r'$E_{inj}$/2', r'$E_{inj}$'])
+        ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.])
+        
+        for i in range(3):
+            ax.text(x[i]+0.05, y1[i]+0.05, '{:.1f} %'.format(y[i]*100.), color='r')
+
+        ax.legend(loc='best')
+        ax.set_ylabel(r'Fraction to total number')
+        ax.yaxis.grid('on')
+  
+    def plot_trapped_energy_NNBs(self):
+        """
+        plots trapped particles as function of energy
+        """
+        e = self.data_i['energy']; 
+        width=0.1
+        num_t_full = len(np.where(self.trappind==1)[0])
+        num_full = len(e)
+
+        f = plt.figure()
+        f.suptitle(self.id)
+        ax = f.add_subplot(111)
+        x = [500e3]
+        x = [0.5]
+        y = [float(num_t_full)/num_full]
+
+        ax.bar(x, [1.], width, color='b', label='Passing')
+        ax.bar(x, y, width, color='r', label='Trapped')
+        ax.set_ylim([0, 1.4])
+        ax.set_xlim([0.45, 0.65])
+        ax.legend(loc='best')
+        ax.yaxis.grid('on')
+        ax.set_xticks([0.55])
+        ax.set_xticklabels([r'$E_{inj}$'])
+        ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.])
+        ax.set_ylabel(r'Fraction to total number')
+        ax.text(x[0], 1.05, '{:.1f} %'.format(y[0]*100.), color='r')
+    
     def _colltimes_PNBs(self):
         """
         Calculating collision times between fast ions and e/i,
@@ -995,146 +1088,91 @@ class dat_particles(particles):
             self.taucoll_e_mean[en_ind] = np.trapz(self.taucoll_e[en_ind,:], rho[rho<1.])
             self.taucoll_i_mean[en_ind] = np.trapz(self.taucoll_i[en_ind,:], rho[rho<1.]) 
 
-        
-    def detrapping(self):
-        """
-        Calculates the detrapping condition for the particles
-        As calculated in the Wesson book (3.12.11), the condition for the detrapping
-        to happen is
-            tau_coll \leq (R_0/r)^{1.5} q R_0/(sqrt(2)v_perp)
-        where
-            v_perp = sqrt(2)* v_thermal = sqrt(2)*sqrt(kB T/m)
-        The tau_coll to use for comparison is the spitzer E
-        """
-        try:
-            self.taucoll_e.mean()
-        except:
-            self._colltimes()
-        kB = 1.38064852e-23
-        me = 9.10938356e-31
-        mp = 1.6726219e-27
-        e = 1.602e-19
-        R_torus = 2.96 #in meters
-        a = 1.11
-        rho = self.infile['/boozer/psi'][:]**0.5
-        q = self.infile['boozer/qprof'][:]*(-1)
-        self.epsilon = a/R_torus
-        print("Epsilon used is for scenario 5")           
-        te = self.infile['plasma/1d/te'][:]      
-        vperp = np.zeros(self.npart)   
-        self.tau_detrapp = np.zeros(self.npart)
+class TCV_orbits(dat_particles):
+    def __init__(self, infile_n):
+        self.device = 'TCV'
+        self.id = infile_n[-12:-4]
+        dat_particles.__init__(self, infile_n)	
 
-        for i in range(self.npart):        
-            E = self.partdict[i]['energy'][0]*e
-            m = self.partdict[i]['mass'][0]*mp
-            v = math.sqrt(2.*E/m)
-            angle = np.arccos(self.partdict[i]['pitch'][0])
-            vperp[i] = v*math.sin(angle)
-            R,z = self.partdict[i]['R'][0], self.partdict[i]['z'][0]            
-            r = math.sqrt((R-R_torus)**2+z**2)
-            factor = (R_torus/r)**1.5*R_torus/(math.sqrt(2)*vperp[i])
-            ind = np.argmin(rho-self.partdict[i]['rho'][0]>0)
-            self.tau_detrapp[i] = factor*q[ind]
-       
-class h5_particles(particles):
-	"""
-	Class (inherited from particles) handling h5 files (e.g. bbnbi.h5, ascot.h5)
-	"""
-	def __init__(self, fname):
-		"""
-		Initialising
-		"""
-		self.fname = fname
-		indd = self.fname[-9:-3]
-		self.id = indd
-		if indd[0:2] != '00':
-			self.id = self.fname[-11:-3]
-			
-		particles.__init__(self)
-		dataf = h5py.File(self.fname)
-		self.infile=dataf
-		try:
-			self.endgroup = 'shinethr' #this is for bbnbi
-			self.field = dataf[self.endgroup].keys()
-		except:
-			self.endgroup = 'endstate' #this is for ascot
-			self.field = dataf[self.endgroup].keys()
-			
-		self.nfields=len(self.field)      
-		for key in self.field:
-			if key=='id':
-				self.data_i[key] = np.array(dataf['inistate/'+key], dtype=int)
-				self.data_e[key] = np.array(dataf[self.endgroup+'/'+key], dtype=int)
-			else:
-				self.data_i[key] = np.array(dataf["inistate/"+key], dtype=float)
-				self.data_e[key] = np.array(dataf[self.endgroup+"/"+key], dtype=float)
+class TCV_iniend(h5_particles):
+    def __init__(self, infile_n):
+        self.device = 'TCV'
+        self.id = infile_n[-11:-5]
+        h5_particles.__init__(self, infile_n)
+		
+    def calc_shinethr(self):
+         """
+         Method to calculate the shine-through with the weights
+         """
 
-		if self.endgroup == 'endstate':
-			self._h5origins = dataf['species/testParticle/origin'].value
-		elif self.endgroup == 'shinethr':
-			self.origins = np.sort(np.array(list(set(self.data_i['origin']))))
+         if self._endgroup != 'shinethr':
+             print("WARNING! Check input file, which is ", self._fname)
 
-		# evaluate number of particles
-		self.npart = np.max(self.data_i['id'])
-
-		#CONVERT PHI FROM DEG TO RAD
-		self.data_i['phiprt']=self.data_i['phiprt']*math.pi/180.
-		self.data_e['phiprt']=self.data_e['phiprt']*math.pi/180.
-
-		print("FIELDS IN FILE ",self.fname,", section inistate and ",self.endgroup," :")
-		print(list(self.field))
-
-		# Swapping R and Rprt, since they are opposite to matlab
-		self.data_e['R']   = self.data_e['Rprt']
-		self.data_e['z']   = self.data_e['zprt']
-		self.data_e['phi'] = self.data_e['phiprt']
-
-	def calc_shinethr(self):
-		"""
-		Method to calculate the shine-through with the weights
-		"""
-	#        try:
-	#            self.originpower.mean()
-	#        except:
-	#            self._calc_originbeam()
-			
-			
-		if self.endgroup != 'shinethr':
-			print("WARNING! Check input file, which is ", self.fname)
-
-		self._calc_weight()
-		self.shinethr=np.zeros((26), dtype=float)
-		self.shinethr_abs=np.zeros((26), dtype=float)
-		self.id2beamnum = \
-						{\
-						'45':1 ,  '46':1,    '47':2,    '48':2,   \
-						'133':3,  '134':3,   '135':4,   '136':4,  \
-						'221':5,  '222':5,   '223':6,   '224':6,  \
-						'309':7,  '310':7,   '311':8,   '312':8,  \
-						'3637':9, '3638':9,  '3639':10, '3640':10,\
-						'5253':13,'5254':13, '5255':14, '5256':14,\
-						'3031':99,'3032':101 \
-						}
-		for ind_i,i in enumerate(self.id2beamnum):
-			ind = self.data_e['origin'][:]==int(i)
-			if len(self.data_e['origin'][ind])==0:
-				w=0
-				e=0
-				power = 1
-			else:  
-				power=1.e6
-				if int(i) in [3031, 3032]:
-					power = 5.e6
-					
-				e = self.data_e['energy'][ind][0]
-				e = e*1.612e-19
-				w = np.sum(self.data_e['weight'][ind_i])
-				#wtot = self.w[ind_i]
-			self.shinethr[ind_i]=float(e)*w/power
-			self.shinethr_abs[ind_i] = float(e)*w
+         self._calc_weight()
+         self.shinethr=np.zeros((1), dtype=float)
+         self.shinethr_abs=np.zeros((1), dtype=float)
+         power = 0.62e6
 
 
-def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0, axin=0, scatter=0, hist=0,  **kwargs):
+         e = self.data_e['energy']
+         e = e*1.612e-19
+         w = self.data_e['weight']
+         self.shinethr_abs= np.sum(e*w)
+         self.shinethr=np.sum(e*w)/power
+
+         print("TCV Shine-through:", "{0:5f} %".format(self.shinethr*100),\
+                                   "||  {0:3f} W".format(self.shinethr_abs))
+
+def _plot_1d(x, y=0, xlab='', ylab='', Id='', title='',axin=0, hist=0, multip=0):
+    """
+    Hidden method for 1D plotting
+    """
+    #==============================================
+    # SET TEXT FONT AND SIZE
+    #==============================================
+    plt.rc('xtick', labelsize=20)
+    plt.rc('ytick', labelsize=20)
+    plt.rc('axes', labelsize=20)
+    #==============================================
+    figsize=[8,8]; flag_label=1
+
+    if axin==0:
+        # Defining figure and ax
+        fig = plt.figure(figsize=figsize)
+        fig.text(0.01, 0.01, Id)
+        ax  = fig.add_subplot(111)
+    else:
+        ax=axin
+        fig = plt.gcf()
+        if multip==0:
+            flag_label=0
+
+    if hist!=0:
+        ax.hist(x,bins=30)
+
+    if flag_label==1 :
+        #==================================
+        # SET TICK LOCATION
+        #==================================
+        # Create your ticker object with M ticks
+        M = 4
+        yticks = ticker.MaxNLocator(M)
+        xticks = ticker.MaxNLocator(M)
+        # Set the yaxis major locator using your ticker object. You can also choose the minor
+        # tick positions with set_minor_locator.
+        ax.yaxis.set_major_locator(yticks)
+        #ax.yaxis.set_minor_locator(yticks_m)
+        ax.xaxis.set_major_locator(xticks)
+        #==================================
+        ax.set_title(title)
+        ax.set_xlabel(xlab);ax.set_ylabel(ylab)	
+        ax.grid('on')
+
+    fig.tight_layout()
+    plt.show()
+
+def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0, axin=0, \
+             scatter=0, hist=0, multip=0, xlim=0, ylim=0, fname=''):
 	"""
 	Hidden method to plot the 2D histogram
 	wall: set to 1 if wall needed to plot (i.e. RZ function)
@@ -1147,9 +1185,9 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0
 	plt.rc('xtick', labelsize=20)
 	plt.rc('ytick', labelsize=20)
 	plt.rc('axes', labelsize=20)
+        plt.rc('figure', facecolor='white')
 	#==============================================
 	
-	flag_dict = kwargs
 	figsize=[8,8]; flag_label=1
 
 	if axin==0:
@@ -1161,7 +1199,8 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0
             ax  = fig.add_subplot(111)
         else:
             ax=axin
-            flag_label=0
+            if multip==0:
+                flag_label=0
             fig = plt.gcf()
 
         #doing the actual plot
@@ -1171,10 +1210,12 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0
             or_cb = 'horizontal'
         
         if np.mean(scatter)!=0:
-            pp=ax.scatter(x, y, 100, c=scatter)
+            pp=ax.scatter(x, y, 40, c=scatter)
             #plt.colorbar(pp, ax=ax, orientation = or_cb)
         elif hist != 0:
-            ax.hist2d(x, y, bins=30, cmap=my_cmap)
+            #range = [[-3.14, 3.14],[-3.14, 3.14]]
+            # ax.hist2d(x, y, bins=100, range=range, cmap=my_cmap)
+            ax.hist2d(x, y, bins=100, cmap=my_cmap)
         else:
             hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
             #fig.colorbar(hb[3], ax=ax, orientation=or_cb)
@@ -1196,15 +1237,22 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0
             circle1 = plt.Circle((0, 0), R0, color='r', fill=False, linestyle='--')      
             ax.add_artist(circle1)
 	#Checks for magnetic surfaces and plots them
-	if surf!= 0 and axin==0:
+	if surf!= 0:
             try:
                 llines = [0.2, 0.4, 0.6, 0.8, 1.0]
                 CS = ax.contour(surf[0], surf[1], surf[2], llines, colors='k')
                 plt.clabel(CS, inline=1, fontsize=10) 
             except:
-                print("Impossible to plot RZ surfaces")     
-		
-	if flag_label==1 :
+                print("Impossible to plot RZ surfaces")   
+
+        #Axes limits
+        if ylim!=0:
+            ax.set_ylim(ylim)
+        if xlim!=0:
+            ax.set_xlim(xlim)
+	
+        # Axes beauty
+        if flag_label==1 :
             #==================================
             # SET TICK LOCATION
             #==================================
@@ -1223,15 +1271,12 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0
             ax.set_title(title)
             ax.set_xlabel(xlab);ax.set_ylabel(ylab)	
             ax.grid('on')
+            #plt.show()
 
+            
         fig.tight_layout()
-        plt.show()
-	if 'fname' in flag_dict:
-		plt.savefig(flag_dict['fname'], bbox_inches='tight')
-
-
-
-
+	if fname!='':
+		plt.savefig(fname, bbox_inches='tight')
 
 def _plot_pie(x, lab, Id='', title='', axin=0, **kwargs):
 	"""
@@ -1240,8 +1285,6 @@ def _plot_pie(x, lab, Id='', title='', axin=0, **kwargs):
 	#==============================================
 	# SET TEXT FONT AND SIZE
 	#==============================================
-	#plt.rc('font', family='serif', serif='Palatino')
-	#plt.rc('text', usetex=True)
 	plt.rc('xtick', labelsize=20)
 	plt.rc('ytick', labelsize=20)
 	plt.rc('axes', labelsize=20)
@@ -1262,43 +1305,49 @@ def _plot_pie(x, lab, Id='', title='', axin=0, **kwargs):
 
         #doing the actual plot
         plt.pie(x, labels=lab)
-        
-        # if len(fig.axes)==1:
-        #     or_cb = 'vertical'
-        # else:
-        #     or_cb = 'horizontal'
-        
-        # if np.mean(scatter)!=0:
-        #     pp=ax.scatter(x, y, 100, c=scatter)
-        #     #plt.colorbar(pp, ax=ax, orientation = or_cb)
-        # elif hist != 0:
-        #     ax.hist2d(x, y, bins=30, cmap=my_cmap)
-        # else:
-        #     hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
-        #     #fig.colorbar(hb[3], ax=ax, orientation=or_cb)  
 		
 	if flag_label==1 :
             ax.axis('equal')
-            # #==================================
-            # # SET TICK LOCATION
-            # #==================================
 
-            # # Create your ticker object with M ticks
-            # M = 4
-            # yticks = ticker.MaxNLocator(M)
-            # xticks = ticker.MaxNLocator(M)
-            # # Set the yaxis major locator using your ticker object. You can also choose the minor
-            # # tick positions with set_minor_locator.
-            # ax.yaxis.set_major_locator(yticks)
-            # #ax.yaxis.set_minor_locator(yticks_m)
-            # ax.xaxis.set_major_locator(xticks)
-            # #==================================
-	
-            # ax.set_title(title)
-            # ax.set_xlabel(xlab);ax.set_ylabel(ylab)	
-            # ax.grid('on')
-
-        #fig.tight_layout()
         plt.show()
 	if 'fname' in flag_dict:
 		plt.savefig(flag_dict['fname'], bbox_inches='tight')
+		
+def _readwall(device):
+    """
+    Hidden method to read the wall
+    """
+    in_w_fname = 'input.wall_2d'
+    try:
+        wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
+    except:
+        if device == 'JT60SA':
+            in_w_fname = '/home/vallar/ASCOT/runs/JT60SA/002/input.wall_2d'
+        elif device == 'TCV':
+            in_w_fname = '/home/vallar/ASCOT/runs/TCV/57850/input.wall_2d'
+        wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
+            
+    R_w = wall[0,:]
+    z_w = wall[1,:]
+    R_w = np.array(R_w)
+    z_w = np.array(z_w)
+    return R_w, z_w
+		
+def _RZsurf(id):
+    """
+    Reads the position of RZ surfaces from ascot file
+    """               
+    f = h5py.File('ascot_'+str(id)+'.h5')
+    print("READING SURF FROM ascot_"+str(id)+".h5")
+    RZsurf = f['bfield/2d/psi'].value
+    Rsurf = f['bfield/r']
+    zsurf = f['bfield/z']
+    edge = f['boozer/psiSepa'][:]; axis=-1*f['boozer/psiAxis'][:]
+    RZsurf = (RZsurf-axis)/(edge-axis)
+    RZsurf = np.sqrt(RZsurf)  
+    return Rsurf, zsurf, RZsurf
+	
+def _plot_RZsurf(R, z, RZ, ax):            
+    CS = ax.contour(R, z, RZ, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
+    plt.clabel(CS, inline=1, fontsize=10)
+    return

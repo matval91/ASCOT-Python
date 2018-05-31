@@ -571,7 +571,7 @@ class Bfield_eqdsk:
         self.hdr['PFxx'] = [self.xflux[0][0], self.axflux[0][0]]
         self.hdr['RPFx'] = [self.xpoint[0], self.ax[0]]
         self.hdr['zPFx'] = [self.xpoint[1], self.ax[1]]
-        self.hdr['SSQ']  = [self.eqdsk.R0EXP, 0, 0, 0]
+        self.hdr['SSQ']  = [self.eqdsk.R0EXP, self.eqdsk.Zaxis, 0, 0]
         
     def build_bkg(self):
         """

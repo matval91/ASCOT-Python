@@ -1219,7 +1219,7 @@ class distribution_2d:
         ax.plot(self.xplot, self.yplot, 'k', linewidth=2.3)
 
         ax.set_xlabel(xlab), ax.set_ylabel(ylab)
-        ax.set_ylim([0, 3e13])
+        #ax.set_ylim([0, 3e13])
         plt.show()
             
     def _backup_file(self, fname):
@@ -1674,6 +1674,7 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, **k
         #==============================
         #plt.rc('font', family='serif', serif='Palatino')
         #plt.rc('text', usetex=True)
+        plt.rc('figure', facecolor='white')
         plt.rc('xtick', labelsize=20)
         plt.rc('ytick', labelsize=20)
         plt.rc('axes', labelsize=20)
@@ -1748,6 +1749,7 @@ def _plot_2d(x, y, xlab, ylab, Id='', title='', wallrz=0, surf=0, ax=0, dist=0, 
     plt.rc('xtick', labelsize=20)
     plt.rc('ytick', labelsize=20)
     plt.rc('axes', labelsize=20)
+    plt.rc('figure', facecolor='white')
     #=================================
 
     flag_dict = kwargs
