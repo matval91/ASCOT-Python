@@ -506,7 +506,7 @@ class h5_particles(particles):
         wallrz= [self.R_w, self.z_w]
         surf=[self.Rsurf, self.zsurf, self.RZsurf]
         _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='RZ ionization',\
-                 wallrz=wallrz, surf=surf, ax=ax)
+                 wallrz=wallrz, surf=surf, axin=ax)
           
     def plot_XY(self, ax=0):
         """
@@ -519,24 +519,27 @@ class h5_particles(particles):
         except:
             R=self.data_i['R']
             z=self.data_i['z']
-            phi = self.data_i['phiprt']
+            phi = self.data_i['phi']
 
         if np.mean(R)==999. or np.mean(R)==-999.:
             R=self.data_i['R']
             z=self.data_i['z']
-            phi = self.data_i['phi']*math.pi/180.
+            phi = self.data_i['phi']
+        #print(R, z, phi)
         x=np.zeros(self.npart)
         y=np.zeros(self.npart)
-        for i, el in enumerate(R):
-            x[i]=el*math.cos(phi[i])
-            y[i]=el*math.sin(phi[i])
+        x = R*np.cos(phi)
+        y = R*np.sin(phi)
+        #for i, el in enumerate(R):
+        #    x[i]=el*math.cos(phi[i])
+        #    y[i]=el*math.sin(phi[i])
         xlab = 'X [m]'
         ylab = 'Y [m]' 
         R0=self.infile['misc/geomCentr_rz'][0]
             
         wallxy= [self.R_w, self.z_w]
         _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='XY Ionization',\
-                 wallxy=wallxy, R0=R0, ax=ax)
+                 wallxy=wallxy, R0=R0, axin=ax)
 
     def endcondition(self):
         """
@@ -616,102 +619,102 @@ class h5_particles(particles):
                                            )))
         ind_inistate = ind[ind_inist]
         n_wall = len(ind_inistate)
-        # #==========================================================
-        # # Define inistate variables
-        # #==========================================================
-        # r = self.data_i['R'][ind_inistate]
-        # z = self.data_i['z'][ind_inistate]
-        # rho = self.data_i['rho'][ind_inistate]
-        # energy = self.data_i['energy'][ind_inistate]*1e-3
-        # pitch = self.data_i['pitch'][ind_inistate]
-        # wallrz= [self.R_w, self.z_w]
-        # phi = self.data_i['phi'][ind_inistate]
-        # x = r*np.cos(phi)
-        # y = r*np.sin(phi)
-        # #==========================================================
-        # # PLOT OF INITIAL STATE
-        # #==========================================================
-        # fig = plt.figure(figsize=(10,12), dpi=70)
-        # fig.text(0.1, 0.01, self.id)
-        # fig.canvas.set_window_title('Initial State '+self.id)
-        # tit = r'$\theta$=[{:.2f}$\div${:.2f}] | $\phi$=[{:.2f}$\div${:.2f}]'.\
-        #       format(np.min(theta_f), np.max(theta_f), np.min(phi_f), np.max(phi_f))
-        # fig.suptitle(tit, fontsize=16)
-        # nrow=3; ncol=2
-        # axrz = fig.add_subplot(nrow, ncol, 1)
-        # _plot_2d(r, z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, \
-        #          surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=axrz, multip=1)
-        # axrz.axvline(x=np.max(self.R_w-0.1))
-        # axrz.axvline(x=np.min(self.R_w+0.1))
-        # axxy = fig.add_subplot(nrow, ncol,2)
-        # _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, axin=axxy, multip=1, R0=self.R0)
-        # axep = fig.add_subplot(nrow,ncol,3)
-        # _plot_2d(energy, pitch, xlab=r'E [keV]',ylab=r'$\xi$', Id = self.id, hist=1, axin=axep, multip=1,\
-        #          xlim=xlim, ylim=ylim)
-        # axrho = fig.add_subplot(nrow, ncol,4)
-        # _plot_1d(rho, xlab=r'$\rho$', ylab=r'# markers', Id=self.id, hist=1, axin=axrho, multip=1)
-        # axr = fig.add_subplot(nrow, ncol,5)
-        # _plot_1d(r, xlab=r'R [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axr, multip=1)
-        # axr.axvline(x=self.R0)
-        # axr2 = axr.twiny()
-        # axr2.set_xlim(axr.get_xlim())
-        # axr2.set_xticks([self.R0])
-        # axr2.set_xticklabels(['R0']); plt.setp(axr2.get_xticklabels(), rotation='45', fontsize=16)
-        # axz = fig.add_subplot(nrow, ncol,6)
-        # _plot_1d(z, xlab=r'z [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axz, multip=1)
-        # axz.axvline(x=self.z0)
-        # axz2 = axz.twiny()
-        # axz2.set_xlim(axz.get_xlim())
-        # axz2.set_xticks([self.z0])
-        # axz2.set_xticklabels(['z0']); plt.setp(axz2.get_xticklabels(), rotation='45', fontsize=16)
-        # plt.tight_layout()
-        # plt.subplots_adjust(top=0.95)
-        # #==========================================================
-        # # Define enstate variables
-        # #==========================================================
-        # r = self.data_e['R'][ind_inistate]
-        # z = self.data_e['z'][ind_inistate]
-        # rho = self.data_e['rho'][ind_inistate]
-        # energy = self.data_e['energy'][ind_inistate]*1e-3
-        # deltaE = (self.data_i['energy'][ind_inistate]-\
-        #           self.data_e['energy'][ind_inistate])*1e-3
-        # pitch = self.data_e['pitch'][ind_inistate]
-        # wallrz= [self.R_w, self.z_w]
-        # phi = self.data_e['phi'][ind_inistate]
+        #==========================================================
+        # Define inistate variables
+        #==========================================================
+        r = self.data_i['R'][ind_inistate]
+        z = self.data_i['z'][ind_inistate]
+        rho = self.data_i['rho'][ind_inistate]
+        energy = self.data_i['energy'][ind_inistate]*1e-3
+        pitch = self.data_i['pitch'][ind_inistate]
+        wallrz= [self.R_w, self.z_w]
+        phi = self.data_i['phi'][ind_inistate]
+        x = r*np.cos(phi)
+        y = r*np.sin(phi)
+        #==========================================================
+        # PLOT OF INITIAL STATE
+        #==========================================================
+        fig = plt.figure(figsize=(10,12), dpi=70)
+        fig.text(0.1, 0.01, self.id)
+        fig.canvas.set_window_title('Initial State '+self.id)
+        tit = r'$\theta$=[{:.2f}$\div${:.2f}] | $\phi$=[{:.2f}$\div${:.2f}]'.\
+              format(np.min(theta_f), np.max(theta_f), np.min(phi_f), np.max(phi_f))
+        fig.suptitle(tit, fontsize=16)
+        nrow=3; ncol=2
+        axrz = fig.add_subplot(nrow, ncol, 1)
+        _plot_2d(r, z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, \
+                 surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=axrz, multip=1)
+        axrz.axvline(x=np.max(self.R_w-0.1))
+        axrz.axvline(x=np.min(self.R_w+0.1))
+        axxy = fig.add_subplot(nrow, ncol,2)
+        _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, axin=axxy, multip=1, R0=self.R0)
+        axep = fig.add_subplot(nrow,ncol,3)
+        _plot_2d(energy, pitch, xlab=r'E [keV]',ylab=r'$\xi$', Id = self.id, hist=1, axin=axep, multip=1,\
+                 xlim=xlim, ylim=ylim)
+        axrho = fig.add_subplot(nrow, ncol,4)
+        _plot_1d(rho, xlab=r'$\rho$', ylab=r'# markers', Id=self.id, hist=1, axin=axrho, multip=1)
+        axr = fig.add_subplot(nrow, ncol,5)
+        _plot_1d(r, xlab=r'R [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axr, multip=1)
+        axr.axvline(x=self.R0)
+        axr2 = axr.twiny()
+        axr2.set_xlim(axr.get_xlim())
+        axr2.set_xticks([self.R0])
+        axr2.set_xticklabels(['R0']); plt.setp(axr2.get_xticklabels(), rotation='45', fontsize=16)
+        axz = fig.add_subplot(nrow, ncol,6)
+        _plot_1d(z, xlab=r'z [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axz, multip=1)
+        axz.axvline(x=self.z0)
+        axz2 = axz.twiny()
+        axz2.set_xlim(axz.get_xlim())
+        axz2.set_xticks([self.z0])
+        axz2.set_xticklabels(['z0']); plt.setp(axz2.get_xticklabels(), rotation='45', fontsize=16)
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.95)
+        #==========================================================
+        # Define enstate variables
+        #==========================================================
+        r = self.data_e['R'][ind_inistate]
+        z = self.data_e['z'][ind_inistate]
+        rho = self.data_e['rho'][ind_inistate]
+        energy = self.data_e['energy'][ind_inistate]*1e-3
+        deltaE = (self.data_i['energy'][ind_inistate]-\
+                  self.data_e['energy'][ind_inistate])*1e-3
+        pitch = self.data_e['pitch'][ind_inistate]
+        wallrz= [self.R_w, self.z_w]
+        phi = self.data_e['phi'][ind_inistate]
         
-        # x = r*np.cos(phi)
-        # y = r*np.sin(phi)
+        x = r*np.cos(phi)
+        y = r*np.sin(phi)
 
-        # #==========================================================
-        # # PLOT OF END STATE
-        # #==========================================================
-        # fig = plt.figure(figsize=(10,12), dpi=70)
-        # fig.canvas.set_window_title('End State '+self.id)
-        # fig.text(0.1, 0.01, self.id)
-        # tit = r'$\theta$=[{:.2f}$\div${:.2f}] | $\phi$=[{:.2f}$\div${:.2f}]'.\
-        #       format(np.min(theta_f), np.max(theta_f), np.min(phi_f), np.max(phi_f))
-        # fig.suptitle(tit, fontsize=16)
-        # nrow=3; ncol=2
-        # axrz = fig.add_subplot(nrow, ncol, 1)
-        # _plot_2d(r, z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, \
-        #          surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=axrz, multip=1)
-        # axrz.axvline(x=np.max(self.R_w-0.1))
-        # axrz.axvline(x=np.min(self.R_w+0.1))
-        # axxy = fig.add_subplot(nrow, ncol,2)
-        # _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, axin=axxy, multip=1, R0=self.R0)
-        # axep = fig.add_subplot(nrow,ncol,3)
-        # _plot_2d(energy, pitch, xlab=r'E [keV]',ylab=r'$\xi$', Id = self.id, hist=1, axin=axep, multip=1, \
-        #          xlim=xlim, ylim=ylim)
-        # axrho = fig.add_subplot(nrow, ncol,4)
-        # _plot_1d(rho, xlab=r'$\rho$', ylab=r'# markers', Id=self.id, hist=1, axin=axrho, multip=1)
-        # axr = fig.add_subplot(nrow, ncol,5)
-        # _plot_1d(deltaE, xlab=r'$\Delta E$ [keV]', ylab=r'# markers', Id=self.id, hist=1, axin=axr, multip=1)
-        # #axr.axvline(x=self.R0)
-        # axz = fig.add_subplot(nrow, ncol,6)
-        # _plot_1d(z, xlab=r'z [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axz, multip=1)
-        # axz.axvline(x=z0)
-        # fig.tight_layout()
-        # plt.subplots_adjust(top=0.95)
+        #==========================================================
+        # PLOT OF END STATE
+        #==========================================================
+        fig = plt.figure(figsize=(10,12), dpi=70)
+        fig.canvas.set_window_title('End State '+self.id)
+        fig.text(0.1, 0.01, self.id)
+        tit = r'$\theta$=[{:.2f}$\div${:.2f}] | $\phi$=[{:.2f}$\div${:.2f}]'.\
+              format(np.min(theta_f), np.max(theta_f), np.min(phi_f), np.max(phi_f))
+        fig.suptitle(tit, fontsize=16)
+        nrow=3; ncol=2
+        axrz = fig.add_subplot(nrow, ncol, 1)
+        _plot_2d(r, z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, \
+                 surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=axrz, multip=1)
+        axrz.axvline(x=np.max(self.R_w-0.1))
+        axrz.axvline(x=np.min(self.R_w+0.1))
+        axxy = fig.add_subplot(nrow, ncol,2)
+        _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, axin=axxy, multip=1, R0=self.R0)
+        axep = fig.add_subplot(nrow,ncol,3)
+        _plot_2d(energy, pitch, xlab=r'E [keV]',ylab=r'$\xi$', Id = self.id, hist=1, axin=axep, multip=1, \
+                 xlim=xlim, ylim=ylim)
+        axrho = fig.add_subplot(nrow, ncol,4)
+        _plot_1d(rho, xlab=r'$\rho$', ylab=r'# markers', Id=self.id, hist=1, axin=axrho, multip=1)
+        axr = fig.add_subplot(nrow, ncol,5)
+        _plot_1d(deltaE, xlab=r'$\Delta E$ [keV]', ylab=r'# markers', Id=self.id, hist=1, axin=axr, multip=1)
+        #axr.axvline(x=self.R0)
+        axz = fig.add_subplot(nrow, ncol,6)
+        _plot_1d(z, xlab=r'z [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axz, multip=1)
+        axz.axvline(x=z0)
+        fig.tight_layout()
+        plt.subplots_adjust(top=0.95)
 
         # particles born with R<R0:
         r = self.data_i['R'][ind_inistate]

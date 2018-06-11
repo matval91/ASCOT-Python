@@ -287,6 +287,7 @@ class Bfield_eqdsk:
         
         """    
         self.eqdsk= ReadEQDSK_python2.ReadEQDSK(infile_eqdsk)
+        self.infile = infile_eqdsk
         self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))  
         self.R_eqd = np.linspace(self.eqdsk.rboxleft, self.eqdsk.rboxleft+self.eqdsk.rboxlength, self.eqdsk.nrbox)
         self.Z_eqd = np.linspace(-self.eqdsk.zboxlength/2., self.eqdsk.zboxlength/2., self.eqdsk.nzbox)
@@ -408,7 +409,15 @@ class Bfield_eqdsk:
             self.param_bphi
         except:
             self.calc_field()
+            
+        plt.rc('xtick', labelsize=12)
+        plt.rc('ytick', labelsize=12)
+        plt.rc('axes', labelsize=15)
+        plt.rc('figure', facecolor='white')
+    
         f = plt.figure(figsize=(20, 8))
+        f.text(0.01, 0.01, self.infile)
+
         ax2d = f.add_subplot(131)
         r,z = self.R_eqd, self.Z_eqd
         #r = np.linspace(float(np.around(np.min(self.R_w), decimals=2)), float(np.around(np.max(self.R_w), decimals=2)), self.nR)
@@ -418,8 +427,8 @@ class Bfield_eqdsk:
         CS = ax2d.contour(r,z, self.psi_coeff(r,z), 20)
         plt.contour(r,z, self.psi_coeff(r,z), [self.eqdsk.psiedge], colors='k', linewidths=3.)
 
-        ax2d.set_xlabel("R")
-        ax2d.set_ylabel("Z")
+        ax2d.set_xlabel("R [m]")
+        ax2d.set_ylabel("Z [m]")
         CB = plt.colorbar(CS)
         if self.R_w[0]!=0:
             ax2d.plot(self.R_w, self.z_w, 'k',linewidth=2)
@@ -708,6 +717,10 @@ class Bfield_eqdsk:
             raise ValueError
 
         out_fname = 'input.magn_header'
+        if self.devnam=='TCV':
+            out_fname += '_'+self.infile[6:18]
+			
+        print('OUT header '+out_fname)
         outfile = open(out_fname, 'wa')
        
         
@@ -774,6 +787,10 @@ class Bfield_eqdsk:
             
         bkg=self.bkg
         out_fname = 'input.magn_bkg'
+        if self.devnam=='TCV':
+            out_fname += '_'+self.infile[6:18]
+
+        print('OUT bkg '+out_fname)
         outfile = open(out_fname, 'wa') 
     
         #outfile.write('{:d} (R,z) wall points & divertor flag (1 = divertor, 0 = wall)\n'.format(len(lines)))        
@@ -848,7 +865,7 @@ class Bfield_eqdsk:
                 fname = '/home/vallar/JT60-SA/PARETI_2D_SA/input.wall_2d'
                 #fname = "/home/vallar/JT60-SA/PARETI_2D_SA/input.wall_2d_clamped"
             elif self.devnam == 'TCV':
-                fname = '/home/vallar/TCV/from_jari/input.wall_2d'
+                fname = '/home/vallar/TCV/input.wall_2d'
                 #fname = '/home/vallar/TCV/TCV_vessel_coord.dat'
             wall = np.loadtxt(fname, skiprows=1)
             self.R_w = wall[:,0]
