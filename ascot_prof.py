@@ -19,7 +19,7 @@ from scipy import interpolate, integrate
 import scipy.io as sio
 import ufiles as uf
 import ascot_Bfield
-import MDSplus as mds
+#import MDSplus as mds
 
 colours = ['k','b','r','c','g',\
            'k','b','r','c','g',\
@@ -686,23 +686,19 @@ class SA_datfiles(profiles):
         if shot==003:
             dir_JT = '/home/vallar/JT60-SA/003/eqdsk_fromRUI_20170715_SCENARIO3/'
             eqdsk_fname = 'Equil_JT60_prova01_e_refined.eqdsk'
-        if shot==004:
+        elif shot==004:
             dir_JT = '/home/vallar/JT60-SA/004_2/input_from_EUrepository/'
             eqdsk_fname = 'JT-60SA_scenario4_uptowall.geq'
-        else:
-            #dir_JT='/home/vallar/JT60-SA/'
-            dir_JT='./'
-            #shot='005/'
-            #shot='004/'
-            eqdsk_fname = dir_JT+'JT-60SA_scenario5_eqdsk'
-            #eqdsk_fname = dir_JT+'JT-60SA_scenario4_uptowall.geq'
-            #eqdsk_fname = 'JT-60SA_scenario4_glf23_chease_cocos02.geq'
+        elif shot==005:
+            dir_JT = '/home/vallar/JT60-SA/005/input_from_EUrepository/'
+            eqdsk_fname = 'JT-60SA_scenario5_eqdsk'
         try:
             b = ascot_Bfield.Bfield_eqdsk(dir_JT+eqdsk_fname,129,129, 'JT60SA', COCOS=3)
             print("Opened ", dir_JT+eqdsk_fname)
         except:
             print("Impossible to open ", eqdsk_fname)
             raise ValueError
+
         qprof_t   = b.eqdsk.q
         rho_eqdsk = b.eqdsk.rhopsi
         self.param_q = interpolate.interp1d(rho_eqdsk, qprof_t)

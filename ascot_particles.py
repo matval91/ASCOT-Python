@@ -6,7 +6,10 @@ from matplotlib import ticker, colors
 import collections
 import math
 import h5py
-#import ascot_distributions
+from mpl_toolkits.mplot3d import Axes3D
+from ascot_utils import _plot_2d, _plot_RZsurf
+colours = ['k', 'g','b','r','c']
+styles = ['-','--','-.']
 
 cdict = {'red': ((0., 1, 1),
                  (0.05, 1, 1),
@@ -28,14 +31,14 @@ cdict = {'red': ((0., 1, 1),
                   (0.65, 0, 0),
                   (1, 0, 0))}
 
-my_cmap = colors.LinearSegmentedColormap('my_colormap',cdict,256)
+my_cmap = colors.LinearSegmentedColormap('my_colormap', cdict, 256)
 
 class particles:
     """
     SUPERCLASS
     
     """
-    def __init__(self):
+    def __init__(self, fname_surf):
         # Initialisation
         self.npart   = 0
         self.nfields = 0
@@ -48,9 +51,16 @@ class particles:
         self.Rsurf = []
         self.zsurf = []
         self.RZsurf = []
-        self.Rsurf, self.zsurf, self.RZsurf = _RZsurf(self.id)
+        self.Rsurf, self.zsurf, self.RZsurf = _RZsurf(fname_surf)
         self.R_w, self.z_w = _readwall(self.device)
-
+        try:
+            
+            self.R0 = h5py.File(fname_surf)['misc/geomCentr_rz'][0]
+            self.z0 = h5py.File(fname_surf)['misc/geomCentr_rz'][1]
+        except:
+            self.R0=0
+            self.z0=0
+            print("Impossible to read R0 and Z0")
     def _calc_weight(self):
         """
         hidden method to calculate the weight of the particles for each origin: in the inistate,
@@ -105,9 +115,8 @@ class dat_particles(particles):
         self.field = np.array(self.field)
         self.unit = np.array(self.unit)
         if self.npart==-1:
-            self.npart=50000
-            #self._compute_npart(lines[-2])
-
+            self.npart=input("Number of particles? ")
+            
         tmpdict = dict.fromkeys(self.field,[])
         self.partdict = np.array([dict.copy(tmpdict) for x in range(self.npart)])
         
@@ -129,10 +138,14 @@ class dat_particles(particles):
                     np.append(self.partdict[part_id][self.field[i]], el)                
 
         self.data_i = dict.copy(tmpdict)
+        self.data_e = dict.copy(tmpdict)
+
         for i in range(self.npart):
             for key in self.data_i:
                 self.data_i[key] = np.append(self.data_i[key], \
                             self.partdict[i][key][0])
+                self.data_e[key] = np.append(self.data_e[key], \
+                                             self.partdict[i][key][-1])
 #        for key in self.field:
 #            if key=='id':
 #                self.data_i[key] = np.array(self.data_i[key], dtype=int)
@@ -140,11 +153,12 @@ class dat_particles(particles):
 #                self.data_i[key] = np.array(self.data_i[key], dtype=float)
 
         #CONVERT PHI FROM DEG TO RAD
-        self.data_i['phi'] *= math.pi/180.
+        #self.data_i['phi'] *= math.pi/180.
         #self.origins = np.array(list(set(self.data_i['origin'])))
         print("FIELDS IN FILE ",self._fname," :")
         print(self.field)
         self.banana_orbit()
+        self.R, self.z, self.RZ = _RZsurf(self.id, 'ascot_'+self.id+'.h5')
 
     def _compute_npart(self, line):
         """
@@ -173,7 +187,61 @@ class dat_particles(particles):
                 self.ntrapp+=1
                 self.trappind[i]=1
         self._banana_dim()
-        
+
+
+    def plot_histo_wall(self, ax=0):
+        """
+        Histogram of deposition to the wall
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]
+        R0 = self.infile['misc/geomCentr_rz'][0]
+        z0 = self.infile['misc/geomCentr_rz'][1]
+        theta = np.arctan2(z-z0,r-R0)
+        phi = self.data_e['phi'][ind]
+        #wallrz= [self.R_w, self.z_w]
+        #energy = self.data_e['energy'][ind]*1e-3
+        _plot_2d(phi, theta, xlabel=r'$\phi$ [rad]',ylabel=r'$\theta$ [rad]', Id = self.id, hist=1, xlim=[-3.14, 3.14],ylim=[-3.14, 1.57])
+
+    def plot_orbit_wall(self, theta_f=0., phi_f=0.):
+        """
+        Chosen a position on the wall, gets the first ten particles which end there and plots their orbit
+        """
+        #Filtering on the range desired in phi, theta
+        if theta_f==0. and phi_f==0.:
+            self.plot_histo_wall()
+            ax=plt.gca()
+            p1, p2 = plt.ginput(n=2)
+            theta_f = [p1[1], p2[1]]
+            phi_f = [p1[0], p2[0]] 
+        nn=20
+        phi_f   = np.linspace(min(phi_f), max(phi_f), nn)
+        theta_f = np.linspace(min(theta_f), max(theta_f), nn)
+        print(phi_f, theta_f)
+        #==========================================================
+        # Finding index where particle meet the conditions
+        #==========================================================        
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]        
+        R0 = self.infile['misc/geomCentr_rz'][0]
+        z0 = self.infile['misc/geomCentr_rz'][1]
+        theta = np.arctan2(z-z0,r-R0)
+        phi = self.data_e['phi'][ind]
+        plt.scatter(phi_f, theta_f, 100, marker='*', c='r')
+        f=plt.figure(figsize=(10,9))
+        axtrajRZ = f.add_subplot(121)  
+        _plot_RZsurf(self.R,self.z,self.RZ,axtrajRZ)
+
+        for ii in range(len(phi_f)):
+            dist = np.sqrt((theta-theta_f[ii])**2+(phi-phi_f[ii])**2)
+            ind_inist = np.argmin(dist)
+            ind_inistate = ind[ind_inist]
+            
+            p2plot = self.partdict[ind_inistate]
+            self.plot_trajectory(p2plot=p2plot, f=f,axRZ=axtrajRZ)
+
     def _banana_dim(self):
         """
         computes the fraction of trapped particles with the following formula:
@@ -328,7 +396,7 @@ class dat_particles(particles):
         axrp.grid('on')
         axrp2.grid('on')
         
-    def plot_trajectory(self):
+    def plot_trajectory(self, p2plot=0, f=0, axRZ=0):
         """
         Plots trajectory of the particles
         """
@@ -336,42 +404,48 @@ class dat_particles(particles):
             self.trappind.mean()
         except:
             self.banana_orbit()
-            
-        ind_t = np.where(self.trappind==1)[0]
-        ind_p = np.where(self.trappind==0)[0]      
-        ind = np.linspace(0, len(ind_t)-1, len(ind_t)-1)
-        f = plt.figure()
-        f.suptitle(self._fname)
-        axtrajRZ = f.add_subplot(121)        
-        for i in ind:
-            axtrajRZ.plot(self.data_i['R'][ind_t[i]], self.data_i['z'][ind_t[i]], 'k*')
-            axtrajRZ.plot(self.partdict[ind_t[i]]['R'], self.partdict[ind_t[i]]['z'], 'kx') 
-            #axtrajRZ.plot(self.data_i['R'][ind_p[i]], self.data_i['z'][ind_p[i]], 'r*')
-            #axtrajRZ.plot(self.partdict[ind_p[i]]['R'], self.partdict[ind_p[i]]['z'], 'r-') 
-        #self._plot_RZsurf(axtrajRZ)
+
+        if p2plot == 0.:
+            ind2plot = 0
+        else:
+            ind2plot = p2plot['id'][0]-1
+        print('plotting particle '+str(ind2plot+1))
+
+        Rw, zw = _readwall(self.device)
+        if f==0:
+            f = plt.figure(figsize=(10,5))
+            f.suptitle('Orbit particle '+str(ind2plot+1))
+        if axRZ==0:
+            axtrajRZ = f.add_subplot(121)
+        else:
+            axtrajRZ = axRZ
+        axtrajxy = f.add_subplot(122)
+        axtrajRZ.scatter(self.data_i['R'][ind2plot], self.data_i['z'][ind2plot], 100, 'k', marker='*')
+        axtrajRZ.plot(self.partdict[ind2plot]['R'], self.partdict[ind2plot]['z'], 'k:') 
+        axtrajRZ.scatter(self.data_e['R'][ind2plot], self.data_e['z'][ind2plot], 100,'r', marker='*')
+        axtrajRZ.plot(Rw, zw, 'k')
         axtrajRZ.set_xlabel(r'R (m)')
         axtrajRZ.set_ylabel(r'z (m)')
-        
-        axtrajxy = f.add_subplot(122)        
-#         for i in ind:
-#             ll = ind_t[i]
-#             xi,yi = self.data_i['R'][ll]*np.cos(self.data_i['phi'][ll]), \
-#                     self.data_i['R'][ll]*np.sin(self.data_i['phi'][ll])
-#             x,y = self.partdict[ll]['R']*np.cos(self.partdict[ll]['phi']), \
-#                     self.partdict[ll]['R']*np.sin(self.partdict[ll]['phi'])  
-                    
-#             axtrajxy.plot(xi,yi, 'k*')
-#             axtrajxy.plot(x,y, 'k-') 
-#             ll = ind_p[i]
-#             xi,yi = self.data_i['R'][ll]*np.cos(self.data_i['phi'][ll]), \
-#                     self.data_i['R'][ll]*np.sin(self.data_i['phi'][ll])
-#             x,y = self.partdict[ll]['R']*np.cos(self.partdict[ll]['phi']), \
-#                     self.partdict[ll]['R']*np.sin(self.partdict[ll]['phi'])             
-#             axtrajxy.plot(xi,yi, 'r*')
-#             axtrajxy.plot(x,y, 'r-') 
-
+        xi,yi = self.data_i['R'][ind2plot]*math.cos(self.data_i['phi'][ind2plot]), \
+                self.data_i['R'][ind2plot]*math.sin(self.data_i['phi'][ind2plot])
+        x,y = self.partdict[ind2plot]['R']*np.cos(self.partdict[ind2plot]['phi']), \
+              self.partdict[ind2plot]['R']*np.sin(self.partdict[ind2plot]['phi'])  
+        xe,ye = self.data_e['R'][ind2plot]*np.cos(self.data_e['phi'][ind2plot]), \
+                self.data_e['R'][ind2plot]*np.sin(self.data_e['phi'][ind2plot])                    
+        axtrajxy.scatter(xi,yi, 100, 'k',marker='*')
+        axtrajxy.plot(x,y, 'k:')
+        axtrajxy.scatter(xe, ye, 100,'r', marker='*')
+        circle1 = plt.Circle((0, 0), min(Rw), color='k', fill=False, linestyle='-', linewidth=3.)      
+        axtrajxy.add_artist(circle1)
+        circle1 = plt.Circle((0, 0), max(Rw), color='k', fill=False, linestyle='-', linewidth=3.)      
+        axtrajxy.add_artist(circle1)
+        axtrajxy.plot()
         axtrajxy.set_xlabel(r'x (m)')
-        axtrajxy.set_ylabel(r'y (m)')        
+        axtrajxy.set_ylabel(r'y (m)')     
+        axtrajRZ.axis('equal'); axtrajxy.axis('equal')
+        axtrajxy.set_xlim([-max(Rw), max(Rw)]); axtrajxy.set_ylim([-max(Rw), max(Rw)]) 
+        f.tight_layout()
+
 
     def _ecrit(self):
         """
@@ -439,7 +513,7 @@ class h5_particles(particles):
     """
     superClass (inherited from particles) handling h5 files (e.g. bbnbi.h5, ascot.h5)
     """
-    def __init__(self, fname):
+    def __init__(self, fname, fname_surf):
         """
         Initialising
         """
@@ -449,12 +523,13 @@ class h5_particles(particles):
         if indd[0:2] != '00':
             self.id = self._fname[-11:-3]
             
-        particles.__init__(self)
+        particles.__init__(self, fname_surf)
         dataf = h5py.File(self._fname)
         self.infile=dataf
         try:
             self._endgroup = 'shinethr' #this is for bbnbi
             self.field = dataf[self._endgroup].keys()
+            self.origins = np.sort(np.array(list(set(self.data_i['origin']))))
         except:
             self._endgroup = 'endstate' #this is for ascot
             self.field = dataf[self._endgroup].keys()
@@ -483,8 +558,7 @@ class h5_particles(particles):
         self.data_e['R']   = self.data_e['Rprt']
         self.data_e['z']   = self.data_e['zprt']
         self.data_e['phi'] = self.data_e['phiprt']
-        self.R0 = dataf['misc/geomCentr_rz'][0]
-        self.z0 = 0.1
+
 
     def plot_RZ(self, ax=0):
         """
@@ -505,8 +579,8 @@ class h5_particles(particles):
         ylab = 'z [m]'
         wallrz= [self.R_w, self.z_w]
         surf=[self.Rsurf, self.zsurf, self.RZsurf]
-        _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='RZ ionization',\
-                 wallrz=wallrz, surf=surf, axin=ax)
+        _plot_2d(x, y, xlabel=xlab, ylabel=ylab, Id=self.id, title='RZ ionization',\
+                 wallrz=wallrz, surf=surf, ax=ax)
           
     def plot_XY(self, ax=0):
         """
@@ -525,26 +599,27 @@ class h5_particles(particles):
             R=self.data_i['R']
             z=self.data_i['z']
             phi = self.data_i['phi']
-        #print(R, z, phi)
+
         x=np.zeros(self.npart)
         y=np.zeros(self.npart)
         x = R*np.cos(phi)
         y = R*np.sin(phi)
-        #for i, el in enumerate(R):
-        #    x[i]=el*math.cos(phi[i])
-        #    y[i]=el*math.sin(phi[i])
         xlab = 'X [m]'
         ylab = 'Y [m]' 
-        R0=self.infile['misc/geomCentr_rz'][0]
+        R0=self.R0
             
         wallxy= [self.R_w, self.z_w]
-        _plot_2d(x, y, xlab=xlab, ylab=ylab, Id=self.id, title='XY Ionization',\
-                 wallxy=wallxy, R0=R0, axin=ax)
+        
+        _plot_2d(x, y, xlabel=xlab, ylabel=ylab, Id=self.id, title='XY Ionization',\
+                 wallxy=wallxy, R0=R0, ax=ax)
 
     def endcondition(self):
         """
         Computes the endcondition of the particles and stores a dict with the amount of MC particles with that final condition
         """
+        self.ptot_inj  = np.dot(self.data_i['weight'],self.data_i['energy'])*1.602e-19
+        self.plost_w   = 0.
+
         pieplot_label = ['CPU', 'tmax', 'emin', 'wall', 'th.']
         pieplot_x = dict.fromkeys(pieplot_label, 0.)
         npart = float(len(self.data_e['endcond']))
@@ -568,6 +643,7 @@ class h5_particles(particles):
             print("{} ({:2d}) : {:4d} ({:.2f}%) particles, {:7.2f} kW".format(key, physcond[key], len(ind), len(ind)/npart*100., pow_lost))
             if key == 'wall':
                 pwall = len(ind)/npart*100.
+                self.plost_w = pow_lost*1e3
             elif key == 'th.':
                 pth = len(ind)/npart*100.
 
@@ -581,7 +657,7 @@ class h5_particles(particles):
         print("Total particles counted :", counter/npart*100., ' %')
         
         x = np.array(pieplot_x.values())
-        _plot_pie(pieplot_x.values(), lab=pieplot_x.keys(), Id=self.id)
+        #_plot_pie(pieplot_x.values(), lab=pieplot_x.keys(), Id=self.id)
 
     def plot_initial_wall_pos(self, theta_f=[-3.14, 3.14], phi_f=[-3.14, 3.14]):
         """
@@ -619,6 +695,7 @@ class h5_particles(particles):
                                            )))
         ind_inistate = ind[ind_inist]
         n_wall = len(ind_inistate)
+        
         #==========================================================
         # Define inistate variables
         #==========================================================
@@ -631,44 +708,9 @@ class h5_particles(particles):
         phi = self.data_i['phi'][ind_inistate]
         x = r*np.cos(phi)
         y = r*np.sin(phi)
-        #==========================================================
-        # PLOT OF INITIAL STATE
-        #==========================================================
-        fig = plt.figure(figsize=(10,12), dpi=70)
-        fig.text(0.1, 0.01, self.id)
-        fig.canvas.set_window_title('Initial State '+self.id)
-        tit = r'$\theta$=[{:.2f}$\div${:.2f}] | $\phi$=[{:.2f}$\div${:.2f}]'.\
-              format(np.min(theta_f), np.max(theta_f), np.min(phi_f), np.max(phi_f))
-        fig.suptitle(tit, fontsize=16)
-        nrow=3; ncol=2
-        axrz = fig.add_subplot(nrow, ncol, 1)
-        _plot_2d(r, z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, \
-                 surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=axrz, multip=1)
-        axrz.axvline(x=np.max(self.R_w-0.1))
-        axrz.axvline(x=np.min(self.R_w+0.1))
-        axxy = fig.add_subplot(nrow, ncol,2)
-        _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, axin=axxy, multip=1, R0=self.R0)
-        axep = fig.add_subplot(nrow,ncol,3)
-        _plot_2d(energy, pitch, xlab=r'E [keV]',ylab=r'$\xi$', Id = self.id, hist=1, axin=axep, multip=1,\
-                 xlim=xlim, ylim=ylim)
-        axrho = fig.add_subplot(nrow, ncol,4)
-        _plot_1d(rho, xlab=r'$\rho$', ylab=r'# markers', Id=self.id, hist=1, axin=axrho, multip=1)
-        axr = fig.add_subplot(nrow, ncol,5)
-        _plot_1d(r, xlab=r'R [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axr, multip=1)
-        axr.axvline(x=self.R0)
-        axr2 = axr.twiny()
-        axr2.set_xlim(axr.get_xlim())
-        axr2.set_xticks([self.R0])
-        axr2.set_xticklabels(['R0']); plt.setp(axr2.get_xticklabels(), rotation='45', fontsize=16)
-        axz = fig.add_subplot(nrow, ncol,6)
-        _plot_1d(z, xlab=r'z [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axz, multip=1)
-        axz.axvline(x=self.z0)
-        axz2 = axz.twiny()
-        axz2.set_xlim(axz.get_xlim())
-        axz2.set_xticks([self.z0])
-        axz2.set_xticklabels(['z0']); plt.setp(axz2.get_xticklabels(), rotation='45', fontsize=16)
-        plt.tight_layout()
-        plt.subplots_adjust(top=0.95)
+        ind_lt_r0 = r<R0
+#        plot_iniendstate(theta_f, phi_f, x,y,energy,wallrz, pitch,rho, ind_lt_r0,r,z)
+
         #==========================================================
         # Define enstate variables
         #==========================================================
@@ -684,58 +726,74 @@ class h5_particles(particles):
         
         x = r*np.cos(phi)
         y = r*np.sin(phi)
-
-        #==========================================================
-        # PLOT OF END STATE
-        #==========================================================
-        fig = plt.figure(figsize=(10,12), dpi=70)
-        fig.canvas.set_window_title('End State '+self.id)
-        fig.text(0.1, 0.01, self.id)
-        tit = r'$\theta$=[{:.2f}$\div${:.2f}] | $\phi$=[{:.2f}$\div${:.2f}]'.\
-              format(np.min(theta_f), np.max(theta_f), np.min(phi_f), np.max(phi_f))
-        fig.suptitle(tit, fontsize=16)
-        nrow=3; ncol=2
-        axrz = fig.add_subplot(nrow, ncol, 1)
-        _plot_2d(r, z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, \
-                 surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=axrz, multip=1)
-        axrz.axvline(x=np.max(self.R_w-0.1))
-        axrz.axvline(x=np.min(self.R_w+0.1))
-        axxy = fig.add_subplot(nrow, ncol,2)
-        _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, axin=axxy, multip=1, R0=self.R0)
-        axep = fig.add_subplot(nrow,ncol,3)
-        _plot_2d(energy, pitch, xlab=r'E [keV]',ylab=r'$\xi$', Id = self.id, hist=1, axin=axep, multip=1, \
-                 xlim=xlim, ylim=ylim)
-        axrho = fig.add_subplot(nrow, ncol,4)
-        _plot_1d(rho, xlab=r'$\rho$', ylab=r'# markers', Id=self.id, hist=1, axin=axrho, multip=1)
-        axr = fig.add_subplot(nrow, ncol,5)
-        _plot_1d(deltaE, xlab=r'$\Delta E$ [keV]', ylab=r'# markers', Id=self.id, hist=1, axin=axr, multip=1)
-        #axr.axvline(x=self.R0)
-        axz = fig.add_subplot(nrow, ncol,6)
-        _plot_1d(z, xlab=r'z [m]', ylab=r'# markers', Id=self.id, hist=1, axin=axz, multip=1)
-        axz.axvline(x=z0)
-        fig.tight_layout()
-        plt.subplots_adjust(top=0.95)
+        
+#        plot_iniendstate(theta_f, phi_f, x,y,energy,wallrz, pitch,rho, ind_lt_r0,r,z)
 
         # particles born with R<R0:
         r = self.data_i['R'][ind_inistate]
         ind_r0 = r<self.R0
         r = self.data_i['R'][ind_inistate][ind_r0]
+        plost_rltr0 = np.dot(self.data_e['energy'][ind_inistate][ind_r0],self.data_e['weight'][ind_inistate][ind_r0]) 
+        self.plost_rltr0 = plost_rltr0*1.602e-19
+        self.plost_rgtr0 = self.plost_w-self.plost_rltr0
         print('PARTICLES WITH R<R0: {:d} = {:.2f} %'.format(len(r), float(len(r))/n_wall*100.))
-        z = self.data_i['z'][ind_inistate][ind_r0]
-        rho = self.data_i['rho'][ind_inistate][ind_r0]
-        energy = self.data_i['energy'][ind_inistate][ind_r0]*1e-3
-        pitch = self.data_i['pitch'][ind_inistate][ind_r0]
-        wallrz= [self.R_w, self.z_w]
-        phi = self.data_i['phi'][ind_inistate][ind_r0]
-        deltaE = (self.data_i['energy'][ind_inistate][ind_r0]-\
-                  self.data_e['energy'][ind_inistate][ind_r0])*1e-3
-        # Plot of DE of particles born at R<R0
-        fig = plt.figure(figsize=(10,12), dpi=70)
-        fig.canvas.set_window_title('End State '+self.id)
-        fig.text(0.1, 0.01, self.id)
-        axr = fig.add_subplot(111)
-        _plot_1d(deltaE, xlab=r'$\Delta E$ [keV]', ylab=r'# markers', Id=self.id, hist=1, axin=axr, multip=1)        
+        # z = self.data_i['z'][ind_inistate][ind_r0]
+        # rho = self.data_i['rho'][ind_inistate][ind_r0]
+        # energy = self.data_i['energy'][ind_inistate][ind_r0]*1e-3
+        # pitch = self.data_i['pitch'][ind_inistate][ind_r0]
+        # wallrz= [self.R_w, self.z_w]
+        # phi = self.data_i['phi'][ind_inistate][ind_r0]
+        deltaE = (self.data_i['energy'][ind_inistate]-\
+                  self.data_e['energy'][ind_inistate])*1e-3
+        # # Plot of DE of particles born at R<R0
+        # fig = plt.figure(figsize=(10,12), dpi=70)
+        # fig.canvas.set_window_title('End State '+self.id)
+        # fig.text(0.1, 0.01, self.id)
+        # axdE = fig.add_subplot(111)
+        # _plot_1d([deltaE[~ind_lt_r0], deltaE[ind_lt_r0]], xlabel=r'$\Delta E$ [keV]', ylabel=r'# markers', Id=self.id, hist=1, ax=axdE, multip=1)    
 
+
+    def plot_iniendstate(theta_f, phi_f, x,y,energy,wallrz, pitch,rho, ind_lt_r0,r,z): 
+        #==========================================================
+        # PLOT OF STATE
+        #==========================================================
+        fig = plt.figure(figsize=(10,12), dpi=70)
+        fig.text(0.1, 0.01, self.id)
+        fig.canvas.set_window_title('Initial State '+self.id)
+        tit = r'$\theta$=[{:.2f}$\div${:.2f}] | $\phi$=[{:.2f}$\div${:.2f}]'.\
+              format(np.min(theta_f), np.max(theta_f), np.min(phi_f), np.max(phi_f))
+        fig.suptitle(tit, fontsize=16)
+        nrow=3; ncol=2
+        #axrz = fig.add_subplot(nrow, ncol, 1)
+        #_plot_2d(r, z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, \
+        #         surf=[self.Rsurf, self.zsurf, self.RZsurf], ax=axrz, multip=1)
+        #axrz.axvline(x=np.max(self.R_w-0.1))
+        #axrz.axvline(x=np.min(self.R_w+0.1))
+        axxy = fig.add_subplot(nrow, ncol,2)
+        _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, ax=axxy, multip=1, R0=self.R0)
+        axep = fig.add_subplot(nrow,ncol,3)
+        _plot_2d(energy, pitch, xlabel=r'E [keV]',ylabel=r'$\xi$', Id = self.id, hist=1, ax=axep, multip=1,\
+                 xlim=xlim, ylim=ylim)
+        
+        axrho = fig.add_subplot(nrow, ncol,4)
+        _plot_1d([rho[~ind_lt_r0], rho[ind_lt_r0]], xlabel=r'$\rho$', ylabel=r'# markers', Id=self.id, hist=1, ax=axrho, multip=1)
+        axr = fig.add_subplot(nrow, ncol,5)
+        _plot_1d([r[~ind_lt_r0], r[ind_lt_r0]], xlabel=r'R [m]', ylabel=r'# markers', Id=self.id, hist=1, ax=axr, multip=1)
+
+        axr.axvline(x=self.R0)
+        axr2 = axr.twiny()
+        axr2.set_xlim(axr.get_xlim())
+        axr2.set_xticks([self.R0])
+        axr2.set_xticklabels(['R0']); plt.setp(axr2.get_xticklabels(), rotation='45', fontsize=16)
+        axz = fig.add_subplot(nrow, ncol,6)
+        _plot_1d([z[~ind_lt_r0], z[ind_lt_r0]], xlabel=r'z [m]', ylabel=r'# markers', Id=self.id, hist=1, ax=axz, multip=1)
+        axz.axvline(x=self.z0)
+        axz2 = axz.twiny()
+        axz2.set_xlim(axz.get_xlim())
+        axz2.set_xticks([self.z0])
+        axz2.set_xticklabels(['z0']); plt.setp(axz2.get_xticklabels(), rotation='45', fontsize=16)
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.95)
 
     def plot_histo_wall(self, ax=0):
         """
@@ -750,7 +808,7 @@ class h5_particles(particles):
         phi = self.data_e['phi'][ind]
         wallrz= [self.R_w, self.z_w]
         energy = self.data_e['energy'][ind]*1e-3
-        _plot_2d(phi, theta, xlab=r'$\phi$ [rad]',ylab=r'$\theta$ [rad]', Id = self.id, hist=1, xlim=[-3.14, 3.14],ylim=[-3.14, 1.57])
+        _plot_2d(phi, theta, xlabel=r'$\phi$ [rad]',ylabel=r'$\theta$ [rad]', Id = self.id, hist=1, xlim=[-3.14, 3.14],ylim=[-3.14, 1.57])
 
     def plot_wall_losses(self, ax=0):
         """
@@ -759,11 +817,11 @@ class h5_particles(particles):
         ind = np.where(self.data_e['endcond']== 3)[0] #wall
         r = self.data_e['R'][ind]
         z = self.data_e['z'][ind]
-        R0=self.infile['misc/geomCentr_rz'][0]
+        R0=self.R0
         wallrz= [self.R_w, self.z_w]
         energy = self.data_e['energy'][ind]*1e-3
 
-        _plot_2d(r,z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf], axin=ax)
+        _plot_2d(r,z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf], ax=ax)
         
     def maxrho_histo(self):
         """
@@ -848,10 +906,10 @@ class h5_particles(particles):
         self.pcoup = p_ini-p_end+p_res    
 
 class SA_iniend(h5_particles):
-    def __init__(self, infile_n):
+    def __init__(self, infile_n, fname_surf=''):
         self.device = 'JT60SA'
         self.id = infile_n[-9:-3]
-        h5_particles.__init__(self, infile_n)
+        h5_particles.__init__(self, infile_n, fname_surf)
 
     def plot_beams_XY(self):
         """
@@ -936,10 +994,12 @@ class SA_iniend(h5_particles):
                 power=1.e6
                 if int(i) in [3031, 3032]:
                     power = 5.e6
-                
-            e = self.data_e['energy'][ind][0]
-            e = e*1.612e-19
-            w = np.sum(self.data_e['weight'][ind_i])
+            try:
+                e = self.data_e['energy'][ind][0]
+            except:
+                e=0
+            e *= 1.612e-19
+            w = np.sum(self.data_e['weight'][ind])
             #wtot = self.w[ind_i]
         self.shinethr[ind_i]=float(e)*w/power
         self.shinethr_abs[ind_i] = float(e)*w
@@ -1116,7 +1176,6 @@ class TCV_iniend(h5_particles):
          self.shinethr_abs=np.zeros((1), dtype=float)
          power = 0.62e6
 
-
          e = self.data_e['energy']
          e = e*1.612e-19
          w = self.data_e['weight']
@@ -1126,209 +1185,16 @@ class TCV_iniend(h5_particles):
          print("TCV Shine-through:", "{0:5f} %".format(self.shinethr*100),\
                                    "||  {0:3f} W".format(self.shinethr_abs))
 
-def _plot_1d(x, y=0, xlab='', ylab='', Id='', title='',axin=0, hist=0, multip=0):
-    """
-    Hidden method for 1D plotting
-    """
-    #==============================================
-    # SET TEXT FONT AND SIZE
-    #==============================================
-    plt.rc('xtick', labelsize=20)
-    plt.rc('ytick', labelsize=20)
-    plt.rc('axes', labelsize=20)
-    #==============================================
-    figsize=[8,8]; flag_label=1
-
-    if axin==0:
-        # Defining figure and ax
-        fig = plt.figure(figsize=figsize)
-        fig.text(0.01, 0.01, Id)
-        ax  = fig.add_subplot(111)
-    else:
-        ax=axin
-        fig = plt.gcf()
-        if multip==0:
-            flag_label=0
-
-    if hist!=0:
-        ax.hist(x,bins=30)
-
-    if flag_label==1 :
-        #==================================
-        # SET TICK LOCATION
-        #==================================
-        # Create your ticker object with M ticks
-        M = 4
-        yticks = ticker.MaxNLocator(M)
-        xticks = ticker.MaxNLocator(M)
-        # Set the yaxis major locator using your ticker object. You can also choose the minor
-        # tick positions with set_minor_locator.
-        ax.yaxis.set_major_locator(yticks)
-        #ax.yaxis.set_minor_locator(yticks_m)
-        ax.xaxis.set_major_locator(xticks)
-        #==================================
-        ax.set_title(title)
-        ax.set_xlabel(xlab);ax.set_ylabel(ylab)	
-        ax.grid('on')
-
-    fig.tight_layout()
-    plt.show()
-
-def _plot_2d(x, y, xlab, ylab, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0, axin=0, \
-             scatter=0, hist=0, multip=0, xlim=0, ylim=0, fname=''):
-	"""
-	Hidden method to plot the 2D histogram
-	wall: set to 1 if wall needed to plot (i.e. RZ function)
-	"""
-	#==============================================
-	# SET TEXT FONT AND SIZE
-	#==============================================
-	#plt.rc('font', family='serif', serif='Palatino')
-	#plt.rc('text', usetex=True)
-	plt.rc('xtick', labelsize=20)
-	plt.rc('ytick', labelsize=20)
-	plt.rc('axes', labelsize=20)
-        plt.rc('figure', facecolor='white')
-	#==============================================
-	
-	figsize=[8,8]; flag_label=1
-
-	if axin==0:
-            if wallrz != 0 :
-                figsize=[6,7]
-            # Defining figure and ax
-            fig = plt.figure(figsize=figsize)
-            fig.text(0.01, 0.01, Id)
-            ax  = fig.add_subplot(111)
-        else:
-            ax=axin
-            if multip==0:
-                flag_label=0
-            fig = plt.gcf()
-
-        #doing the actual plot
-        if len(fig.axes)==1:
-            or_cb = 'vertical'
-        else:
-            or_cb = 'horizontal'
-        
-        if np.mean(scatter)!=0:
-            pp=ax.scatter(x, y, 40, c=scatter)
-            #plt.colorbar(pp, ax=ax, orientation = or_cb)
-        elif hist != 0:
-            #range = [[-3.14, 3.14],[-3.14, 3.14]]
-            # ax.hist2d(x, y, bins=100, range=range, cmap=my_cmap)
-            ax.hist2d(x, y, bins=100, cmap=my_cmap)
-        else:
-            hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
-            #fig.colorbar(hb[3], ax=ax, orientation=or_cb)
-
-        
-	#Checks for wall and plots it	
-	if wallrz != 0:
-            ax.plot(wallrz[0], wallrz[1], 'k', linewidth=3)
-            ax.axis('equal')
-	elif wallxy != 0:
-            rmin = np.min(wallxy[0])
-            rmax = np.max(wallxy[0])
-            circlemin = plt.Circle((0,0), rmin, color='k', fill=False, linewidth=3)
-            circlemax = plt.Circle((0,0), rmax, color='k', fill=False, linewidth=3)
-            ax.add_artist(circlemin); ax.add_artist(circlemax)
-            ax.axis('equal')
-	# Checks for magnetic axis plotting
-	if R0!=0:
-            circle1 = plt.Circle((0, 0), R0, color='r', fill=False, linestyle='--')      
-            ax.add_artist(circle1)
-	#Checks for magnetic surfaces and plots them
-	if surf!= 0:
-            try:
-                llines = [0.2, 0.4, 0.6, 0.8, 1.0]
-                CS = ax.contour(surf[0], surf[1], surf[2], llines, colors='k')
-                plt.clabel(CS, inline=1, fontsize=10) 
-            except:
-                print("Impossible to plot RZ surfaces")   
-
-        #Axes limits
-        if ylim!=0:
-            ax.set_ylim(ylim)
-        if xlim!=0:
-            ax.set_xlim(xlim)
-	
-        # Axes beauty
-        if flag_label==1 :
-            #==================================
-            # SET TICK LOCATION
-            #==================================
-
-            # Create your ticker object with M ticks
-            M = 4
-            yticks = ticker.MaxNLocator(M)
-            xticks = ticker.MaxNLocator(M)
-            # Set the yaxis major locator using your ticker object. You can also choose the minor
-            # tick positions with set_minor_locator.
-            ax.yaxis.set_major_locator(yticks)
-            #ax.yaxis.set_minor_locator(yticks_m)
-            ax.xaxis.set_major_locator(xticks)
-            #==================================
-	
-            ax.set_title(title)
-            ax.set_xlabel(xlab);ax.set_ylabel(ylab)	
-            ax.grid('on')
-            #plt.show()
-
-            
-        fig.tight_layout()
-	if fname!='':
-		plt.savefig(fname, bbox_inches='tight')
-
-def _plot_pie(x, lab, Id='', title='', axin=0, **kwargs):
-	"""
-	Hidden method to plot a pie chart
-	"""
-	#==============================================
-	# SET TEXT FONT AND SIZE
-	#==============================================
-	plt.rc('xtick', labelsize=20)
-	plt.rc('ytick', labelsize=20)
-	plt.rc('axes', labelsize=20)
-	#==============================================
-	
-	flag_dict = kwargs
-	figsize=[8,8]; flag_label=1
-
-	if axin==0:
-            # Defining figure and ax
-            fig = plt.figure(figsize=figsize)
-            fig.text(0.01, 0.01, Id)
-            ax  = fig.add_subplot(111)
-        else:
-            ax=axin
-            flag_label=0
-            fig = plt.gcf()
-
-        #doing the actual plot
-        plt.pie(x, labels=lab)
-		
-	if flag_label==1 :
-            ax.axis('equal')
-
-        plt.show()
-	if 'fname' in flag_dict:
-		plt.savefig(flag_dict['fname'], bbox_inches='tight')
-		
 def _readwall(device):
     """
     Hidden method to read the wall
     """
-    in_w_fname = 'input.wall_2d'
-    try:
-        wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
-    except:
-        if device == 'JT60SA':
-            in_w_fname = '/home/vallar/ASCOT/runs/JT60SA/002/input.wall_2d'
-        elif device == 'TCV':
-            in_w_fname = '/home/vallar/ASCOT/runs/TCV/57850/input.wall_2d'
-        wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
+    if device == 'JT60SA':
+        in_w_fname = '/home/vallar/ASCOT/runs/JT60SA/002/input.wall_2d'
+    elif device == 'TCV':
+        in_w_fname = '/home/vallar/TCV/input.wall_2d_FW'
+    
+    wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
             
     R_w = wall[0,:]
     z_w = wall[1,:]
@@ -1336,21 +1202,21 @@ def _readwall(device):
     z_w = np.array(z_w)
     return R_w, z_w
 		
-def _RZsurf(id):
+def _RZsurf(fname_surf=''):
     """
     Reads the position of RZ surfaces from ascot file
     """               
-    f = h5py.File('ascot_'+str(id)+'.h5')
-    print("READING SURF FROM ascot_"+str(id)+".h5")
-    RZsurf = f['bfield/2d/psi'].value
+    if fname_surf=='':
+        f = h5py.File('ascot_'+str(id)+'.h5')
+    else:
+        f = h5py.File(fname_surf)
+    print("READING SURF FROM "+fname_surf)#ascot_"+str(id)+".h5")
+    RZsurf = -1.*f['bfield/2d/psi'].value
     Rsurf = f['bfield/r']
     zsurf = f['bfield/z']
-    edge = f['boozer/psiSepa'][:]; axis=-1*f['boozer/psiAxis'][:]
+    edge = f['boozer/psiSepa'][:]; axis=f['boozer/psiAxis'][:]
     RZsurf = (RZsurf-axis)/(edge-axis)
     RZsurf = np.sqrt(RZsurf)  
     return Rsurf, zsurf, RZsurf
 	
-def _plot_RZsurf(R, z, RZ, ax):            
-    CS = ax.contour(R, z, RZ, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
-    plt.clabel(CS, inline=1, fontsize=10)
-    return
+

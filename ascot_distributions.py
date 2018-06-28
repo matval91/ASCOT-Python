@@ -19,31 +19,8 @@ from matplotlib import ticker, colors
 from scipy import interpolate
 import os.path, math, time
 import collections
-
 import ascot_particles
-
-colours = ['k', 'g','b','r','c']
-col=colours
-cdict = {'red': ((0., 1, 1),
-                 (0.05, 1, 1),
-                 (0.11, 0, 0),
-                 (0.66, 1, 1),
-                 (0.89, 1, 1),
-                 (1, 0.5, 0.5)),
-         'green': ((0., 1, 1),
-                   (0.05, 1, 1),
-                   (0.11, 0, 0),
-                   (0.375, 1, 1),
-                   (0.64, 1, 1),
-                   (0.91, 0, 0),
-                   (1, 0, 0)),
-         'blue': ((0., 1, 1),
-                  (0.05, 1, 1),
-                  (0.11, 1, 1),
-                  (0.34, 1, 1),
-                  (0.65, 0, 0),
-                  (1, 0, 0))}
-my_cmap = colors.LinearSegmentedColormap('my_colormap',cdict,256)
+from ascot_utils import _plot_2d, plot_article
                   
 class distribution_1d:
     """
@@ -77,8 +54,6 @@ class distribution_1d:
     _evaluate_shellArea(self, rho_new): Evaluate the areas at rho_new 
     _group_beams(self): Group data distribution forgetting about beam index
     _calculate_scalar(self): Calculate scalar quantities
-
-
 
     DATA in h5 file (09/01/2017, ascot4)
     state can be both inistate or endstate
@@ -951,7 +926,7 @@ class SA_1d(distribution_1d):
         self._plot_groups([5, self.name_dict['ctor_i1']-1],r'Torque to ions (N $m^{-2}$)')
 
 
-    def SA_calc_FIBP(self, plot_flag, *args):
+    def SA_calc_FIBP(self, bb_fname=''):
         volumes = self._volumes
         rho = np.linspace(0, 1, num=len(volumes), dtype=float)
         self.fibp        = np.zeros(len(rho),dtype=float)
@@ -960,19 +935,18 @@ class SA_1d(distribution_1d):
         self.fibp_P_perp = np.zeros(len(rho),dtype=float)
         self.fibp_NNB    = np.zeros(len(rho),dtype=float)
         rho_edg = rho+(rho[-1]-rho[-2])*0.5
-        if len(args)==0:
+        if bb_fname=='':
             origins  = self.infile['inistate/origin'].value
             part_rho = self.infile['inistate/rho'].value
             weight_a = self.infile['inistate/weight'].value
         else:
-            shot = args[0]
-            run = args[1]
-            print(shot, run)
-            new_fname = '/home/vallar/ASCOT/runs/JT60SA/'+"{:03d}".format(shot)+'/bbnbi_'+"{:03d}".format(shot)+"{:03d}".format(run)+'.h5'
-            new_fname = '/Users/Matteo/Documents/work/ASCOT/runs/JT60SA/'+"{:03d}".format(shot)+'/bbnbi_'+"{:03d}".format(shot)+"{:03d}".format(run)+'.h5'
-
-            print("File opened: ", new_fname)
-            bbfile = h5py.File(new_fname)
+            shot=bb_fname[-9:-6]
+            try:
+                bbfile = h5py.File(bb_fname)
+            except:
+                new_fname = '/home/vallar/ASCOT/runs/JT60SA/'+shot+'/'+bb_fname
+                bbfile = h5py.File(bb_fname)
+            print("File opened: ", bb_fname, shot)
             origins  = bbfile['inistate/origin'].value
             part_rho = bbfile['inistate/rho'].value
             weight_a = bbfile['inistate/weight'].value
@@ -1001,12 +975,38 @@ class SA_1d(distribution_1d):
             self.fibp_NNB[i]=self.fibp[i]-self.fibp_PNB[i]
 
         self.fibp_particles = np.dot(self.fibp, volumes)
-        if plot_flag == 1:
 
-            ylines = [rho, self.fibp, self.fibp_P_perp, self.fibp_P_tang, self.fibp_NNB]
-            label = ['TOT','P-perp','P-tang','N']
-            plot_article(4, ylines, label, r'$\rho$', 
-                         r'Fast ion birth profile $1/(s\cdot m^3)$', self.id)
+
+    def SA_plot_FIBP(self, bb_fname='', ylim=0, fname=''):
+        try:
+            self.fibp.mean()
+        except:
+            self.SA_calc_FIBP(bb_fname)
+
+        rho = np.linspace(0, 1, num=len(self._volumes), dtype=float)
+
+        labels_T=['Tot', 'P-P', 'P-T', 'N']
+        ylines=rho
+        label=np.array('Tot')
+        for i, el in enumerate([self.fibp, self.fibp_P_perp, self.fibp_P_tang, self.fibp_NNB]):
+            if el.mean()!=0:
+                ylines = np.c_[ylines, el]
+                if i!=0:
+                    label  = np.c_[label, [labels_T[i]]]
+
+        #This means only one set of beams is used
+        ylines=ylines.T
+        label = label.T
+        if np.shape(ylines)[0]==3:
+            ylines = np.delete(ylines, 2, axis=0)
+            label = label[1,:]
+        else:
+            label=labels_T
+        title=bb_fname
+        if bb_fname=='':
+            title=self.id
+        plot_article(np.shape(ylines)[0]-1, ylines, label, r'$\rho$', 
+                     r'Fast ion birth profile $1/(s\cdot m^3)$', title, ylim=ylim, fname=fname)
                          
                          
     def calc_Ec(self):
@@ -1143,7 +1143,7 @@ class distribution_2d:
         try:
             self.f_spacep_int.mean()
         except:
-            self.integrate_spacep()
+            self._integrate_spacep()
         
         self.xplot = self.dict_dim['E']*1e-3/1.6e-19
         self.yplot = self.f_spacep_int
@@ -1179,7 +1179,7 @@ class distribution_2d:
         y = self.dict_dim['E']*1e-3/1.6e-19
         z = self.f_space_int
         
-        _plot_2d(x, y, dist=z, xlab=r'$\xi$', ylab='E [keV]', ax=ax, Id=self.id)
+        _plot_2d(x, y, dist=z, xlabel=r'$\xi$', ylabel='E [keV]', ax=ax, Id=self.id)
 
     def plot_Emu(self):
         """
@@ -1667,150 +1667,3 @@ class frzmue(distribution_2d):
         int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
         self.f_space_int = int_Rz #E,pitch
 
-
-def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, **kwargs):
-        #==============================
-        # SET TEXT FONT AND SIZE
-        #==============================
-        #plt.rc('font', family='serif', serif='Palatino')
-        #plt.rc('text', usetex=True)
-        plt.rc('figure', facecolor='white')
-        plt.rc('xtick', labelsize=20)
-        plt.rc('ytick', labelsize=20)
-        plt.rc('axes', labelsize=20)
-        #===============================
-	flag_dict = kwargs
-	figsize=[8,8]; flag_label=0
-        styles = ['-','--','-.']
-        n_l_oplot=0
-        if ax==0:
-            fig=plt.figure()
-            ax=fig.add_subplot(111)
-        else:
-            fig = plt.gcf()
-            n_l_oplot = np.shape(ax.lines)[0]
-            if n_l_oplot > 2:
-                n_l_oplot=2
-        if ax.get_xlabel()=='':
-            flag_label=1
-        
-        style = styles[n_l_oplot]
-        
-        for i in range(n_lines):
-            ax.plot(data[0], data[i+1], label=str(data_labels[i]), linewidth=3, color=col[i], linestyle=style)
-
-        if 'ylim' in kwargs:
-            ax.set_ylim(kwargs['ylim'])
-        #ax.plot([0.85,0.85],[min(ax.get_ybound()), max(ax.get_ybound())],'k--', linewidth=3.)
-        #==============================================
-        # ADJUST SUBPLOT IN FRAME
-        #==============================================
-        plt.subplots_adjust(top=0.95,bottom=0.12,left=0.15,right=0.95)
-        #==============================================
-        if flag_label==1:
-            #ax.plot(data[0], np.zeros(len(data[0])), 'k',linewidth=2)
-
-            #==============================================
-            # SET TICK LOCATION
-            #==============================================
-            
-            # Create your ticker object with M ticks
-            M = 4
-            yticks = ticker.MaxNLocator(M)
-            xticks = ticker.MaxNLocator(M)
-            # Set the yaxis major locator using your ticker object. You can also choose the minor
-            # tick positions with set_minor_locator.
-            ax.yaxis.set_major_locator(yticks)
-            #ax.yaxis.set_minor_locator(yticks_m)
-            ax.xaxis.set_major_locator(xticks)
-            ax.grid('on')
-            #==============================================
-            #ax.set_ylim([0,150])
-            ax.set_xlabel(xlabel)
-            ax.set_ylabel(ylabel)
-            ax.set_title(title)
-            ax.grid('on')
-
-        if data_labels[0]!='':
-            ax.legend(loc='best')
-        fig.tight_layout()
-
-
-def _plot_2d(x, y, xlab, ylab, Id='', title='', wallrz=0, surf=0, ax=0, dist=0, **kwargs):
-    """
-    Hidden method to plot the 2D distribution
-    wall: set to 1 if wall needed to plot (i.e. RZ function)
-    """
-    #=================================
-    # SET TEXT FONT AND SIZE
-    #=================================
-    #plt.rc('font', family='serif', serif='Palatino')
-    #plt.rc('text', usetex=True)
-    plt.rc('xtick', labelsize=20)
-    plt.rc('ytick', labelsize=20)
-    plt.rc('axes', labelsize=20)
-    plt.rc('figure', facecolor='white')
-    #=================================
-
-    flag_dict = kwargs
-    figsize=[8,8]; flag_label=0
-
-    if ax==0:
-        if wallrz!=0:
-            figsize=[6,7]
-        # Defining figure and ax
-        fig = plt.figure(figsize=figsize)
-        fig.text(0.01, 0.01, Id)
-        ax  = fig.add_subplot(111)
-    else:
-        fig = plt.gcf()
-    if ax.get_xlabel()=='':
-        flag_label=1
-
-    #Doing the actual plot
-    if len(fig.axes)==1:
-        or_cb = 'vertical'
-    else:
-        or_cb = 'horizontal'
-    if np.mean(dist)!=0:
-        x,y = np.meshgrid(x,y)
-        CS  = ax.pcolor(x,y, dist, cmap=my_cmap)
-        #plt.colorbar(CS, ax=ax, orientation=or_cb)
-
-    #Checks for wall and plots it	
-    if wallrz !=0:
-        ax.plot(wallrz[0], wallrz[1], 'k', linewidth=3)
-        ax.axis('equal')
-    #Checks for magnetic surfaces and plots them
-    if surf!= 0:
-        try:
-            llines = [0.2, 0.4, 0.6, 0.8, 1.0]
-            CS = ax.contour(surf[0], surf[1], surf[2], llines, colors='k')
-            plt.clabel(CS, inline=1, fontsize=10) 
-        except:
-            print("Impossible to plot RZ surfaces")
-
-    if flag_label == 1:
-        #========================================================
-        # SET TICK LOCATION
-        #====================================================
-    
-        # Create your ticker object with M ticks
-        M = 4
-        yticks = ticker.MaxNLocator(M)
-        xticks = ticker.MaxNLocator(M)
-        # Set the yaxis major locator using your ticker object. You can also choose the minor
-        # tick positions with set_minor_locator.
-        ax.yaxis.set_major_locator(yticks)
-        #ax.yaxis.set_minor_locator(yticks_m)
-        ax.xaxis.set_major_locator(xticks)
-        #========================================================
-
-        ax.set_title(title)        
-        ax.set_xlabel(xlab); ax.set_ylabel(ylab)
-        ax.grid('on')
-
-    fig.tight_layout()
-    plt.show()
-    if 'fname' in flag_dict:
-        plt.savefig(flag_dict['fname'], bbox_inches='tight')

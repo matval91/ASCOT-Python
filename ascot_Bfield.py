@@ -288,44 +288,54 @@ class Bfield_eqdsk:
         """    
         self.eqdsk= ReadEQDSK_python2.ReadEQDSK(infile_eqdsk)
         self.infile = infile_eqdsk
-        self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))  
+        self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))       
         self.R_eqd = np.linspace(self.eqdsk.rboxleft, self.eqdsk.rboxleft+self.eqdsk.rboxlength, self.eqdsk.nrbox)
         self.Z_eqd = np.linspace(-self.eqdsk.zboxlength/2., self.eqdsk.zboxlength/2., self.eqdsk.nzbox)
-        self.cocos_transform(self.COCOS)  
-        self.psi_coeff = interp.RectBivariateSpline(self.R_eqd, self.Z_eqd, self.eqdsk.psi)
+        self.cocos_transform(self.COCOS)
+        print(np.shape(self.R_eqd),np.shape(self.Z_eqd),np.shape(self.eqdsk.psi))
+        self.psi_coeff = interp.RectBivariateSpline(self.Z_eqd, self.R_eqd, self.eqdsk.psi)
         
     def cocos_transform(self, COCOS):
         print("COCOS tranformation from "+str(COCOS)+" to 5")
         cocos_keys = ['sigma_Bp', 'sigma_RphiZ', 'sigma_rhothetaphi', 'sign_q_pos', 'sign_pprime_pos', 'exp_Bp']
         pi = math.pi
         cocosin = dict.fromkeys(cocos_keys)
-        if COCOS==17:
-            #These cocos are for LIUQE(17) - IN
-            cocosin['sigma_Bp'] = -1
-            cocosin['sigma_RphiZ'] = +1
-            cocosin['sigma_rhothetaphi'] = +1
-            cocosin['sign_q_pos'] = +1
-            cocosin['sign_pprime_pos'] = +1
+        cocosin['exp_Bp'] = 0 # if COCOS>=10, this should be 1
+        if COCOS>10:
             cocosin['exp_Bp'] = +1 # if COCOS>=10, this should be 1
-        elif COCOS==3:
-            #These cocos are for EFIT (3) - IN
-            cocosin['sigma_Bp'] = -1
-            cocosin['sigma_RphiZ'] = +1
-            cocosin['sigma_rhothetaphi'] = -1
-            cocosin['sign_q_pos'] = -1
-            cocosin['sign_pprime_pos'] = +1
-            cocosin['exp_Bp'] = 0 # if COCOS>=10, this should be 1
-        elif COCOS==2:
+            
+        
+        if COCOS==2 or COCOS==12:
             #These cocos are for CHEASE (2) - IN
             cocosin['sigma_Bp'] = +1
             cocosin['sigma_RphiZ'] = -1
             cocosin['sigma_rhothetaphi'] = +1
             cocosin['sign_q_pos'] = +1
             cocosin['sign_pprime_pos'] = -1
-            cocosin['exp_Bp'] = 0 # if COCOS>=10, this should be 1
+        elif COCOS==3 or COCOS==13:
+            #These cocos are for EFIT (3) - IN
+            cocosin['sigma_Bp'] = -1
+            cocosin['sigma_RphiZ'] = +1
+            cocosin['sigma_rhothetaphi'] = -1
+            cocosin['sign_q_pos'] = -1
+            cocosin['sign_pprime_pos'] = +1
+        elif COCOS==4 or COCOS==14:
+            cocosin['sigma_Bp'] = -1
+            cocosin['sigma_RphiZ'] = -1
+            cocosin['sigma_rhothetaphi'] = -1
+            cocosin['sign_q_pos'] = -1
+            cocosin['sign_pprime_pos'] = +1
+        elif COCOS==7 or COCOS==17:
+            #These cocos are for LIUQE(17) - IN
+            cocosin['sigma_Bp'] = -1
+            cocosin['sigma_RphiZ'] = +1
+            cocosin['sigma_rhothetaphi'] = +1
+            cocosin['sign_q_pos'] = +1
+            cocosin['sign_pprime_pos'] = +1
+       
         else:
             print(str(COCOS)+" Not Implemented \n")
-            exit
+            raise ValueError
         
         cocosin['sigma_ip'] = np.sign(self.eqdsk.Ip)
         cocosin['sigma_b0'] = np.sign(self.eqdsk.B0EXP)
@@ -400,7 +410,7 @@ class Bfield_eqdsk:
         self.eqdsk.Z_grid   += self.dz
         self.Z_eqd          += self.dz
 
-    def eqdsk_checkplot(self):
+    def eqdsk_checkplot(self, f=0):
         """
         Method to plot the values (2D psi, q, poloidal flux) and check the magnetic field we are looking at
         
@@ -414,18 +424,19 @@ class Bfield_eqdsk:
         plt.rc('ytick', labelsize=12)
         plt.rc('axes', labelsize=15)
         plt.rc('figure', facecolor='white')
-    
-        f = plt.figure(figsize=(20, 8))
-        f.text(0.01, 0.01, self.infile)
-
+        if f==0:
+            f = plt.figure(figsize=(20, 8))
+            f.text(0.01, 0.01, self.infile)
+        else:
+            f=plt.gcf()
         ax2d = f.add_subplot(131)
         r,z = self.R_eqd, self.Z_eqd
         #r = np.linspace(float(np.around(np.min(self.R_w), decimals=2)), float(np.around(np.max(self.R_w), decimals=2)), self.nR)
         #z = np.linspace(float(np.around(np.min(self.z_w), decimals=2)), float(np.around(np.max(self.z_w), decimals=2)), self.nz)
 
  
-        CS = ax2d.contour(r,z, self.psi_coeff(r,z), 20)
-        plt.contour(r,z, self.psi_coeff(r,z), [self.eqdsk.psiedge], colors='k', linewidths=3.)
+        CS = ax2d.contour(r,z, self.psi_coeff(z,r), 30)
+        plt.contour(r,z, self.psi_coeff(z,r), [self.eqdsk.psiedge], colors='k', linewidths=3.)
 
         ax2d.set_xlabel("R [m]")
         ax2d.set_ylabel("Z [m]")
@@ -672,40 +683,31 @@ class Bfield_eqdsk:
         """
         Function to calculate toroidal fields (fields on poloidal plane set to 0) 
         """
-        try:
-            self.dpsidR.mean()
-        except:
-            self._calc_psi_deriv()
+
         print("Calculating Bphi")
         inv_R = np.asarray(1.0)/np.array(self.R_eqd)
         inv_R = np.tile(inv_R,[self.eqdsk.nzbox, 1])
         self.Bphi = np.zeros(np.shape(inv_R))
         #Bphi is used, BR and Bz not but you must initialise it to 0 and
         # print them anyway
-        self.Br_t = -self.dpsidZ*inv_R
-        self.Bz_t =  self.dpsidR*inv_R
+        #self.Br_t = -self.dpsidZ*inv_R
+        #self.Bz_t =  self.dpsidR*inv_R
         self.Br = np.zeros((self.nR, self.nz))
         self.Bz = np.zeros((self.nR, self.nz))
         
         #Creating rhogrid and then Fgrid
         psinorm_grid = (self.eqdsk.psi-self.eqdsk.psiaxis)/(self.eqdsk.psiedge-self.eqdsk.psiaxis)
-        rhogrid = np.sqrt(psinorm_grid)
-        Rtmp = self.R_eqd
-        ztmp = self.Z_eqd
-        rhogrid_p = interp.RectBivariateSpline(self.R_eqd, self.Z_eqd, rhogrid)
-        self.rhogrid_p = rhogrid_p
-        self.rhogrid=rhogrid_p(self.R_eqd, self.Z_eqd)
-
-        Fgrid=griddata(self.eqdsk.rhopsi, self.eqdsk.T, rhogrid, method='nearest')
+        self.rhogrid = np.sqrt(psinorm_grid)
+        
+        Fgrid=griddata(self.eqdsk.rhopsi, self.eqdsk.T, self.rhogrid, method='nearest')
         #Set values out of the separatrix (where Fgrid is NaN) to the value at the separatrix
-        Fgrid[np.where(rhogrid>1.)] = self.eqdsk.T[-1]
+        Fgrid[np.where(self.rhogrid>1.)] = self.eqdsk.T[-1]
 
         self.Fgrid=Fgrid 
-
-        Bphi = np.multiply(Fgrid,inv_R)
-        
+        Bphi = np.multiply(Fgrid,inv_R)        
         self.param_bphi = interp.interp2d(self.R_eqd, self.Z_eqd, Bphi)
-    
+        self.Bphi = Bphi
+
     def write_head(self):
         """
         Write to input.magn_header file
