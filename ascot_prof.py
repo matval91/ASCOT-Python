@@ -1,14 +1,7 @@
 """
 matteo.vallar@igi.cnr.it - 11/2017
 
-02/2018: now for python 3 with backwards compatibility
-
-Class for profiles
--h5_profiles(h5 infile name, nrho wanted)
--dat_profiles(name of directory with separate dat files containing the data, nrho wanted, nion to write, array with mass number, array with Z (proton number))
--matlab_profiles(name of the matlab file to read, nrho wanted)
--ufiles(array of prefixes of the files, array of suffixes of the file, shot number, nrho wanted)
--SA_datfiles(name of the input dat file (CRONOS format), nrho wanted, nion to write, array with mass number, array with Z (proton number))
+Class for profiles I/O for ascot&bbnbi
 """
 from __future__ import print_function
 import numpy as np
@@ -26,18 +19,40 @@ colours = ['k','b','r','c','g',\
            'k','b','r','c','g']
 
 class profiles:
-    """
-    Superclass for profiles:
-    MODULES:
-    - __init__: initialises the profiles we need
-    - plot: auto-explicative
-    - write: writes the input.plasma_1d file
+    """Profiles superclass:
 
-    HIDDEN MODULES:
-    - _spline: Function to evaluate splines of the data input, in order to make an output in the right rho grid
-    - _extrapolate: Function that does an exponential fit over rho=1 surface.
+    This class contains the methods shared among the other different classes
+    
+    Parameters:
+        None
+
+    Attributes:
+        |  rho (array):
+        |  te (array):
+        |  ti (array):
+        |  ne (array):
+        |  ni (array):
+        |  ni1 (array):
+        |  ni2 (array):
+        |  ni3 (array):
+        |  vtor (array):
+        |  zeff (array):
+        |  nion (array):
+        |  Z (array):
+        |  A (array):
+        |  collmode (array):   
+
+    Methods:
+        |  write_input: write input.plasma_1d file
+        |  plot_profiles: Plot the profiles
+
     """
     def __init__(self):
+        """Initialisation of profiles superclass
+
+        Initialises the quantities used in the class
+
+        """
         self.rho=[]
         self.te=[]
         self.ti=[]
@@ -56,8 +71,17 @@ class profiles:
       
 
     def write_input(self):
-        """
-        Method to write the input.plasma_1d file
+        """ write input.plasma_1d file
+
+        Method to write the input.plasma_1d file.
+        output file would be input.plasma_1d
+        
+        Parameters:
+            None
+
+        Returns:
+            None
+            
         """
         
         out_fname = "input.plasma_1d"
@@ -105,12 +129,31 @@ class profiles:
 
 
     def _plot_time(self, tit):
+        """function to plot with title
+
+        This function uses the plot_profiles function to plot the profiles with a title
+
+        Parameters:
+            tit (str): title wanted on the plot (usually time)
+
+        Returns:
+            None
+
+        """
         tit=str(tit)
         self.plot_profiles(title=tit)
 
-    def plot_profiles(self, f=0, **kwargs):
-        """
-        Method to plot the profiles
+    def plot_profiles(self, f=0, title=''):
+        """Plot the profiles
+        
+        This function makes a plot with ne, Te, Ti, ni(eventually nimp) on 4 different frames
+
+        Parameters:
+            |  f (object): the plt.figure object where to plot (useful to overplot). Undefined is initialized to 0 and it means to do a new figure
+            |  title (str): title of the figure
+        Return:
+            None
+
         """
         #=====================================================================================
         # SET TEXT FONT AND SIZE
@@ -122,17 +165,12 @@ class profiles:
         plt.rc('figure', facecolor='white')
 
         #=====================================================================================
-        title=''
-        
-        if 'title' in kwargs:
-            title=kwargs['title']
-
         if f==0:
             fig=plt.figure(title)
             axte = fig.add_subplot(221)
             axne = fig.add_subplot(222, sharex=axte)
-            axti = fig.add_subplot(223)
-            axni = fig.add_subplot(224)
+            axti = fig.add_subplot(223, sharey=axte)
+            axni = fig.add_subplot(224, sharey=axne)
         else:
             fig=f
             axte = fig.axes[0]
@@ -193,16 +231,35 @@ class profiles:
 
 
     def _spline(self,rho,data, rho_new):
-        """
-        Function to evaluate splines of the data input, in order to make an output in the right rho grid
+        """ Splines of input
+
+        Private method to evaluate splines of the data input, in order to make an output in the right rho grid
+
+        Parameters:
+            |  rho (array): x array where the data are defined
+            |  data (array): data to be spline-d
+            |  rho_new (array): new x array where data are wanted
+        Returns:
+            data_new (array): new data array desired
+
         """
         dummy    = interpolate.InterpolatedUnivariateSpline(rho, data, ext=0)
         data_new = dummy(rho_new)
         return data_new
 
     def _extrapolate(self):
-        """
-        Function that does an exponential fit over rho=1 surface. Is better to give it as input instead of letting it to ASCOT
+        """ extrapolate over rho=1
+
+        Private method that does an exponential fit outside rho=1 surface.
+        The decay length is set to 0.01: y_out = y(rho=1)*exp(-(x-1.)/dec_l).
+        It does it for all the quantities (ne, ni, nimp, te, ti, vtor).
+        It's better to give it as input instead of letting it to ASCOT.
+
+        Parameters:
+            None
+        Returns:
+            None
+
         """
         x = np.linspace(1.001, 1.2, self.nrho/5)
         rho1 = self.rho # rho up to 1
@@ -224,30 +281,65 @@ class profiles:
         self.ti  = np.concatenate([self.ti, ti_ov1])
         self.vt  = np.concatenate([self.vt, vt_ov1])
 
+    def _ion_densities(self):
+        """Computes C and D ion densities
+
+        Compute C ion densities starting from ni_in, ne_in and zeff.
+        |  Solving the following system (valid only if D and C(6+) are the ion species):
+            (1) Zeff = sum(ni*Zi**2)/sum(ni*Zi)
+            (2) ne   = nD + 6*nC
+        
+        Parameters:
+            None
+        Arguments:
+            None
+
+        """
+        nD = self.ne_in*(6-self.zeff_in)/(5.)
+        nC = self.ne_in*(self.zeff_in-1)/(30.)
+        print("nC/nD: "+str(np.mean(nC/nD)*100.)+" %")
+        self.ni_in[0,:] = nD
+        self.ni_in[1,:] = nC
+
 class h5_profiles(profiles):   
-    """
-    Class for handling the profiles data from h5 file
-    
-    DATA in h5 file (09/01/2017, ascot4)
+    """ Class for handling the profiles data from h5 file
 
-    /plasma                  Group
-    /plasma/1d               Group
-    /plasma/1d/ne            Dataset {1373}
-    /plasma/1d/ni            Dataset {1373, 3}
-    /plasma/1d/rho           Dataset {1373}
-    /plasma/1d/te            Dataset {1373}
-    /plasma/1d/ti            Dataset {1373}
-    /plasma/1d/vtor          Dataset {1373}
-    /plasma/1d/zeff          Dataset {1373}
-    /plasma/anum             Dataset {3}
-    /plasma/colls            Dataset {4}
-    /plasma/znum             Dataset {3}
+    This class reads the profiles from a h5 file ascot-like.
 
-    
-    METHODS:
-    __init__(self, infile, nrho): method to store variables, nrho is the output
-    read_h5: to read the input, both from bbnbi or ascot output
-    smooth: smooth input data to grid wanted
+    Bases:
+        profiles
+    Parameters:
+        |  infile_name (str): name of the h5 file to use
+        |  nrho (int): number of rho points to use as output (up to 1, outside rho is 1/5 of nrho)
+    Attributes:
+        |  Inherited from profiles
+        |  ne_in (array): input ne
+        |  te_in (array): input te
+        |  ti_in (array): input ti
+        |  ni_in (array): input ni
+        |  vt_in (array): input vtor (if present, otherwise 0)
+        |  zeff_in (array): input zeff (if present, otherwise 0)
+        
+    Methods:
+        |  read_h5: reads h5 file 
+        |  smooth: calls smoothing routines from profiles for h5 input data
+
+    Notes:
+        DATA in h5 file (09/01/2017, ascot4)
+
+        |  /plasma                  Group
+        |  /plasma/1d               Group
+        |  /plasma/1d/ne            Dataset {1373}
+        |  /plasma/1d/ni            Dataset {1373, 3}
+        |  /plasma/1d/rho           Dataset {1373}
+        |  /plasma/1d/te            Dataset {1373}
+        |  /plasma/1d/ti            Dataset {1373}
+        |  /plasma/1d/vtor          Dataset {1373}
+        |  /plasma/1d/zeff          Dataset {1373}
+        |  /plasma/anum             Dataset {3}
+        |  /plasma/colls            Dataset {4}
+        |  /plasma/znum             Dataset {3}
+
     """
 
     def __init__(self, infile_name, nrho):
@@ -262,12 +354,25 @@ class h5_profiles(profiles):
         self.inf_name = infile_name
         self.nrho = nrho
 
-        if infile_name[-2:]=='h5':
+        try:
             self.read_h5()
-        else:
+        except IOError:
             "Not h5 file given as input"
-            
+
     def read_h5(self):
+        """ Reads h5
+        
+        This method reads the profiles from ascot.h5 file
+        
+        Parameters:
+            None
+        Returns:
+            None
+
+        Note:
+            It calls the spline function at the end
+
+        """
         infile = h5py.File(self.inf_name,'r')
 
         vardict = self.labdict
@@ -282,8 +387,10 @@ class h5_profiles(profiles):
         vardict['znum']=infile['/plasma/znum'].value
         
 
-        rho = vardict['rho']
+        self.rho_in = vardict['rho']
+
         self.nrho_in = np.size(rho)
+
         if vardict['a_ions'][0]!='/':
             self.nspec = len(vardict['a_ions'])
         else:
@@ -296,10 +403,9 @@ class h5_profiles(profiles):
         self.Z = vardict['znum']
         self.nion = self.nspec
         
-        self.rho_in = rho
-        self.te_in  = vardict['te']
-        self.ne_in  = vardict['ne']  
-        self.ti_in  = vardict['ti']
+        self.te_in  = vardict['te'][:]
+        self.ne_in  = vardict['ne'][:]
+        self.ti_in  = vardict['ti'][:]
         ni1_in  = vardict['ni'][:,0]
         self.ni_in = np.zeros((self.nion, self.nrho_in),dtype=float)
         self.ni_in[0,:] = ni1_in
@@ -318,17 +424,28 @@ class h5_profiles(profiles):
             self.vt_in    = np.zeros(self.nrho_in,dtype=float)
 
         try:
-            self.zeff_in  = vardict['zeff']
+            self.zeff_in  = vardict['zeff'][:]
         except:
             self.zeff_in  = np.zeros(self.nrho_in,dtype=float)
 
         #print(self.vt_in, self.te_in)
         self.ni = np.zeros((self.nion, self.nrho),dtype = float)
-        self.smooth()
+        self.spline()
 
-    def smooth(self):
-        """
-        smooth input data to grid wanted
+    def spline(self):
+        """ spline input data to grid wanted
+        
+        For each variable the input array is splined and put in output to
+        desired grid. This is specific for h5 files
+
+        Parameters:
+            None
+        Attributes:
+            None
+        
+        Note:
+            The _extrapolate private method is called
+        
         """
         self.rho = np.linspace(0,1,self.nrho)
         self.te = self._spline(self.rho_in, self.te_in, self.rho)
@@ -340,34 +457,34 @@ class h5_profiles(profiles):
             self.vt = self._spline(self.rho_in, self.vt_in, self.rho)
         except:
             self.vt = np.zeros(self.nrho, dtype=float)
-        self._extrapolate()
-
         self.zeff = self._spline(self.rho_in, self.zeff_in, self.rho)
 
+        self._extrapolate()
+
+
 class dat_profiles(profiles):
-    """
-    Function to write the profile file for ASCOT from an ascii file in the format (rho, quantity)
-    METHODS:
-    __init__(self,dir_name, nrho, nion, A, Z) : reads the profiles from the directory with the data stored
-      in the files (te.dat, ne.dat, vtor.dat, ti.dat, ni*.dat)
-    smooth: smooth input data to grid wanted
+    """ reads dat profile
     
-    INPUT:
-    -names is a list containing the name of the files for Te, Ne, vtor_i, ti
-    These files should have one column w the rho and one with the data
-    -nion is the number of ions (=1 if not set)
+    Class to handle the profiles for ASCOT from a series of
+    ascii file in the format (rho, quantity)
     
-    OUTPUT:
-    input.plasma_1d
+    Base:
+        profiles
+
+    Parameters:
+        | dir_name (str): directory where to find the files
+        |  nrho (int): number of rho points to use as output (up to 1, outside rho is 1/5 of nrho)
+        |  nion (int): number of ions to use
+        |  A (array): atomic masses of ions
+        |  Z (array): charge of ions
     
-    # Input file for ASCOT containing radial 1D information of plasma temperature,density and toroidal rotation
-    # range must cover [0,1] of normalised poloidal rho. It can exceed 1. 
-    # 18Jan08 for testing (first 3 lines are comment lines)
-    111	3	# Nrad,Nion
-    1 1 6		# ion Znum				
-    1 2 12		# ion Amass
-    1 1 1 1		# collision mode (0= no colls, 1=Maxw colls, 2=binary colls, 3=both colls) 1st number is for electrons
-    RHO (pol)	 Te (eV)       Ne (1/m3)  Vtor_I (rad/s)        Ti1 (eV)     Ni1 (1/m3)	     Ni2 (1/m3)	     Ni3 (1/m3)
+    Arguments:
+        None
+
+    Note:
+        |  The files in the folder should be stored as:
+        |  te.dat, ne.dat, ti.dat, ni1.dat, ni2.dat,...
+
     """
     def __init__(self,dir_name, nrho, nion, A, Z):
         profiles.__init__(self)
@@ -410,10 +527,20 @@ class dat_profiles(profiles):
         self.smooth()
    
     def smooth(self):
+        """ spline input data to grid wanted
+        
+        For each variable the input array is splined and put in output to
+        desired grid. This is specific for h5 files
+
+        Parameters:
+            None
+        Attributes:
+            None
+        
+        Note:
+            The _extrapolate private method is called
+        
         """
-        smooth input data to grid wanted
-        """
-    
         self.te=self._spline(self.te_in[0,:], self.te_in[1,:], self.rho)
         self.ne=self._spline(self.ne_in[0,:], self.ne_in[1,:], self.rho)
         self.ti=self._spline(self.ti_in[0,:], self.ti_in[1,:], self.rho)
@@ -424,24 +551,22 @@ class dat_profiles(profiles):
 
 
 class matlab_profiles(profiles):
-    """
+    """ handles matlab profiles from Pietro
+
     Function to write the profile file for ASCOT from a matlab file
     Pietro (pietro.vincenzi@igi.cnr.it) reads metis output and produces the matlab files that should be read here.
-    
-    METHODS:
-    __init__(self,inf_name, nrho): correctly initalise and get the data from the matlab input file
-    smooth: smooth input data to grid wanted
 
-    
-    # Input file for ASCOT containing radial 1D information of plasma temperature,density and toroidal rotation
-    # range must cover [0,1] of normalised poloidal rho. It can exceed 1. 
-    # 18Jan08 for testing (first 3 lines are comment lines)
-    111	3	# Nrad,Nion
-    1 1 6		# ion Znum				
-    1 2 12		# ion Amass
-    1 1 1 1		# collision mode (0= no colls, 1=Maxw colls, 2=binary colls, 3=both colls) 1st number is for electrons
-    RHO (pol)	 Te (eV)       Ne (1/m3)  Vtor_I (rad/s)        Ti1 (eV)     Ni1 (1/m3)	     Ni2 (1/m3)	     Ni3 (1/m3)
+    Base:
+        profiles
+
+    Parameters:
+        |  inf_name (str): directory where to find the files
+        |  nrho (int): number of rho points to use as output (up to 1, outside rho is 1/5 of nrho)
+    Arguments:
+        None
+  
     """
+
     def __init__(self,inf_name, nrho):
         
         profiles.__init__(self)
@@ -469,9 +594,21 @@ class matlab_profiles(profiles):
         self.smooth()
 
     def smooth(self):
+        """ spline input data to grid wanted
+        
+        For each variable the input array is splined and put in output to
+        desired grid. This is specific for h5 files
+
+        Parameters:
+            None
+        Attributes:
+            None
+        
+        Note:
+            The _extrapolate private method is called
+        
         """
-        smooth input data to grid wanted
-        """
+        
         self.te = self._spline(self.rho_in, self.te_in, self.rho)
         self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
         self.ti = self._spline(self.rho_in, self.ti_in, self.rho)
@@ -566,21 +703,8 @@ class ufiles(profiles):
         self.rhotor = self.rho_in
         self.rho_in = self.rhopol
        
-        self.ion_densities()
+        self._ion_densities()
         self._smooth()
-       
-    def ion_densities(self):
-        """
-        Compute C ion densities starting from ni_in, ne_in and zeff
-        Solving the following system (valid only if D and C(6+) are the ion species):
-            (1) Zeff = sum(ni*Zi**2)/sum(ni*Zi)
-            (2) ne   = nD + 6*nC
-        """
-        nD = self.ne_in*(6-self.zeff_in)/(5.)
-        nC = self.ne_in*(self.zeff_in-1)/(30.)
-        print("nC/nD: "+str(np.mean(nC/nD)*100.)+" %")
-        self.ni_in[0,:] = nD
-        self.ni_in[1,:] = nC
     
     def _readeqdsk(self):
         """
@@ -615,8 +739,19 @@ class ufiles(profiles):
         self.param_psi = interpolate.interp1d(np.linspace(0,1,tmpnum), rhopsi)
 
     def _smooth(self):
-        """
-        smooth input data to grid wanted
+        """ spline input data to grid wanted
+        
+        For each variable the input array is splined and put in output to
+        desired grid. This is specific for h5 files
+
+        Parameters:
+            None
+        Attributes:
+            None
+        
+        Note:
+            The _extrapolate private method is called
+        
         """
         self.te = self._spline(self.rho_in, self.te_in, self.rho)
         self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
@@ -632,19 +767,26 @@ class ufiles(profiles):
         self._plot_time(title)
 
 class SA_datfiles(profiles):
-    """
+    """ class to handle SA datfiles, as read in repository
+
     This class is to read the files from CRONOS (usually produced by Jeronimo Garcia (jeronimo.garcia@cea.fr))
-    rho(TOR)	ne	te	ti	zeff	psupra	nsupra	Jtot	jboot	jnbi	jec
-
-    METHODS:
-    __init__(self, infile, nrho, nion, A, Z)
-    ion_densities(self): Compute C ion densities starting from ni_in, ne_in and zeff
-    smooth(self): smooth input data to grid wanted
-
     
-    HIDDEN METHODS:
-    _readeqdsk(self, shot): reads q and the poloidal flux from an eqdsk to convert phi2psi
-    _phi2psi(self): Converts psi 2 phi
+    Base:
+        profiles
+    
+    Parameters:
+        |  infile_name (str): name of the h5 file to use
+        |  nrho (int): number of rho points to use as output (up to 1, outside rho is 1/5 of nrho)
+        |  nion (int): number of ions to use
+        |  A (array): atomic masses of ions
+        |  Z (array): charge of ions
+
+    Arguments:
+        None
+
+    Note
+        rho(TOR)	ne	te	ti	zeff	psupra	nsupra	Jtot	jboot	jnbi	jec
+
     """
     def __init__(self, infile, nrho, nion, A, Z, shot):
         profiles.__init__(self)
@@ -664,8 +806,8 @@ class SA_datfiles(profiles):
         
         lines = np.loadtxt(infile, skiprows=1, unpack=True)
         self.rho_in = lines[0,:]
-        self.rhopol = self.param_psi(np.linspace(0,1,len(self.rho_in)))
         self.rhotor = self.rho_in
+        self.rhopol = self.param_psi(np.linspace(0,1,len(self.rhotor)))
         self.rho_in = self.rhopol
 
         self.ne_in  = lines[1,:]
@@ -676,14 +818,20 @@ class SA_datfiles(profiles):
         self.vt_in = np.zeros(len(self.rho_in),dtype=float)
         self.ni = np.zeros((self.nion, self.nrho), dtype=float)
         if len(self.Z)>1:
-            self.ion_densities()
+            self._ion_densities()
         self.smooth()
 
     def _readeqdsk(self, shot):
-        """
+        """ Reads eqdsk
+
         reads q and the poloidal flux from an eqdsk to convert phi2psi
+
+        Parameters:
+            shot: identifier of scenario (for SA 002, 003, etc)
+        Arguments:
+            None
         """
-        if shot==003:
+        if shot==003 or shot==002:
             dir_JT = '/home/vallar/JT60-SA/003/eqdsk_fromRUI_20170715_SCENARIO3/'
             eqdsk_fname = 'Equil_JT60_prova01_e_refined.eqdsk'
         elif shot==004:
@@ -703,23 +851,22 @@ class SA_datfiles(profiles):
         rho_eqdsk = b.eqdsk.rhopsi
         self.param_q = interpolate.interp1d(rho_eqdsk, qprof_t)
 
-    def ion_densities(self):
-        """
-        Compute C ion densities starting from ni_in, ne_in and zeff
-        Solving the following system (valid only if D and C(6+) are the ion species):
-            (1) Zeff = sum(ni*Zi**2)/sum(ni*Zi)
-            (2) ne   = nD + 6*nC
-        """
-        nD = self.ne_in*(6-self.zeff_in)/(5.)
-        nC = self.ne_in*(self.zeff_in-1)/(30.)
-        print(nC/nD)
-        self.ni_in[0,:] = nD
-        self.ni_in[1,:] = nC
-
     def smooth(self):
+        """ spline input data to grid wanted
+        
+        For each variable the input array is splined and put in output to
+        desired grid. This is specific for h5 files
+
+        Parameters:
+            None
+        Attributes:
+            None
+        
+        Note:
+            The _extrapolate private method is called
+        
         """
-        smooth input data to grid wanted
-        """
+        
         self.te = self._spline(self.rho_in, self.te_in, self.rho)
         self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
         self.ti = self._spline(self.rho_in, self.ti_in, self.rho)
@@ -732,8 +879,15 @@ class SA_datfiles(profiles):
         self._extrapolate()
 
     def _phi2psi(self):
-        """
-        Converts psi 2 phi
+        """Converts psi 2 phi
+        
+        Converts in between coordinates using the following relation (phi=toroidal flux, psi=poloidal flux)
+        psi = int(1/q, phi)
+
+        Paramters:
+            None
+        Arguments:
+            None
         """
         tmpnum=100000
         locq   = self.param_q(np.linspace(0,1,tmpnum)) #augmenting precision near the core
@@ -782,25 +936,23 @@ class TCV_datfiles(profiles):
         self.ni_in  = np.zeros((self.nion, len(self.rho_in)),dtype=float)
         self.ni = np.zeros((self.nion, self.nrho), dtype=float)
         if len(self.Z)>1:
-            self.ion_densities()
+            self._ion_densities()
         self.smooth()
 
-    def ion_densities(self):
-        """
-        Compute C ion densities starting from ni_in, ne_in and zeff
-        Solving the following system (valid only if D and C(6+) are the ion species):
-            (1) Zeff = sum(ni*Zi**2)/sum(ni*Zi)
-            (2) ne   = nD + 6*nC
-        """
-        nD = self.ne_in*(6-self.zeff_in)/(5.)
-        nC = self.ne_in*(self.zeff_in-1)/(30.)
-        print("nC/nD: "+str(np.mean(nC/nD)*100.)+" %")
-        self.ni_in[0,:] = nD
-        self.ni_in[1,:] = nC
-
     def smooth(self):
-        """
-        smooth input data to grid wanted
+        """ spline input data to grid wanted
+        
+        For each variable the input array is splined and put in output to
+        desired grid. This is specific for h5 files
+
+        Parameters:
+            None
+        Attributes:
+            None
+        
+        Note:
+            The _extrapolate private method is called
+        
         """
         self.te = self._spline(self.rho_in, self.te_in, self.rho)
         self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
@@ -814,6 +966,24 @@ class TCV_datfiles(profiles):
 
 
 class TCV_mds(profiles):
+    """ Reads profiles from TCV tree
+
+    Connects to TCV tree and reads the data from there. ne, Te from thomson, Ti from cxrs
+
+    Parameters:
+        indict (dict): 
+            |  'shot' (int): shot number,
+            |  't' (float): time
+            |  'nrho' (int): number of rho points to use as output (up to 1, outside rho is 1/5 of nrho)
+            |  'zeff' (float, optional): zeff in that time instant
+    Arguments:
+        None
+    Notes:
+        |  'ne':'tcv_shot::top.results.thomson.profiles.auto:ne'
+        |  'te':'tcv_shot::top.results.thomson.profiles.auto:te'
+        |  'ti':'tcv_shot::top.results.cxrs.proffit:ti'
+    
+    """
     def __init__(self, indict):
         self.indict = indict
         self.shot = indict['shot']
@@ -846,9 +1016,14 @@ class TCV_mds(profiles):
 
 
     def _getBivecSpline(self):
-        """
-        Hidden method for reading the signal storing their bivacspline
+        """ reads and spline of input signals
+        Private method for reading the signal storing their bivacspline
         representation on a grid (time, rho_tor)
+
+        Parameters:
+            None
+        Arguments:
+            None
         """
         self._brep = {}
 
@@ -874,11 +1049,17 @@ class TCV_mds(profiles):
 
             
     def read_2d(self):
-        """
+        """ read 2d signals
+
         Method to get the signal defined in an attribute of the
         class with the appropriate resolution in rho_toroidal
         and time. It create the attribute self.rsig with a dictionary
         with all the signals with corresponding time and rho basis
+
+        Parameters:
+            None
+        Arguments:
+            None
         """
         try:
             self._brep
@@ -901,8 +1082,14 @@ class TCV_mds(profiles):
 
 
     def _tosuperclass(self):
-        """
+        """interface between MDS and superclass
+
         Converts the input read from MDS to superclass useful input
+
+        Parameters:
+            None
+        Arguments:
+            None
         """        
         self.ne_in = self.rsig['ne']['signal']
         self.ne = self.ne_in
@@ -919,36 +1106,15 @@ class TCV_mds(profiles):
         # no need to smooth since they are already smoothed
         self._extrapolate()
                         
-    def _ion_densities(self):
-        """
-        Compute C ion densities starting from ni_in, ne_in and zeff
-        Solving the following system (valid only if D and C(6+) are the ion species):
-            (1) Zeff = sum(ni*Zi**2)/sum(ni*Zi)
-            (2) ne   = nD + 6*nC
-        """
-        nD = self.ne_in*(6-self.zeff_in)/(5.)
-        nC = self.ne_in*(self.zeff_in-1)/(30.)
-        print("nC/nD: "+str(np.mean(nC/nD)*100.)+" %")
-        self.ni_in[0,:] = nD
-        self.ni_in[1,:] = nC
-
-    def smooth(self):
-        """
-        smooth input data to grid wanted
-        """
-        self.te = self._spline(self.rho_in, self.te_in, self.rho)
-        self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
-        self.ti = self._spline(self.rho_in, self.ti_in, self.rho)
-        for i in range(self.nion):
-            self.ni[i,:]=self._spline(self.rho_in, self.ni_in[i,:], self.rho)
-
-        self.zeff = self._spline(self.rho_in, self.zeff_in, self.rho)
-
-        self._extrapolate()
-        print("nC/nD:", nC/nD)
-        self.ni_in[0,:] = nD
-        self.ni_in[1,:] = nC
-
     def write_tcv(self):
+        """ write output for tcv
+        
+        Uses the write_input routine to write output with the time used
+        
+        Parameters:
+            None
+        Arguments:
+            None
+        """
         suffix = '_'+str(self.shot)+'_'+str(int(self.t*1e3))
         self.write_input(suffix=suffix)

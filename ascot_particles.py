@@ -513,7 +513,7 @@ class h5_particles(particles):
     """
     superClass (inherited from particles) handling h5 files (e.g. bbnbi.h5, ascot.h5)
     """
-    def __init__(self, fname, fname_surf):
+    def __init__(self, fname, fname_surf=''):
         """
         Initialising
         """
@@ -522,7 +522,8 @@ class h5_particles(particles):
         self.id = indd
         if indd[0:2] != '00':
             self.id = self._fname[-11:-3]
-            
+        if fname_surf=='':
+            fname_surf=fname
         particles.__init__(self, fname_surf)
         dataf = h5py.File(self._fname)
         self.infile=dataf
@@ -1207,9 +1208,11 @@ def _RZsurf(fname_surf=''):
     Reads the position of RZ surfaces from ascot file
     """               
     if fname_surf=='':
-        f = h5py.File('ascot_'+str(id)+'.h5')
+        f = h5py.File('ascot.h5')
+        fname_surf = ' ascot.h5 '
     else:
         f = h5py.File(fname_surf)
+
     print("READING SURF FROM "+fname_surf)#ascot_"+str(id)+".h5")
     RZsurf = -1.*f['bfield/2d/psi'].value
     Rsurf = f['bfield/r']

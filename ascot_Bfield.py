@@ -1,9 +1,6 @@
 """
-matteo.vallar@igi.cnr.it - 11/2017
-
-Class for magnetic field
-Bfield_ascot(ascot h5 infile name)
-Bfield_eqdsk(eqdsk filename, nR to output, nz to output, device name (JT60SA, TCV) )
+matteo.vallar@igi.cnr.it
+Classes to handle magnetic fields I/O for ascot&bbnbi
 
 """
 from __future__ import print_function
@@ -19,46 +16,52 @@ import scipy.interpolate as interp
 import scipy.io as sio
 
 class Bfield_ascot:
-    """
+    """ Handles Bfield store in h5 file
+
     Class for handling the magnetic field specifications and plots
     Better to ignore boozer field, it is useless
-    
-    Groups in h5 file (09/01/2017, ascot4)
-    /bfield                  Group
-    /bfield/2d               Group
-    /bfield/2d/bphi          Dataset {600, 300}
-    /bfield/2d/psi           Dataset {600, 300}
-    /bfield/nphi             Dataset {1}
-    /bfield/nr               Dataset {1}
-    /bfield/nz               Dataset {1}
-    /bfield/r                Dataset {300}
-    /bfield/raxis            Dataset {1}
-    /bfield/z                Dataset {600}
-    /bfield/zaxis            Dataset {1}
+
+    Parameters:
+        infile_name (str): name of file to analize
+    Attributes:
+        None
+    Notes:    
+    |  Groups in h5 file (09/01/2017, ascot4)
+    |  /bfield                  Group
+    |  /bfield/2d               Group
+    |  /bfield/2d/bphi          Dataset {600, 300}
+    |  /bfield/2d/psi           Dataset {600, 300}
+    |  /bfield/nphi             Dataset {1}
+    |  /bfield/nr               Dataset {1}
+    |  /bfield/nz               Dataset {1}
+    |  /bfield/r                Dataset {300}
+    |  /bfield/raxis            Dataset {1}
+    |  /bfield/z                Dataset {600}
+    |  /bfield/zaxis            Dataset {1}
 
 
-    /boozer                  Group
-    /boozer/Babs             Dataset {200, 100}
-    /boozer/Ifunc            Dataset {100}
-    /boozer/R                Dataset {200, 100}
-    /boozer/axisR            Dataset {1}
-    /boozer/axisz            Dataset {1}
-    /boozer/btheta           Dataset {200, 100}
-    /boozer/delta            Dataset {200, 100}
-    /boozer/gfunc            Dataset {100}
-    /boozer/nu               Dataset {200, 100}
-    /boozer/psi              Dataset {100}
-    /boozer/psiAxis          Dataset {1}
-    /boozer/psiMax           Dataset {1}
-    /boozer/psiMin           Dataset {1}
-    /boozer/psiSepa          Dataset {1}
-    /boozer/qprof            Dataset {100}
-    /boozer/rgridmax         Dataset {1}
-    /boozer/rgridmin         Dataset {1}
-    /boozer/theta            Dataset {200}
-    /boozer/z                Dataset {200, 100}
-    /boozer/zgridmax         Dataset {1}
-    /boozer/zgridmin         Dataset {1}
+    |  /boozer                  Group
+    |  /boozer/Babs             Dataset {200, 100}
+    |  /boozer/Ifunc            Dataset {100}
+    |  /boozer/R                Dataset {200, 100}
+    |  /boozer/axisR            Dataset {1}
+    |  /boozer/axisz            Dataset {1}
+    |  /boozer/btheta           Dataset {200, 100}
+    |  /boozer/delta            Dataset {200, 100}
+    |  /boozer/gfunc            Dataset {100}
+    |  /boozer/nu               Dataset {200, 100}
+    |  /boozer/psi              Dataset {100}
+    |  /boozer/psiAxis          Dataset {1}
+    |  /boozer/psiMax           Dataset {1}
+    |  /boozer/psiMin           Dataset {1}
+    |  /boozer/psiSepa          Dataset {1}
+    |  /boozer/qprof            Dataset {100}
+    |  /boozer/rgridmax         Dataset {1}
+    |  /boozer/rgridmin         Dataset {1}
+    |  /boozer/theta            Dataset {200}
+    |  /boozer/z                Dataset {200, 100}
+    |  /boozer/zgridmax         Dataset {1}
+    |  /boozer/zgridmin         Dataset {1}
 
     
     METHODS:
@@ -115,19 +118,38 @@ class Bfield_ascot:
         self._read_wall_h5()
 
     def _read_wall_h5(self):
-        """
-        stores wall data from h5 file
+        """stores wall data from h5 file
+        
+        Reads wall data from ascot.h5 file
+        
+        Parameters:
+            None
+        Attributes:
+            None
+        Note:
+            Could be implemented in ascot_utils
+
         """
         self.walllabdict = {"R_wall":"/wall/2d/R", "Z_wall":"/wall/2d/z",\
                             "divflag":"/wall/2d/divFlag", "segLen":"/wall/2d/segLen"}
         self.w = dict.fromkeys(self.walllabdict)
         for k in self.walllabdict:
             self.w[k] = self.infile[self.walllabdict[k]].value
-
+        self.R_w = self.w['R_wall']
+        self.z_w = self.w['Z_wall']
 
     def _sanitycheck(self):
-        """
-        checks the input equilibrium
+        """ checks the input equilibrium
+        
+        In the group sanity check the magnetic field is stored (just the values needed
+        for ASCOT to work), so here you can take the data to check you're doing things
+        right
+        
+        Parameters:
+            None
+        Attributes:
+            None
+
         """
         self.sanitydict = {'Ip': None, 'b0': None,\
                            'bphi': None,'br': None,'bz': None,'psiAtAxis': None,\
@@ -139,103 +161,97 @@ class Bfield_ascot:
                     'rmin','rmax','zmin','zmax']:
             print(key, " ", self.sanitydict[key])
             
-    def checkplot(self):
-        """
+    def checkplot(self, f=0):
+        """Plots psi_2D, q, Bphi
+        
         Method to plot the values and check the magnetic field we are looking at
-        Plots psi_2D, q, Bphi
+
+        Parameters:
+            f (obj): figure object where to plot
+        Attributes:
+            None
         
         """
-        #=====================================================================================
+        #============================================
         # SET TEXT FONT AND SIZE
-        #=====================================================================================
-#        plt.rc('linethick',2)
+        #============================================
         plt.rc('xtick', labelsize=12)
         plt.rc('ytick', labelsize=12)
         plt.rc('axes', labelsize=15)
-        #=====================================================================================
-        n_row = 1
-        n_col = 3
-        f, axarr = plt.subplots(n_row, n_col)
+        plt.rc('figure', facecolor='white')
+        #============================================
+        if f==0:
+            f = plt.figure(figsize=(20, 8))
+            f.text(0.01, 0.01, self.infile)
+            ax2d = f.add_subplot(131)
+            axq = f.add_subplot(132)
+            axf = f.add_subplot(133)
+        else:
+            f=plt.gcf()
+            ax2d = f.axes[0]
+            axq  = f.axes[2]
+            axf  = f.axes[3]
+            plt.rc('lines', linestyle='--')
         edge = self.infile['boozer/psiSepa'][:]; axis=self.infile['boozer/psiAxis'][:]
 
-        for e,val in enumerate(["psi_2D","q","bphi"]):
-            currax = axarr[e]
-            #plt.title(val)
-            #plot for mag surfaces 2D
-            if val == "psi_2D":
-                yplot = self.vardict[val][:]
-                r,z = self.vardict['r'], self.vardict['z']
-                CS = currax.contour(r,z,yplot, 20)
-                currax.contour(r,z,yplot,1, colors='k', linewidths=3.)
-                CB = plt.colorbar(CS)
-                currax.set_xlabel("R [m]")
-                currax.set_ylabel("Z [m]")
-                currax.plot(self.w["R_wall"], self.w["Z_wall"], 'k')
-                currax.axis('equal') 
-            elif val == 'bphi': #plot of g
-                currax.plot(self.vardict['r'], self.vardict[val][50,:], 'k', lw=2.3)
-                currax.set_xlabel(r'$R [m]$')
-                currax.set_ylabel(r'$B_\phi$')
-#                currax.set_position([box1.x0, box1.y0*0.9, box1.width, box1.height*0.5])
-            elif val == 'q': #plot of q
-                currax.plot(self.rho, -1*self.vardict[val].value, 'k', lw=2.3)
-                currax.set_xlabel(r'$\rho_{POL}$')
-                currax.set_ylabel(r'q')
-                currax.set_ylim([0, 8])
-#                box1 = currax.get_position()
-#                print(val)
-#                print(box1.x0, box1.y0, box1.width, box1.height)
-#                currax.set_position([box1.x0, 0.6, 0.4, box1.height*0.5])
-        f.tight_layout()
-        plt.show()
+        ax2d = f.add_subplot(131)
+        yplot = self.vardict['psi_2D'][:]
+        r,z = self.vardict['r'], self.vardict['z']
+        CS = ax2d.contour(r,z,yplot, 30)
+        plt.contour(r,z,yplot,[edge], colors='k', linewidths=3.)
+        ax2d.set_xlabel("R [m]")
+        ax2d.set_ylabel("Z [m]")
+        CB = plt.colorbar(CS)
+        if self.R_w[0]!=0:
+            ax2d.plot(self.R_w, self.z_w, 'k',linewidth=2)
+        ax2d.axis('equal')
 
+        axq = f.add_subplot(132)
+        axq.plot(self.rho, self.vardict['q'], lw=2.3, color='k')
+        axq.set_xlabel(r'$\rho_{POL}$')
+        axq.set_ylabel(r'q')
+
+        axf = f.add_subplot(133)
+        axf.plot(self.vardict['r'],  self.vardict['bphi'][50,:], lw=2.3, color='k')
+        axf.set_xlabel(r'R [m]')
+        axf.set_ylabel(r'$B_\phi$')
+
+        f.tight_layout()
+        plt.rc('lines', linestyle='-')
+        plt.show()
 
         
 class Bfield_eqdsk:
-    """
+    """ Class handling eqdsk magnetic field
+
     Script for writing and reading the magnetic background
     porting from matlab (16-1-2017)
 
-    INPUT REQUIRED:
-    - filename of the eqdsk (with only 4 stripped strings in the first line before the nR and nZ)
-    - nR to output
-    - nz to output
-    - devnam: name of the device (JT60SA, TCV)
-    - OPTIONAL: [Dr, Dz]: array with shift in R and Z of the equilibrium (Dr>0: shift to right, Dz>0: shift up)
-
-    METHODS:
-    - eqdsk_checkplot(self): Method to plot the values (2D psi, q, poloidal flux) and check the magnetic field we are looking at
-
-    - write(self): Function calling the two methods to write the header and the bkg
-    - write_bkg(self): Write to input.magn_bkg file
-    - write_head(self): Write to input.magn_header file
+    Parameters:
+        |  infile (str): filename of the eqdsk (with only 4 stripped strings in the first line before the nR and nZ)
+        |  nR (int):  number of R grid to output. Usually 259
+        |  nz (int):  number of z grid to output. Usually 259
+        |  devnam (str): name of the device (JT60SA, TCV)
+        |  COCOS (int): number identifying COCOS.
     
-    - build_lim(self): Function calling the two methods to build the header (with limiter) and bkg dictionary
-    - build_SN(self): Function calling the two methods to build the header (with SN) and bkg dictionary
-    - build_header_lim(self): Method to build header file from eqdsk without single nulls (one point in PFxx) 
-    - build_header_SN(self): Method to build header file from eqdsk with one single null (two points in PFxx)
-
-    - calc_field(self): Function to calculate toroidal fields (fields on poloidal plane set to 0
-
-    HIDDEN METHODS:
-    __init__(self, infile, nR, nz, devnam): Initialisation
-    _import_from_eqdsk(self, infile): function for import from eqdsk file
-    _shift_eq(self): Shift the equilibrium of the quantity dr and dz (Dr>0: shift to right, Dz>0: shift up)
-    _calc_psi_deriv(self): Compute the derivative of psi on a refined grid
-    _min_grad(self, x0): find the point where there is the minimum of the flux
-    _perm_dims(self, arr): This permutation of the array (arr) has to be done to correctly feed the input to ascot
-    _read_wall(self): Reads 2D (R,Z) wall depending on the device name
+    Attributes:
+        None
+    
+    Methods:
+        |  eqdsk_checkplot : Method to plot the values (2D psi, q, poloidal flux) and check the magnetic field we are looking at
+        |  write: Function calling the two methods to write the header and the bkg
+        |  write_bkg: Write to input.magn_bkg file
+        |  write_head: Write to input.magn_header file
+        |
+        |  build_lim: Function calling the two methods to build the header (with limiter) and bkg dictionary
+        |  build_SN: Function calling the two methods to build the header (with SN) and bkg dictionary
+        |  build_header_lim: Method to build header file from eqdsk without single nulls (one point in PFxx) 
+        |  build_header_SN: Method to build header file from eqdsk with one single null (two points in PFxx)
+        |  
+        |  calc_field: Function to calculate toroidal fields (fields on poloidal plane set to 0
     """
     
     def __init__(self, infile, nR, nz, devnam, COCOS, *args):
-        """
-        Initialisation, with EQDSK:
-        -EQDSK (infile = eqdsk file)
-        - nR to output
-        - nz to output
-        - devnam name of the device
-        - OPTIONAL: [Dr, Dz]: array with shift in R and Z of the equilibrium (Dr>0: shift to right, Dz>0: shift up)
-        """
         self.COCOS = COCOS
         self.devnam = devnam
         self._read_wall()
@@ -250,8 +266,14 @@ class Bfield_eqdsk:
 
 
     def _import_from_eqdsk(self, infile_eqdsk):
-        """
+        """ importing from eqdsk
         function for import from eqdsk file
+
+        Parameters:
+            infile_eqdsk (str): name of eqdsk file to read
+        Attributes:
+            None
+        Notes:
         these are the data of the eqdsk struct:
         
             self.comment=comment
@@ -292,10 +314,21 @@ class Bfield_eqdsk:
         self.R_eqd = np.linspace(self.eqdsk.rboxleft, self.eqdsk.rboxleft+self.eqdsk.rboxlength, self.eqdsk.nrbox)
         self.Z_eqd = np.linspace(-self.eqdsk.zboxlength/2., self.eqdsk.zboxlength/2., self.eqdsk.nzbox)
         self.cocos_transform(self.COCOS)
-        print(np.shape(self.R_eqd),np.shape(self.Z_eqd),np.shape(self.eqdsk.psi))
+        #This is for Equilibrium from CREATE for scenario 2, also to modify in build bkg
         self.psi_coeff = interp.RectBivariateSpline(self.Z_eqd, self.R_eqd, self.eqdsk.psi)
-        
+        #self.psi_coeff = interp.RectBivariateSpline(self.R_eqd, self.Z_eqd, self.eqdsk.psi) 
+       
     def cocos_transform(self, COCOS):
+        """ cocos transformations
+        This function converts the magnetic input from their starting cocos to eqdsk 5 (needed by ascot).
+
+        Parameters:
+            COCOS (int): input cocos. Now useable only 2,3,4,7,12,13,14,17
+        Attributes:
+            None
+        
+        """
+
         print("COCOS tranformation from "+str(COCOS)+" to 5")
         cocos_keys = ['sigma_Bp', 'sigma_RphiZ', 'sigma_rhothetaphi', 'sign_q_pos', 'sign_pprime_pos', 'exp_Bp']
         pi = math.pi
@@ -411,9 +444,15 @@ class Bfield_eqdsk:
         self.Z_eqd          += self.dz
 
     def eqdsk_checkplot(self, f=0):
-        """
-        Method to plot the values (2D psi, q, poloidal flux) and check the magnetic field we are looking at
+        """plot of 2D psi, q, bphi
+
+        Method to plot the values (2D psi, q, bphi) and check the magnetic field we are looking at
         
+        Parameters:
+            f (obj): figure object where to plot. if undefined, f=0
+        Attributes:
+            None
+
         """
         try:
             self.param_bphi
@@ -453,7 +492,7 @@ class Bfield_eqdsk:
         #axf.plot(self.R_eqd, self.eqdsk.T)
         axf.plot(r, self.param_bphi(r,z)[len(r)/2,:], lw=2.3, color='k')
         axf.set_xlabel(r'R [m]')
-        axf.set_ylabel(r'Bfield')
+        axf.set_ylabel(r'$B_\phi$')
         f.tight_layout()
         plt.show()
 
@@ -494,8 +533,15 @@ class Bfield_eqdsk:
         self.write_bkg()
 
     def build_lim(self):
-        """
+        """ limiter building
+
         Function calling the two methods to build the header (with limiter) and bkg dictionary
+        
+        Parameters: 
+            None
+        Attributes:
+            None
+
         """
         try: 
             self.hdr['Vol'].mean()
@@ -509,9 +555,16 @@ class Bfield_eqdsk:
   
 
     def build_SN(self):
-        """
+        """ building single null
+
         Function calling the two methods to build the header (with SN) and bkg dictionary
         In this case there are two special points (and the x-point can be found with ginput from plot)
+
+        Parameters:
+            None
+        Attributes:
+            None
+
         """
         try: 
             self.hdr['Vol'].mean()
@@ -524,11 +577,16 @@ class Bfield_eqdsk:
             self.build_bkg()
         
     def build_header_lim(self):
-        """
-        Method to build header file from eqdsk without single nulls (one point in PFxx) 
-        -The first five values of the eqdsk (nShot, tShot, modflg, FPPkat, IpiFPP)
-        are already set correctly  
-        -The last quantities (rhoPF, PFL, Vol, Area, Qpl) are already set
+        """ building limiter header
+
+        |  Method to build header file from eqdsk without single nulls (one point in PFxx) 
+        |  -The first five values of the eqdsk (nShot, tShot, modflg, FPPkat, IpiFPP) are already set correctly  
+        |  -The last quantities (rhoPF, PFL, Vol, Area, Qpl) are already set
+
+        Parameters:
+            None
+        Attributes:
+            None
         
         """
         print("Build hdr (limiter)")
@@ -554,12 +612,17 @@ class Bfield_eqdsk:
 
         
     def build_header_SN(self):
-        """
-        Method to build header file from eqdsk with one single null (two points in PFxx) 
-        -The first five values of the eqdsk (nShot, tShot, modflg, FPPkat, IpiFPP)
-        are already set correctly  
-        -The last quantities (rhoPF, PFL, Vol, Area, Qpl) are already set
+        """ building SN header
+
+        |  Method to build header file from eqdsk with one single null (two points in PFxx) 
+        |  The first five values of the eqdsk (nShot, tShot, modflg, FPPkat, IpiFPP) are already set correctly  
+        |  The last quantities (rhoPF, PFL, Vol, Area, Qpl) are already set
         
+        Parameters:
+            None
+        Attributes:
+            None
+
         """
 
         print("Build hdr (SN)")
@@ -594,11 +657,16 @@ class Bfield_eqdsk:
         self.hdr['SSQ']  = [self.eqdsk.R0EXP, self.eqdsk.Zaxis, 0, 0]
         
     def build_bkg(self):
-        """
-        Method to build background file from eqdsk 
-        -The first five values of the eqdsk (nShot, tShot, modflg, FPPkat, IpiFPP)
-        are already set correctly  
-        -The last quantities (rhoPF, PFL, Vol, Area, Qpl) are already set
+        """ build bkg
+
+        |  Method to build background file from eqdsk 
+        |  -The first five values of the eqdsk (nShot, tShot, modflg, FPPkat, IpiFPP) are already set correctly  
+        |  -The last quantities (rhoPF, PFL, Vol, Area, Qpl) are already set
+
+        Parameters:
+            None
+        Attributes:
+            None        
         
         """
         try:
@@ -614,7 +682,9 @@ class Bfield_eqdsk:
         #R_temp = np.linspace(float(np.around(np.min(self.R_w), decimals=2)), float(np.around(np.max(self.R_w), decimals=2)), self.nR)
         #z_temp = np.linspace(float(np.around(np.min(self.z_w), decimals=2)), float(np.around(np.max(self.z_w), decimals=2)), self.nz)
 
+        #psitemp = self.psi_coeff(z_temp, R_temp)
         psitemp = self.psi_coeff(R_temp, z_temp)
+
         bphitemp = self.param_bphi(R_temp, z_temp)
 
         self.bkg={'type':'magn_bkg', 'phi0':0, 'nsector':0, 'nphi_per_sector':1,\
@@ -628,13 +698,14 @@ class Bfield_eqdsk:
         print("remember: I am multiplying psi times 2pi since in ascot it divides by it!")
     
     def _calc_psi_deriv(self):
-        """
-        Compute the derivative of psi on a refined grid which
-        will be used then for computing of the radial and vertical component of
-        the magnetic field.
-        It can be done by computing on a finer grid (128x128)
-        within the separatrix
-        for each time
+        """ derivative of psi
+
+        Compute the derivative of psi(poloidal flux) on a refined grid which will be used then for computing of the radial and vertical component of the magnetic field. It can be done by computing on a finer grid (128x128) within the separatrix
+
+        Parameters:
+            None
+        Attributes:
+            None
         """
         psi = self.eqdsk.psi
         self.dpsidR = np.zeros((self.eqdsk.nzbox, self.eqdsk.nrbox))
@@ -658,8 +729,15 @@ class Bfield_eqdsk:
 
 
     def _min_grad(self, x0):
-        """
+        """ minimum gradient
+
         find the point where there is the minimum of the flux
+
+        Parameters:
+            x0 (array): x,z coordinates of the starting point
+        Attributes:
+            None
+
         """
         try:
             self.dpsidR.mean()
@@ -680,8 +758,14 @@ class Bfield_eqdsk:
         return R0,z0
 
     def calc_field(self):
-        """
-        Function to calculate toroidal fields (fields on poloidal plane set to 0) 
+        """ calculating magnetic field
+        Function to calculate toroidal field (fields on poloidal plane set to 0) 
+
+        Parameters:
+            None
+        Attributes:
+            None
+
         """
 
         print("Calculating Bphi")
@@ -709,8 +793,14 @@ class Bfield_eqdsk:
         self.Bphi = Bphi
 
     def write_head(self):
-        """
+        """ writing header
         Write to input.magn_header file
+        
+        Parameters:
+            None
+        Attributes:
+            None
+
         """
         try:
             hdr=self.hdr
@@ -771,7 +861,7 @@ class Bfield_eqdsk:
         
 
     def write_bkg(self):
-        """
+        """ write bkg
         Write to input.magn_bkg file
         
         self.bkg={'type':'magn_bkg', 'phi0':0, 'nsector':0, 'nphi_per_sector':1,\
@@ -781,6 +871,11 @@ class Bfield_eqdsk:
                   'psi':-2*3.14*self.eqdsk.psi,\
                   'Bphi':self.Bphi, 'BR':self.Br, 'Bz':self.Bz}
        
+        Parameters:
+            None
+        Attributes:
+            None
+
         """
         try:
             self.bkg['Bphi'].mean()
@@ -846,8 +941,14 @@ class Bfield_eqdsk:
         outfile.close()
                  
     def _perm_dims(self,arr):
-        """
+        """ permutating the dimensions
         This permutation of the array has to be done to correctly feed the input to ascot
+        
+        Parameters:
+            arr (array): input array to permute
+        Attributes:
+            None
+
         """
         out_arr = []
         if len(np.shape(arr))==2:
@@ -859,8 +960,13 @@ class Bfield_eqdsk:
             
 
     def _read_wall(self):
-        """
+        """ read wall
         Reads 2D (R,Z) wall depending on the device name
+        
+        Parameters:
+            None
+        Attributes:
+            None
         """
         try:
             if self.devnam == 'JT60SA':
