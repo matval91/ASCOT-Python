@@ -5,14 +5,16 @@ Class for profiles I/O for ascot&bbnbi
 """
 from __future__ import print_function
 import numpy as np
-import h5py, time
+import h5py, time, platform
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 from scipy import interpolate, integrate
 import scipy.io as sio
 import ufiles as uf
 import ascot_Bfield
-#import MDSplus as mds
+cluster = platform.uname()[1]
+if cluster[-7:] == 'epfl.ch':
+    import MDSplus as mds
 
 colours = ['k','b','r','c','g',\
            'k','b','r','c','g',\
@@ -389,7 +391,7 @@ class h5_profiles(profiles):
 
         self.rho_in = vardict['rho']
 
-        self.nrho_in = np.size(rho)
+        self.nrho_in = np.size(self.rho_in)
 
         if vardict['a_ions'][0]!='/':
             self.nspec = len(vardict['a_ions'])
