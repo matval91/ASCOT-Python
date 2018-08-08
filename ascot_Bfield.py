@@ -8,7 +8,7 @@ from __future__ import print_function
 import numpy as np
 import h5py, math
 import matplotlib.pyplot as plt
-
+import matplotlib.ticker as ticker
 import ReadEQDSK_python2
 from scipy.interpolate import griddata
 import scipy.optimize
@@ -95,7 +95,7 @@ class Bfield_ascot:
 #                         }
 
         self.infile=h5py.File(infile_name)
-
+        self.infile_n = infile_name
         self.vardict = {}
         #store data with the correct labels
         
@@ -172,17 +172,21 @@ class Bfield_ascot:
             None
         
         """
+        try:
+            self.sanitydict['psiAtSeparatrix']
+        except:
+            self._sanitycheck()
         #============================================
         # SET TEXT FONT AND SIZE
         #============================================
-        plt.rc('xtick', labelsize=12)
-        plt.rc('ytick', labelsize=12)
-        plt.rc('axes', labelsize=15)
+        plt.rc('xtick', labelsize=20)
+        plt.rc('ytick', labelsize=20)
+        plt.rc('axes', labelsize=20)
         plt.rc('figure', facecolor='white')
         #============================================
         if f==0:
             f = plt.figure(figsize=(20, 8))
-            f.text(0.01, 0.01, self.infile)
+            f.text(0.01, 0.01, self.infile_n)
             ax2d = f.add_subplot(131)
             axq = f.add_subplot(132)
             axf = f.add_subplot(133)
@@ -193,31 +197,60 @@ class Bfield_ascot:
             axf  = f.axes[3]
             plt.rc('lines', linestyle='--')
         edge = self.infile['boozer/psiSepa'][:]; axis=self.infile['boozer/psiAxis'][:]
-
+        edge = self.sanitydict['psiAtSeparatrix']; axis=self.sanitydict['psiAtAxis']
+        print(edge)
         ax2d = f.add_subplot(131)
+        ax2d.set_title('Poloidal flux')
         yplot = self.vardict['psi_2D'][:]
         r,z = self.vardict['r'], self.vardict['z']
         CS = ax2d.contour(r,z,yplot, 30)
-        plt.contour(r,z,yplot,[edge], colors='k', linewidths=3.)
+        ax2d.contour(r,z,yplot,[-edge], colors='k', linewidths=2.5, linestyles='--')
         ax2d.set_xlabel("R [m]")
         ax2d.set_ylabel("Z [m]")
         CB = plt.colorbar(CS)
         if self.R_w[0]!=0:
-            ax2d.plot(self.R_w, self.z_w, 'k',linewidth=2)
+            ax2d.plot(self.R_w, self.z_w, 'k',linewidth=2.5)
         ax2d.axis('equal')
+        ax2d.grid('on')
+        M = 4
+        yticks = ticker.MaxNLocator(M)
+        xticks = ticker.MaxNLocator(M)
+        # tick positions with set_minor_locator.
+        ax2d.yaxis.set_major_locator(yticks)
+        #ax.yaxis.set_minor_locator(yticks_m)
+        ax2d.xaxis.set_major_locator(xticks)
 
         axq = f.add_subplot(132)
         axq.plot(self.rho, self.vardict['q'], lw=2.3, color='k')
         axq.set_xlabel(r'$\rho_{POL}$')
-        axq.set_ylabel(r'q')
-
+        axq.set_ylabel(r'q'); axq.set_ylim([-8, -0])
+        axq.grid('on')
+        M = 4
+        yticks = ticker.MaxNLocator(M)
+        xticks = ticker.MaxNLocator(M)
+        # tick positions with set_minor_locator.
+        axq.yaxis.set_major_locator(yticks)
+        #ax.yaxis.set_minor_locator(yticks_m)
+        axq.xaxis.set_major_locator(xticks)
         axf = f.add_subplot(133)
         axf.plot(self.vardict['r'],  self.vardict['bphi'][50,:], lw=2.3, color='k')
         axf.set_xlabel(r'R [m]')
         axf.set_ylabel(r'$B_\phi$')
-
+        axf.grid('on')
         f.tight_layout()
         plt.rc('lines', linestyle='-')
+
+        plt.setp(axq.get_yticklabels()[0], visible=False) 
+        plt.setp(axf.get_yticklabels()[0], visible=False) 
+        plt.setp(ax2d.get_yticklabels()[0], visible=False) 
+        M = 4
+        yticks = ticker.MaxNLocator(M)
+        xticks = ticker.MaxNLocator(M)
+        # tick positions with set_minor_locator.
+        axf.yaxis.set_major_locator(yticks)
+        #ax.yaxis.set_minor_locator(yticks_m)
+        axf.xaxis.set_major_locator(xticks)
+
         plt.show()
 
         

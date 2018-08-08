@@ -20,7 +20,7 @@ from scipy import interpolate
 import os.path, math, time
 import collections
 import ascot_particles
-from ascot_utils import _plot_2d, plot_article
+from ascot_utils import _plot_2d, plot_article, _plot_1d
                   
 class distribution_1d:
     """
@@ -154,7 +154,7 @@ class distribution_1d:
             self.volumes = self._volumes
             self.areas   = self._areas
 #            self._evaluate_shellVol(rhonew)
-#            self._evaluate_shellArea(rhonew)
+#           self._evaluate_shellArea(rhonew)
         except:
             print("No /distributions/rhoDist/ in ", infile_n)    
         
@@ -253,6 +253,8 @@ class distribution_1d:
         """
         if self.n_inj==1:
             self.plot_totalcurrent(ax=ax)
+        else:
+            self._plot_current()
         
     def plot_power(self,ax=0):
         """
@@ -260,13 +262,17 @@ class distribution_1d:
         """
         if self.n_inj==1:
             self.plot_totalpower(ax) 
-       
+        else:
+            self._plot_power()
+
     def plot_torque(self):
         """
         Plot just the deposited torque density
         """
         if self.n_inj==1:
             self.plot_totaltorque()  
+        else:
+            self._plot_torque()
 
     def plot_totalcurrent(self, ax=0):
         """
@@ -404,39 +410,10 @@ class distribution_1d:
     def _group_beams(self):
         """
         Group data distribution forgetting about beam index
-	     """
+	"""
         self.slices_summed = np.sum(self.slices, axis=0)
 
-
-    def _calculate_scalar(self):
-        """
-        Calculate scalar quantities: total power to ions, to electrons,
-        total current induced, total angular momentum
-        """
-        try:
-            np.mean(self.slices_summed)
-        except:
-            self._group_beams()
-            
-        ind = self.name_dict['pel']-1
-        if self.slices.shape[2] == 27:
-            ind=ind-1
-        
-        self.I_tot = np.dot(self.slices_summed[0,:,12], self.areas)
-        self.pe    = np.dot(self.slices_summed[0,:,ind], self.volumes)
-        self.pi1   = np.dot(self.slices_summed[0,:,ind+1], self.volumes)
-        self.tjxb  = np.dot(self.slices_summed[0,:,7], self.volumes) 
-        self.tore  = np.dot(self.slices_summed[0,:,ind+2 + self.nions-1], self.volumes)
-        self.tori1 = np.dot(self.slices_summed[0,:,ind+2 + self.nions], self.volumes)
-
-        if self.nions > 1:
-            self.pi2   = np.dot(self.slices_summed[0,:,ind+2], self.volumes)
-#            self.tori2 =  np.dot(self.slices_summed[0,:,ind+3 + self.nions], self.volumes)
-            if self.nions>2:
-                self.pi3   = np.dot(self.slices_summed[0,:,ind+3], self.volumes)
-#                self.tori3 = np.dot(self.slices_summed[0,:,ind+4 + self.nions], self.volumes)
-
-    def print_scalars(self):
+    def _print_scalars(self):
         """
         Print the scalars
         """
@@ -453,15 +430,18 @@ class distribution_1d:
         print("Total power to ions      ", self.pi1*1e-6, " MW")
         if self.nions > 1:
             print("Total power to ion  2 ", self.pi2*1e-6, " MW")
-            pextra += self.pi2*1e-6
+            pextra += self.pi2
             if self.nions > 2:
                 print("Total power to ion  3 ", self.pi3*1e-6, " MW")
-                pextra += self.pi3*1e-6
+                pextra += self.pi3
+
         print("Total power delivered    ", (self.pi1+self.pe+pextra)*1e-6, " MW")
-        
-        print("JxB torque ", self.tjxb, " Nm")
-        print("Torque to electrons", self.tore, " Nm")
-        print("Torque to ions", self.tori1, " Nm")
+        try:
+            print("JxB torque ", self.tjxb, " Nm")
+            print("Torque to electrons", self.tore, " Nm")
+            print("Torque to ions", self.tori1, " Nm")
+        except:
+            print("No Torque")
         try:
             if self.nions > 1:
                 print("Torque to ion 2 ", self.tori2*1e-6, " Nm")
@@ -483,7 +463,8 @@ class distribution_1d:
         except:
             self._calculate_scalar()
         #Computing the power coupled to plasma: Pini-Pend+Pres
-        pp = ascot_particles.h5_particles(self.infile_n); pp._power_coupled()
+        if self.device=='JT60SA':
+            pp = ascot_particles.SA_iniend(self.infile_n); pp._power_coupled()
         P = pp.pcoup
         
         R0 = self.infile['misc/geomCentr_rz'][0]
@@ -539,10 +520,10 @@ class distribution_1d:
                 
         self.taus=taus                
                 
-    def _ecrit(self, E0):
+    def _ecrit(self, E0=500000):
         """
         Calculates critical energy profiles
-        Ec = 
+        Ec = 14.8*te*(A**(1.5)/ne*summ)**(2./3.)
         ts = 6.28e14*(A*te^1.5)/(Z^2*ne*lnlambda)
         """
         print("Calculating Ec")
@@ -639,6 +620,41 @@ class TCV_1d(distribution_1d):
             ax[ind_row,ind_col].set_title(ylabels[i])
 
         plt.show()
+
+    def print_scalars(self):
+        """
+        """
+        self._print_scalars()
+
+    def _calculate_scalar(self):
+        """
+        Calculate scalar quantities: total power to ions, to electrons,
+        total current induced, total angular momentum
+        """
+        try:
+            np.mean(self.slices_summed)
+        except:
+            self._group_beams()
+            
+        ind = self.name_dict['pel']-1
+        if self.slices.shape[2] == 27:
+            ind=ind-1
+        
+        self.I_tot = np.dot(self.slices_summed[0,:,12], self.areas)
+        self.pe    = np.dot(self.slices_summed[0,:,ind], self.volumes)
+        self.pi1   = np.dot(self.slices_summed[0,:,ind+1], self.volumes)
+        self.tjxb  = np.dot(self.slices_summed[0,:,7], self.volumes) 
+        self.tore  = np.dot(self.slices_summed[0,:,ind+2 + self.nions-1], self.volumes)
+        self.tori1 = np.dot(self.slices_summed[0,:,ind+2 + self.nions], self.volumes)
+
+        if self.nions > 1:
+            self.pi2   = np.dot(self.slices_summed[0,:,ind+2], self.volumes)
+#            self.tori2 =  np.dot(self.slices_summed[0,:,ind+3 + self.nions], self.volumes)
+            if self.nions>2:
+                self.pi3   = np.dot(self.slices_summed[0,:,ind+3], self.volumes)
+#                self.tori3 = np.dot(self.slices_summed[0,:,ind+4 + self.nions], self.volumes)
+
+
         
     def calc_Ec(self):
 		self.param_ec, self.ec, self.param_ts, self.ts = self._ecrit(E0=25000)    
@@ -648,6 +664,8 @@ class SA_1d(distribution_1d):
     colours = ['g','c','b','k','r']
 
     def __init__(self, infile_n):
+        self.device = 'JT60SA'
+
         distribution_1d.__init__(self, infile_n)
         self.id2beamnum = \
                         {\
@@ -720,7 +738,7 @@ class SA_1d(distribution_1d):
             
         plt.show()
 
-    def SA_calculate_scalar(self):
+    def _calculate_scalar(self):
         """
         Method to calculate scalar quantities: total power to ions, to electrons,
         total current induced, total angular momentum
@@ -776,15 +794,20 @@ class SA_1d(distribution_1d):
                     self.tor_beams[jj] = tmp_tor
                     self.tor += tmp_tor
 
-    def SA_print_scalars(self):
+    def print_scalars(self):
+        """
+        """
+        self._SA_print_scalars()
+
+    def _SA_print_scalars(self):
         """
         Method to print the scalars
         """
         try:
             np.mean(self.i_beams)
         except:
-            self.SA_calculate_scalar()
-                
+            self._calculate_scalar()
+        totpower = self.pi1+self.pe
 
         for ii, el in enumerate(self.i_beams):
             if el==0:
@@ -794,12 +817,12 @@ class SA_1d(distribution_1d):
         for ii, el in enumerate(self.pe_beams):
             if el==0:
                 continue
-            print("Pe from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW")
+            print("Pe from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW | ",self.pe/totpower*100., '%')
         print("")
         for ii, el in enumerate(self.pi_beams):
             if el==0:
                 continue
-            print("Pi from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW")
+            print("Pi from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW ",self.pi1/totpower*100., '%')
         print("")
         if self.nions>1:
             for ii, el in enumerate(self.pi2_beams):
@@ -873,7 +896,7 @@ class SA_1d(distribution_1d):
                          ylabel, self.infile_n)
                          
                          
-    def plot_current_groups(self):
+    def _plot_current(self):
         """
         Plots the current grouped
         """
@@ -883,7 +906,7 @@ class SA_1d(distribution_1d):
             self.group_beams()
         self._plot_groups(12,r'j (kA/$m^2$)', factor=-1e-3)
 
-    def plot_power_groups(self):
+    def _plot_power(self):
         """
         Plots the power grouped
         """
@@ -901,7 +924,7 @@ class SA_1d(distribution_1d):
             self._plot_groups([self.peind,self.peind+1],r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
             self._plot_groups([self.peind-1, self.peind, self.peind+1],r'$P_{TOT}$ (kW/$m^3$)', factor=1e-3, ylim=[0, 500])
             
-    def plot_pn_groups(self):
+    def _plot_pn(self):
         """
         Plots the power grouped
         """
@@ -912,7 +935,7 @@ class SA_1d(distribution_1d):
         self._plot_groups(0,r'n (1/$m^3$)')
         self._plot_groups(13,r'p (kPa)', factor=1e-3)        
     
-    def plot_torque_groups(self):
+    def _plot_torque(self):
         """
         Plots the power grouped
         """
@@ -985,7 +1008,7 @@ class SA_1d(distribution_1d):
 
         rho = np.linspace(0, 1, num=len(self._volumes), dtype=float)
 
-        labels_T=['Tot', 'P-P', 'P-T', 'N']
+        labels_T=['Tot', 'PP', 'PT', 'N']
         ylines=rho
         label=np.array('Tot')
         for i, el in enumerate([self.fibp, self.fibp_P_perp, self.fibp_P_tang, self.fibp_NNB]):
@@ -1050,7 +1073,7 @@ class distribution_2d:
             wallrz = [self.R_w, self.z_w]
             surf = [self.Rsurf, self.zsurf, self.RZsurf]
             _plot_2d(x, y, 'R [m]', 'z [m]', Id = self.id, \
-                     wallrz=wallrz, surf=surf, ax=ax, dist=z)
+                     wallrz=wallrz, surf=surf, ax=ax, dist=z*1e-18, cblabel=r'n ($10^{18}$/$m^3$)')
         elif 'rho' in self.dict_dim and 'phi' in self.dict_dim:
             self.xplot = self.dict_dim['rho']
             self.yplot = self.dict_dim['phi'] 
@@ -1098,11 +1121,11 @@ class distribution_2d:
         if 'rho' in self.dict_dim.keys():
             for i,el in enumerate(self.vol):
                 self.f_Ep_int[0,i] *= el*el 
-        elif 'R' in self.dict_dim and 'z' in self.dict_dim:
-            dZ=np.abs(self.dict_dim['z'][-1]-self.dict_dim['z'][-2])
-            dR=np.abs(self.dict_dim['R'][-1]-self.dict_dim['R'][-2])
-            for i, el in enumerate(self.dict_dim['R']):
-                self.f_Ep_int[i,:] /= (2*math.pi*el*dZ*dR)  
+        # elif 'R' in self.dict_dim and 'z' in self.dict_dim:
+        #     dZ=np.abs(self.dict_dim['z'][-1]-self.dict_dim['z'][-2])
+        #     dR=np.abs(self.dict_dim['R'][-1]-self.dict_dim['R'][-2])
+        #     for i, el in enumerate(self.dict_dim['R']):
+        #        self.f_Ep_int[i,:] /= (2*math.pi*el*dZ*dR)  
     
     
     def _integrate_spaceE(self):
@@ -1151,7 +1174,7 @@ class distribution_2d:
         self._plot_1d('E [keV]', "Normalized f")
 
 
-    def plot_spaceE(self):
+    def plot_spaceE(self, ax=0, label=''):
         """
         plot 1D (pitch, int_space (int_E (fdist)))
         """
@@ -1160,13 +1183,13 @@ class distribution_2d:
         except:
             self._integrate_spaceE()
         
-        self.xplot = self.dict_dim['pitch']
-        self.yplot = self.f_spaceE_int
+        x = self.dict_dim['pitch']
+        y = self.f_spaceE_int
 
-        self._plot_1d(r'$\xi$ ($\frac{v_\parallel}{v}$)', "Normalized f")
+        _plot_1d(x,y, xlabel=r'$\xi$ ($\frac{v_\parallel}{v}$)',ylabel='f (norm)' , ax=ax, label=label)
 
 
-    def plot_Epitch(self, ax=0):
+    def plot_Epitch(self, ax=0, ylim=[0, 600]):
         """
         plot 2D (pitch, energy, int_space(fdist))
         """
@@ -1177,9 +1200,9 @@ class distribution_2d:
 
         x = self.dict_dim['pitch']
         y = self.dict_dim['E']*1e-3/1.6e-19
-        z = self.f_space_int
+        z = self.f_space_int*1.6e-19*1e-14
         
-        _plot_2d(x, y, dist=z, xlabel=r'$\xi$', ylabel='E [keV]', ax=ax, Id=self.id)
+        _plot_2d(x, y, dist=z, xlabel=r'$\xi$', ylabel='E [keV]', ax=ax, Id=self.id, cblabel=r'$10^{14}$/keV', ylim=ylim)
 
     def plot_Emu(self):
         """
@@ -1319,16 +1342,14 @@ class distribution_2d:
             except:
                 self._integrate_spacep()
                 
-            #self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
+            self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
             #print "NORM = ", self.norm
-            self.norm=1
+            #self.norm=1
         elif "mu" in self.dict_dim:
             try:
                 self.f_spacemu_int()
             except:
                 self._integrate_spacemu()
-                
-            self.norm = np.trapz(self.f_spacemu_int, self.dict_dim['E'])
             #print "NORM = ", self.norm        
 
     def build_fdist(self):
@@ -1399,15 +1420,6 @@ class distribution_2d:
         edge = f['boozer/psiSepa'][:]; axis=f['boozer/psiAxis'][:]
         self.RZsurf = (-1*self.RZsurf - axis )/(edge-axis)
         self.RZsurf = np.sqrt(self.RZsurf)            
-
-    def _plot_RZsurf(self, ax):
-        try:
-            self.RZsurf.mean()
-        except:
-            self._RZsurf()
-            
-        CS = ax.contour(self.Rsurf, self.zsurf, self.RZsurf, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
-        plt.clabel(CS, inline=1, fontsize=10)   
         
     def _readwall(self):
         """

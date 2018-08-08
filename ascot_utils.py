@@ -1,7 +1,9 @@
 import matplotlib.pyplot as plt
 from matplotlib import ticker, colors
 import numpy as np
-colours = ['k', 'g','b','r','c']
+colours_old = ['k', 'g', 'b', 'r', 'c']
+colours = ['k', 'r', 'b', 'g', 'c']
+
 styles = ['-','--','-.']
 
 cdict = {'red': ((0., 1, 1),
@@ -32,10 +34,12 @@ def common_style():
     """
     Defining common styles using plt.rc
     """
+    plt.rc('font', weight='bold')
     plt.rc('xtick', labelsize=20)
     plt.rc('ytick', labelsize=20)
-    plt.rc('axes', labelsize=20)
+    plt.rc('axes', labelsize=30, labelweight='normal', titlesize=24)
     plt.rc('figure', facecolor='white')
+    plt.rc('legend', fontsize=20)
 
 def limit_labels(ax, xlabel, ylabel, title):
     """
@@ -46,7 +50,7 @@ def limit_labels(ax, xlabel, ylabel, title):
     #==============================================
     
     # Create your ticker object with M ticks
-    M = 4
+    M = 5
     yticks = ticker.MaxNLocator(M)
     xticks = ticker.MaxNLocator(M)
     # tick positions with set_minor_locator.
@@ -62,12 +66,12 @@ def limit_labels(ax, xlabel, ylabel, title):
     plt.setp(ax.get_yticklabels()[0], visible=False) 
 
 
-def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, ylim=0, fname=''):
+def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, ylim=0, fname='', col=['']):
     """
     """
     common_style()
     #===============================
-    figsize=[8,8]; flag_label=0
+    figsize=[10,8]; flag_label=0
     n_l_oplot=0
     if ax==0:
         fig=plt.figure(figsize=figsize)
@@ -81,6 +85,12 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, yli
 
     if ax.get_xlabel()=='':
         flag_label=1
+
+    if col[0]!='':
+	colours=col
+    else:
+        colours_old = ['k', 'g', 'b', 'r', 'c']
+	colours = ['k', 'r', 'b', 'g', 'c']
     style = styles[n_l_oplot]
     if n_lines==1:
         ax.plot(data[0], data[1], label=str(data_labels[0]), linewidth=3, color=colours[0], linestyle=style)        
@@ -104,25 +114,25 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, yli
     if fname !='':
         plt.savefig(fname, bbox_inches='tight', dpi=dpi)        
 
-def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='',axin=0, hist=0, multip=0):
+def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='', label='',ax=0, hist=0, multip=0, fname=''):
     """
     Hidden method for 1D plotting
     """
     common_style()
 
     figsize=[8,8]; flag_label=1
-
-    if axin==0:
+    flag_label=0
+    if ax==0:
         # Defining figure and ax
         fig = plt.figure(figsize=figsize)
         fig.text(0.01, 0.01, Id)
         ax  = fig.add_subplot(111)
+        flag_label=1
     else:
-        ax=axin
         fig = plt.gcf()
         if multip==0:
             flag_label=0
-
+    ax.plot(x,y, lw=2.3, label=label)
     if hist!=0:
         ax.hist(x,bins=30)
 
@@ -135,8 +145,8 @@ def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='',axin=0, hist=0, multi
         plt.savefig(fname, bbox_inches='tight', dpi=dpi)
 
         
-def _plot_2d(x, y, xlabel, ylabel, dist=0, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0, ax=0, \
-             scatter=0, hist=0, multip=0, xlim=0, ylim=0, fname=''):
+def _plot_2d(x, y, xlabel='', ylabel='', dist=0, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0, ax=0, \
+             scatter=0, hist=0, multip=0, xlim=0, ylim=0, fname='', cblabel=''):
     """
     Hidden method to plot the 2D distribution
     wall: set to 1 if wall needed to plot (i.e. RZ function)
@@ -166,11 +176,13 @@ def _plot_2d(x, y, xlabel, ylabel, dist=0, Id='', title='', wallxy=0, wallrz=0, 
 
     #Doing the actual plot
     if np.mean(scatter)!=0:
-        pp=ax.scatter(x, y, 40, c=scatter)
+        pp=ax.scatter(x, y, 40)#, c=scatter)
         #plt.colorbar(pp, ax=ax, orientation = or_cb)
     elif np.mean(dist)!=0:
         x,y = np.meshgrid(x,y)
-        CS  = ax.pcolor(x,y, dist, cmap=my_cmap)
+        CS  = ax.contourf(x,y, dist, 20,  cmap=my_cmap)
+        cbar = fig.colorbar(CS, ax=ax, orientation=or_cb, shrink=1)
+        cbar.ax.set_title(cblabel)       
     elif hist != 0:
         #range = [[-3.14, 3.14],[-3.14, 3.14]]
         # ax.hist2d(x, y, bins=100, range=range, cmap=my_cmap)

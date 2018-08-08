@@ -4,10 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import ticker, colors
 import collections
-import math
+import math, platform
 import h5py
 from mpl_toolkits.mplot3d import Axes3D
-from ascot_utils import _plot_2d, _plot_RZsurf
+from ascot_utils import _plot_2d, _plot_RZsurf, _plot_1d
 colours = ['k', 'g','b','r','c']
 styles = ['-','--','-.']
 
@@ -54,13 +54,13 @@ class particles:
         self.Rsurf, self.zsurf, self.RZsurf = _RZsurf(fname_surf)
         self.R_w, self.z_w = _readwall(self.device)
         try:
-            
             self.R0 = h5py.File(fname_surf)['misc/geomCentr_rz'][0]
             self.z0 = h5py.File(fname_surf)['misc/geomCentr_rz'][1]
         except:
             self.R0=0
             self.z0=0
             print("Impossible to read R0 and Z0")
+
     def _calc_weight(self):
         """
         hidden method to calculate the weight of the particles for each origin: in the inistate,
@@ -83,19 +83,47 @@ class particles:
             ind = self.data_e['origin'][:]==i
             self.w_e[ind_i] = sum(self.data_e['weight'][ind])  
             self.w[ind_i]  = self.w_i[ind_i]+self.w_e[ind_i]
+
+    def plot_histo_wall(self, ax=0):
+        """
+        Histogram of deposition to the wall
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        r = self.data_e['R'][ind]
+        z = self.data_e['z'][ind]
+        R0 = self.infile['misc/geomCentr_rz'][0]
+        try:
+            z0 = self.infile['misc/geomCentr_rz'][1]
+        except:
+            z0=0
+            print("z0 set to 0")
+
+        theta = np.arctan2(z-z0,r-R0)
+        phi = self.data_e['phi'][ind]
+        #wallrz= [self.R_w, self.z_w]
+        #energy = self.data_e['energy'][ind]*1e-3
+        _plot_2d(phi, theta, xlabel=r'$\phi$ [rad]',ylabel=r'$\theta$ [rad]', Id = self.id, hist=1, xlim=[-3.14, 3.14],ylim=[-3.14, 3.14])
+        ax=plt.gca()
+        r = self.data_i['R'][ind]
+        z = self.data_i['z'][ind]
+        theta = np.arctan2(z-z0,r-R0)
+        phi = self.data_i['phi'][ind]
+        #_plot_2d(phi, theta, xlabel='', ylabel='', ax=ax, scatter=1)
                                     
 class dat_particles(particles):
     """
     superClass (inherited from particles) handling dat files (e.g. input.particles, test_ascot.orbits.dat)
     """
-    def __init__(self, infile_n):
+    def __init__(self, infile_n, fname_surf=''):
         """
         READ ASCII FILE
         """
-        self._fname = infile_n       
-        self.infile = h5py.File('ascot_'+self.id+'.h5')
-        
-        particles.__init__(self)
+        self._fname = infile_n 
+        if fname_surf=='':
+            fname_surf = 'ascot_'+self.id+'.h5'
+
+        self.infile = h5py.File(fname_surf)
+        particles.__init__(self, fname_surf)
         in_f  = open(self._fname)
         lines = in_f.readlines()[3:]
         in_f.close()
@@ -158,8 +186,12 @@ class dat_particles(particles):
         print("FIELDS IN FILE ",self._fname," :")
         print(self.field)
         self.banana_orbit()
-        self.R, self.z, self.RZ = _RZsurf(self.id, 'ascot_'+self.id+'.h5')
 
+        #if fname_surf=='':
+        #    self.R, self.z, self.RZ = _RZsurf(fname_surf='ascot_'+self.id+'.h5')
+        #else:
+        #    self.R, self.z, self.RZ = _RZsurf(fname_surf)
+            
     def _compute_npart(self, line):
         """
         computes the number of particles if it is not possible to gather it from
@@ -188,22 +220,7 @@ class dat_particles(particles):
                 self.trappind[i]=1
         self._banana_dim()
 
-
-    def plot_histo_wall(self, ax=0):
-        """
-        Histogram of deposition to the wall
-        """
-        ind = np.where(self.data_e['endcond']== 3)[0] #wall
-        r = self.data_e['R'][ind]
-        z = self.data_e['z'][ind]
-        R0 = self.infile['misc/geomCentr_rz'][0]
-        z0 = self.infile['misc/geomCentr_rz'][1]
-        theta = np.arctan2(z-z0,r-R0)
-        phi = self.data_e['phi'][ind]
-        #wallrz= [self.R_w, self.z_w]
-        #energy = self.data_e['energy'][ind]*1e-3
-        _plot_2d(phi, theta, xlabel=r'$\phi$ [rad]',ylabel=r'$\theta$ [rad]', Id = self.id, hist=1, xlim=[-3.14, 3.14],ylim=[-3.14, 1.57])
-
+        
     def plot_orbit_wall(self, theta_f=0., phi_f=0.):
         """
         Chosen a position on the wall, gets the first ten particles which end there and plots their orbit
@@ -232,7 +249,7 @@ class dat_particles(particles):
         plt.scatter(phi_f, theta_f, 100, marker='*', c='r')
         f=plt.figure(figsize=(10,9))
         axtrajRZ = f.add_subplot(121)  
-        _plot_RZsurf(self.R,self.z,self.RZ,axtrajRZ)
+        _plot_RZsurf(self.Rsurf,self.zsurf,self.RZsurf,axtrajRZ)
 
         for ii in range(len(phi_f)):
             dist = np.sqrt((theta-theta_f[ii])**2+(phi-phi_f[ii])**2)
@@ -419,6 +436,7 @@ class dat_particles(particles):
             axtrajRZ = f.add_subplot(121)
         else:
             axtrajRZ = axRZ
+
         axtrajxy = f.add_subplot(122)
         axtrajRZ.scatter(self.data_i['R'][ind2plot], self.data_i['z'][ind2plot], 100, 'k', marker='*')
         axtrajRZ.plot(self.partdict[ind2plot]['R'], self.partdict[ind2plot]['z'], 'k:') 
@@ -552,8 +570,8 @@ class h5_particles(particles):
         self.data_e['phiprt']=self.data_e['phiprt']*math.pi/180.
         self.data_i['phi']=self.data_i['phi']*math.pi/180.
 
-        print("FIELDS IN FILE ",self._fname,", section inistate and ",self._endgroup," :")
-        print(list(self.field))
+        #print("FIELDS IN FILE ",self._fname,", section inistate and ",self._endgroup," :")
+        #print(list(self.field))
         
         # Swapping R and Rprt, since they are opposite to matlab
         self.data_e['R']   = self.data_e['Rprt']
@@ -561,7 +579,7 @@ class h5_particles(particles):
         self.data_e['phi'] = self.data_e['phiprt']
 
 
-    def plot_RZ(self, ax=0):
+    def plot_RZ(self, ax=0, shpart=0):
         """
         Method to plot R vs z of the ionised particles, useful mostly 
         with bbnbi
@@ -581,9 +599,18 @@ class h5_particles(particles):
         wallrz= [self.R_w, self.z_w]
         surf=[self.Rsurf, self.zsurf, self.RZsurf]
         _plot_2d(x, y, xlabel=xlab, ylabel=ylab, Id=self.id, title='RZ ionization',\
-                 wallrz=wallrz, surf=surf, ax=ax)
-          
-    def plot_XY(self, ax=0):
+                 wallrz=wallrz, surf=surf, ax=ax, xlim=[1.5,4.5])
+        if 'bbnbi' in self._fname and shpart!=0:
+            ax = plt.gca()
+            R = self.data_e['R']
+            ind = np.where(R<4.5)
+            R=R[ind]
+            phi = self.data_e['phi'][ind]
+            x,y = R*np.cos(phi), R*np.sin(phi)
+            z = self.data_e['z'][ind]
+            _plot_2d(R,z, scatter=1, ax=ax)
+
+    def plot_XY(self, ax=0, shpart=0):
         """
         Method to plot XY of ionisation, without difference between the beams
         """
@@ -613,6 +640,15 @@ class h5_particles(particles):
         
         _plot_2d(x, y, xlabel=xlab, ylabel=ylab, Id=self.id, title='XY Ionization',\
                  wallxy=wallxy, R0=R0, ax=ax)
+        if 'bbnbi' in self._fname and shpart!=0:
+            ax = plt.gca()
+            R = self.data_e['R']
+            ind = np.where(R<4.5)
+            R=R[ind]
+            phi = self.data_e['phi'][ind]
+            x,y = R*np.cos(phi), R*np.sin(phi)
+            z = self.data_e['z'][ind]
+            _plot_2d(x,y, scatter=1, ax=ax)
 
     def endcondition(self):
         """
@@ -710,7 +746,7 @@ class h5_particles(particles):
         x = r*np.cos(phi)
         y = r*np.sin(phi)
         ind_lt_r0 = r<R0
-#        plot_iniendstate(theta_f, phi_f, x,y,energy,wallrz, pitch,rho, ind_lt_r0,r,z)
+        self.plot_iniendstate(theta_f, phi_f, x,y,energy,wallrz, pitch,rho, ind_lt_r0,r,z)
 
         #==========================================================
         # Define enstate variables
@@ -728,7 +764,7 @@ class h5_particles(particles):
         x = r*np.cos(phi)
         y = r*np.sin(phi)
         
-#        plot_iniendstate(theta_f, phi_f, x,y,energy,wallrz, pitch,rho, ind_lt_r0,r,z)
+        self.plot_iniendstate(theta_f, phi_f, x,y,energy,wallrz, pitch,rho, ind_lt_r0,r,z)
 
         # particles born with R<R0:
         r = self.data_i['R'][ind_inistate]
@@ -736,6 +772,10 @@ class h5_particles(particles):
         r = self.data_i['R'][ind_inistate][ind_r0]
         plost_rltr0 = np.dot(self.data_e['energy'][ind_inistate][ind_r0],self.data_e['weight'][ind_inistate][ind_r0]) 
         self.plost_rltr0 = plost_rltr0*1.602e-19
+        try:
+            self.plost_w
+        except:
+            self.endcondition()
         self.plost_rgtr0 = self.plost_w-self.plost_rltr0
         print('PARTICLES WITH R<R0: {:d} = {:.2f} %'.format(len(r), float(len(r))/n_wall*100.))
         # z = self.data_i['z'][ind_inistate][ind_r0]
@@ -754,7 +794,7 @@ class h5_particles(particles):
         # _plot_1d([deltaE[~ind_lt_r0], deltaE[ind_lt_r0]], xlabel=r'$\Delta E$ [keV]', ylabel=r'# markers', Id=self.id, hist=1, ax=axdE, multip=1)    
 
 
-    def plot_iniendstate(theta_f, phi_f, x,y,energy,wallrz, pitch,rho, ind_lt_r0,r,z): 
+    def plot_iniendstate(self, theta_f, phi_f, x,y,energy,wallrz, pitch,rho, ind_lt_r0,r,z): 
         #==========================================================
         # PLOT OF STATE
         #==========================================================
@@ -774,7 +814,7 @@ class h5_particles(particles):
         _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, ax=axxy, multip=1, R0=self.R0)
         axep = fig.add_subplot(nrow,ncol,3)
         _plot_2d(energy, pitch, xlabel=r'E [keV]',ylabel=r'$\xi$', Id = self.id, hist=1, ax=axep, multip=1,\
-                 xlim=xlim, ylim=ylim)
+                 xlim=[0, 30], ylim=[-1.,1.])
         
         axrho = fig.add_subplot(nrow, ncol,4)
         _plot_1d([rho[~ind_lt_r0], rho[ind_lt_r0]], xlabel=r'$\rho$', ylabel=r'# markers', Id=self.id, hist=1, ax=axrho, multip=1)
@@ -796,20 +836,6 @@ class h5_particles(particles):
         plt.tight_layout()
         plt.subplots_adjust(top=0.95)
 
-    def plot_histo_wall(self, ax=0):
-        """
-        """
-        ind = np.where(self.data_e['endcond']== 3)[0] #wall
-        r = self.data_e['R'][ind]
-        z = self.data_e['z'][ind]
-        R0=self.infile['misc/geomCentr_rz'][0]
-        #z0 = self.infile['misc/geomCentr_rz'][1]
-        z0=self.z0
-        theta = np.arctan2(z-z0,r-R0)
-        phi = self.data_e['phi'][ind]
-        wallrz= [self.R_w, self.z_w]
-        energy = self.data_e['energy'][ind]*1e-3
-        _plot_2d(phi, theta, xlabel=r'$\phi$ [rad]',ylabel=r'$\theta$ [rad]', Id = self.id, hist=1, xlim=[-3.14, 3.14],ylim=[-3.14, 1.57])
 
     def plot_wall_losses(self, ax=0):
         """
@@ -965,17 +991,21 @@ class SA_iniend(h5_particles):
 
 
     def calc_shinethr(self):
-        """
+        """ Calculate shinethrough
+
         Method to calculate the shine-through with the weights
+
+        Parameters:
+            None
+        Returns:
+            None        
         """
         
         if self._endgroup != 'shinethr':
             print("WARNING! Check input file, which is ", self._fname)
             
         self._calc_weight()
-        self.shinethr=np.zeros((26), dtype=float)
-        self.shinethr_abs=np.zeros((26), dtype=float)
-        self.id2beamnum = \
+        id2beamnum = \
                           {\
                            '45':1 ,  '46':1,    '47':2,    '48':2,   \
                            '133':3,  '134':3,   '135':4,   '136':4,  \
@@ -985,7 +1015,10 @@ class SA_iniend(h5_particles):
                            '5253':13,'5254':13, '5255':14, '5256':14,\
                            '3031':99,'3032':101 \
                        }
-        for ind_i,i in enumerate(self.id2beamnum):
+        shinethr = dict.fromkeys(id2beamnum.keys())
+        shinethr_abs = dict.fromkeys(id2beamnum.keys())
+
+        for i in id2beamnum:
             ind = self.data_e['origin'][:]==int(i)
             if len(self.data_e['origin'][ind])==0:
                 w=0
@@ -1002,11 +1035,24 @@ class SA_iniend(h5_particles):
             e *= 1.612e-19
             w = np.sum(self.data_e['weight'][ind])
             #wtot = self.w[ind_i]
-        self.shinethr[ind_i]=float(e)*w/power
-        self.shinethr_abs[ind_i] = float(e)*w
+            shinethr[i]=float(e)*w/power
+            shinethr_abs[i] = float(e)*w
 
-
-
+        beamnum2id = \
+                     {'1':[45, 46],      '2':[47, 48],\
+                      '3':[133, 134],    '4':[135, 136],\
+                      '5':[221, 222],    '6':[223, 224],\
+                      '7':[309, 310],    '8':[311, 312],\
+                      '9':[3637, 3638],  '10':[3639, 3640],\
+                      '13':[5253, 5254], '14':[5255, 5256],\
+                      '99':[3031],       '101':[3032]}  
+        self.shinethr     = dict.fromkeys(beamnum2id.keys(), 0)
+        self.shinethr_abs = dict.fromkeys(beamnum2id.keys(), 0)
+        for i in beamnum2id:
+            for j in range(len(beamnum2id[i])):
+                self.shinethr[i]+=shinethr[str(beamnum2id[i][j])]
+                self.shinethr_abs[i]+=shinethr_abs[str(beamnum2id[i][j])]
+                
 class SA_orbits(dat_particles):
     def __init__(self, infile_n):
         self.device = 'JT60SA'
@@ -1153,10 +1199,10 @@ class SA_orbits(dat_particles):
             self.taucoll_i_mean[en_ind] = np.trapz(self.taucoll_i[en_ind,:], rho[rho<1.]) 
 
 class TCV_orbits(dat_particles):
-    def __init__(self, infile_n):
+    def __init__(self, infile_n, fname_surf=''):
         self.device = 'TCV'
         self.id = infile_n[-12:-4]
-        dat_particles.__init__(self, infile_n)	
+        dat_particles.__init__(self, infile_n, fname_surf=fname_surf)	
 
 class TCV_iniend(h5_particles):
     def __init__(self, infile_n):
@@ -1193,8 +1239,12 @@ def _readwall(device):
     if device == 'JT60SA':
         in_w_fname = '/home/vallar/ASCOT/runs/JT60SA/002/input.wall_2d'
     elif device == 'TCV':
-        in_w_fname = '/home/vallar/TCV/input.wall_2d_FW'
-    
+        cluster = platform.uname()[1]
+        if cluster[-7:] == 'epfl.ch':
+            in_w_fname = '/home/vallar/TCV/input.wall_2d_FW'
+        else:
+            in_w_fname = '/home/vallar/ASCOT/runs/TCV/57850/input.wall_2d'
+
     wall = np.loadtxt( in_w_fname, dtype=float, unpack=True, skiprows=1)
             
     R_w = wall[0,:]
@@ -1217,9 +1267,13 @@ def _RZsurf(fname_surf=''):
     RZsurf = -1.*f['bfield/2d/psi'].value
     Rsurf = f['bfield/r']
     zsurf = f['bfield/z']
-    edge = f['boozer/psiSepa'][:]; axis=f['boozer/psiAxis'][:]
+    try:
+        edge = f['boozer/psiSepa'][:]; axis=f['boozer/psiAxis'][:]
+    except:
+        edge=1; axis=0 
+    print('Psi edge : ', edge, ' Psi axis : ', axis)
     RZsurf = (RZsurf-axis)/(edge-axis)
-    RZsurf = np.sqrt(RZsurf)  
+    RZsurf = np.sqrt(RZsurf)   
     return Rsurf, zsurf, RZsurf
 	
 

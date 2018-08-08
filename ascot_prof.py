@@ -161,14 +161,18 @@ class profiles:
         # SET TEXT FONT AND SIZE
         #=====================================================================================
 #        plt.rc('linethick',2)
-        plt.rc('xtick', labelsize=15)
-        plt.rc('ytick', labelsize=15)
-        plt.rc('axes', labelsize=15)
+        plt.rc('font', weight='bold')
+        plt.rc('xtick', labelsize=20)
+        plt.rc('ytick', labelsize=20)
+        plt.rc('axes', labelsize=30, labelweight='normal', titlesize=24)
         plt.rc('figure', facecolor='white')
+        plt.rc('legend', fontsize=20)
+        
 
         #=====================================================================================
         if f==0:
-            fig=plt.figure(title)
+            w, h = plt.figaspect(0.8)
+            fig=plt.figure(title, figsize=(10,8))
             axte = fig.add_subplot(221)
             axne = fig.add_subplot(222, sharex=axte)
             axti = fig.add_subplot(223, sharey=axte)
@@ -227,7 +231,11 @@ class profiles:
                 axti.set_ylabel(r'$T_i$ [keV]')
                 axni.set_ylabel(r'$n_i$ [1/$m^3$]')
                 #axvt.set_ylabel(r'$V_{tor} [rad/s]$')
-       
+                plt.setp(axte.get_yticklabels()[0], visible=False) 
+                plt.setp(axne.get_yticklabels()[0], visible=False) 
+                plt.setp(axti.get_yticklabels()[0], visible=False) 
+                plt.setp(axni.get_yticklabels()[0], visible=False) 
+
                 fig.tight_layout() # Or equivalently,  "plt.tight_layout()"
         plt.show()
 
@@ -299,6 +307,7 @@ class profiles:
         """
         nD = self.ne_in*(6-self.zeff_in)/(5.)
         nC = self.ne_in*(self.zeff_in-1)/(30.)
+        nC[np.where(nC<0)]=0.
         print("nC/nD: "+str(np.mean(nC/nD)*100.)+" %")
         self.ni_in[0,:] = nD
         self.ni_in[1,:] = nC
@@ -790,7 +799,7 @@ class SA_datfiles(profiles):
         rho(TOR)	ne	te	ti	zeff	psupra	nsupra	Jtot	jboot	jnbi	jec
 
     """
-    def __init__(self, infile, nrho, nion, A, Z, shot):
+    def __init__(self, infile, nrho, nion, A, Z, shot, zeff=[0.]):
         profiles.__init__(self)
 
         self.A = A
@@ -815,7 +824,14 @@ class SA_datfiles(profiles):
         self.ne_in  = lines[1,:]
         self.te_in  = lines[2,:]
         self.ti_in  = lines[3,:]
-        self.zeff_in  = lines[4,:]
+        if zeff[0]==0:
+            self.zeff_in  = lines[4,:]
+        else:
+            if len(zeff)==1:
+                self.zeff_in = np.full(len(self.rho_in), zeff, dtype=float)
+            else:
+                p=interpolate.interp1d(np.linspace(0,1,len(zeff)),zeff)
+                self.zeff_in = p(self.rho_in)
         self.ni_in  = np.zeros((self.nion, len(self.rho_in)),dtype=float)
         self.vt_in = np.zeros(len(self.rho_in),dtype=float)
         self.ni = np.zeros((self.nion, self.nrho), dtype=float)
