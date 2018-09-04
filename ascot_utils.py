@@ -41,7 +41,7 @@ def common_style():
     plt.rc('figure', facecolor='white')
     plt.rc('legend', fontsize=20)
 
-def limit_labels(ax, xlabel, ylabel, title):
+def limit_labels(ax, xlabel='', ylabel='', title=''):
     """
     Limiting labels of the axis to 4 elements and setting grid
     """
@@ -61,7 +61,7 @@ def limit_labels(ax, xlabel, ylabel, title):
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
-    ax.grid('on')
+    ax.grid('on', alpha=0.6)
     #Removing first point of y-axis
     plt.setp(ax.get_yticklabels()[0], visible=False) 
 
@@ -114,7 +114,7 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, yli
     if fname !='':
         plt.savefig(fname, bbox_inches='tight', dpi=dpi)        
 
-def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='', label='',ax=0, hist=0, multip=0, fname=''):
+def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='', label='',ax=0, hist=0, multip=0, fname='', color=''):
     """
     Hidden method for 1D plotting
     """
@@ -132,7 +132,11 @@ def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='', label='',ax=0, hist=
         fig = plt.gcf()
         if multip==0:
             flag_label=0
-    ax.plot(x,y, lw=2.3, label=label)
+    if color=='':
+        ax.plot(x,y, lw=2.3, label=label)
+    else:
+        ax.plot(x,y, lw=2.3, label=label, color=color)
+        
     if hist!=0:
         ax.hist(x,bins=30)
 
@@ -159,7 +163,7 @@ def _plot_2d(x, y, xlabel='', ylabel='', dist=0, Id='', title='', wallxy=0, wall
             figsize=[6,7]
         # Defining figure and ax
         fig = plt.figure(figsize=figsize)
-        fig.text(0.01, 0.01, Id)
+        #fig.text(0.01, 0.01, Id)
         ax  = fig.add_subplot(111)
     else:
         ax=ax
@@ -180,9 +184,10 @@ def _plot_2d(x, y, xlabel='', ylabel='', dist=0, Id='', title='', wallxy=0, wall
         #plt.colorbar(pp, ax=ax, orientation = or_cb)
     elif np.mean(dist)!=0:
         x,y = np.meshgrid(x,y)
-        CS  = ax.contourf(x,y, dist, 20,  cmap=my_cmap)
+        CS  = ax.contourf(x,y, dist, 20,  cmap=my_cmap, pad=2)
         cbar = fig.colorbar(CS, ax=ax, orientation=or_cb, shrink=1)
-        cbar.ax.set_title(cblabel)       
+        cbar.ax.set_title(cblabel)     
+        plt.setp(cbar.ax.get_yticklabels()[-1], visible=False) 
     elif hist != 0:
         #range = [[-3.14, 3.14],[-3.14, 3.14]]
         # ax.hist2d(x, y, bins=100, range=range, cmap=my_cmap)
@@ -263,7 +268,26 @@ def _plot_pie(x, lab, Id='', title='', ax=0, fname=''):
         plt.savefig(fname, bbox_inches='tight', dpi=dpi)
 
 
-def _plot_RZsurf(R, z, RZ, ax):            
-    CS = ax.contour(R, z, RZ, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
-    plt.clabel(CS, inline=1, fontsize=10)
+def _plot_RZsurf(R, z, RZ, ax, surf=[0]):
+    if surf[0]==0:            
+    	CS = ax.contour(R, z, RZ, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
+        plt.clabel(CS, inline=1, fontsize=10)
+    else:
+    	CS = ax.contour(R, z, RZ, surf, colors='k')
+        plt.clabel(CS, inline=True, fontsize=10, manual=True)
     return
+
+
+def _cumulative_plot(x,y,labels, xlabel, ylabel, title):
+    common_style()
+    f  = plt.figure()
+    ax = f.add_subplot(111)
+    tmpy=np.zeros(len(x))
+    for i, el in enumerate(y):
+        tmpy+=el
+        ax.plot(x,tmpy, col[i], lw=2.5, label=labels[i])
+        ax.fill_between(x, tmpy, tmpy-el, color=col[i])
+            
+    limit_labels(ax, xlabel, ylabel)
+    f.text(0.01, 0.01, title)
+    plt.tight_layout()

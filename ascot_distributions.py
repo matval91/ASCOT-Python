@@ -1066,7 +1066,7 @@ class distribution_2d:
         except:
             self._integrate_Ep()
        
-        z = self.f_Ep_int
+        z = self.f_Ep_int*self.norm
         if 'R' in self.dict_dim and 'z' in self.dict_dim:
             x = self.dict_dim['R']
             y = self.dict_dim['z']
@@ -1200,7 +1200,7 @@ class distribution_2d:
 
         x = self.dict_dim['pitch']
         y = self.dict_dim['E']*1e-3/1.6e-19
-        z = self.f_space_int*1.6e-19*1e-14
+        z = self.f_space_int*1.6e-19*1e-14*self.norm
         
         _plot_2d(x, y, dist=z, xlabel=r'$\xi$', ylabel='E [keV]', ax=ax, Id=self.id, cblabel=r'$10^{14}$/keV', ylim=ylim)
 

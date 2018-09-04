@@ -4,7 +4,7 @@ import ascot_orbits
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from matplotlib import ticker
+from matplotlib import ticker, gridspec
 from ascot_utils import _plot_RZsurf
 
 col = ['k', 'r', 'b', 'g', 'm', 'c']
@@ -51,9 +51,11 @@ partdict = o.partdict[ind]
 o.plot_histo_wall()
 ax=plt.gca()
 #plot of rho, phi space
-f_rhopitch = plt.figure(figsize=(15,6))
-ax_rhopitch = f_rhopitch.add_subplot(121)
-ax_rz = f_rhopitch.add_subplot(122)
+f_rhopitch = plt.figure(figsize=(10,6))
+gs = gridspec.GridSpec(1, 2, width_ratios=[3, 1]) 
+ax0 = plt.subplot(gs[0])
+ax_rhopitch = plt.subplot(gs[0])
+ax_rz = plt.subplot(gs[1])
 
 #plot of orbit
 f_orb, ax_orb = plt.subplots(1,n_areas, figsize=(20,7), sharey=True, sharex=True)
@@ -107,13 +109,14 @@ for i in range(n_areas):
     #o._plot_trajectory(p2plot=p2plot, col=col[i])
 
 
+
 #==============================================
 # SET TICK LOCATION
 #==============================================
 # Create your ticker object with M ticks
-M = 5
+M = 3
 # tick positions with set_minor_locator.
-ax_rz.yaxis.set_major_locator(ticker.MaxNLocator(M))
+ax_rz.yaxis.set_major_locator(ticker.MaxNLocator(5))
 #ax.yaxis.set_minor_locator(yticks_m)
 ax_rz.xaxis.set_major_locator(ticker.MaxNLocator(M))
 #==============================================
@@ -138,4 +141,7 @@ plt.setp(ax_rhopitch.get_yticklabels()[0], visible=False)
 ax_orb[0].set_xlim([1.5, 4.5])
 f_rhopitch.tight_layout()
 f_orb.tight_layout()
+ax_rz.set_xlim([3.9, 4.2]); ax_rz.set_ylim([-1., 1.])
+#ax_rz.axis('equal')
+_plot_RZsurf(o.Rsurf, o.zsurf, o.RZsurf, ax_rz, surf=[0.9, 0.95, 1., 1.05])
 plt.show()

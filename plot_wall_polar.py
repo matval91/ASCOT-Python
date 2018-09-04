@@ -1,6 +1,13 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.ticker as ticker
 import numpy as np
+plt.rc('font', weight='bold')
+plt.rc('xtick', labelsize=20)
+plt.rc('ytick', labelsize=20)
+plt.rc('axes', labelsize=30, labelweight='normal', titlesize=24)
+plt.rc('figure', facecolor='white')
+plt.rc('legend', fontsize=20)
 
 wall = np.loadtxt('/home/vallar/JT60-SA/PARETI_2D_SA/2D_div.txt')
 R_w = wall[:,0]
@@ -30,5 +37,17 @@ ax.text(4.4, -1.4, r'$\phi$', fontsize=48, color='b')
 
 ax.axvline(2.96, c='k', ls='--', lw=2.3)
 ax.plot(ax.get_xlim(), [0, 0], c='k', ls='--', lw=2.3)
+#ax.grid('on', alpha=0.6)
+
+# Create your ticker object with M ticks
+M = 5
+yticks = ticker.MaxNLocator(M)
+xticks = ticker.MaxNLocator(M)
+# tick positions with set_minor_locator.
+ax.yaxis.set_major_locator(yticks)
+#ax.yaxis.set_minor_locator(yticks_m)
+ax.xaxis.set_major_locator(xticks)
+#==============================================
+
 f.tight_layout()
 plt.show()

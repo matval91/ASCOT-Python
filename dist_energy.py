@@ -169,9 +169,9 @@ for i, el in enumerate(['j','pr']):
             ylim=[0,200]
     else:
         ylim=0
-    #plot_article(3,data, data_labels=data_labels,xlabel=r'$\mathbf{\rho}$', ylabel=ylab[i], ylim=ylim)
+    plot_article(3,data, data_labels=data_labels,xlabel=r'$\mathbf{\rho}$', ylabel=ylab[i], ylim=ylim)
 
-if 1<2:
+if 1>2:
 	f=plt.figure(); ax=f.add_subplot(211); ax2=f.add_subplot(212)
         if shot==4:
             E=[220,400,500]

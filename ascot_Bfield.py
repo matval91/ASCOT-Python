@@ -186,7 +186,7 @@ class Bfield_ascot:
         #============================================
         if f==0:
             f = plt.figure(figsize=(20, 8))
-            f.text(0.01, 0.01, self.infile_n)
+            #f.text(0.01, 0.01, self.infile_n)
             ax2d = f.add_subplot(131)
             axq = f.add_subplot(132)
             axf = f.add_subplot(133)
@@ -221,9 +221,9 @@ class Bfield_ascot:
         ax2d.xaxis.set_major_locator(xticks)
 
         axq = f.add_subplot(132)
-        axq.plot(self.rho, self.vardict['q'], lw=2.3, color='k')
+        axq.plot(self.rho, np.abs(self.vardict['q']), lw=2.3, color='k')
         axq.set_xlabel(r'$\rho_{POL}$')
-        axq.set_ylabel(r'q'); axq.set_ylim([-8, -0])
+        axq.set_ylabel(r'q'); axq.set_ylim([0,4])
         axq.grid('on')
         M = 4
         yticks = ticker.MaxNLocator(M)

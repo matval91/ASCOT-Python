@@ -209,7 +209,7 @@ class dat_particles(particles):
                 self.trappind[i]=1
         self._banana_dim()
 
-    def plot_random_orbit(self, npart=20):
+    def plot_random_orbit(self, npart=20, ind=[0]):
         """ Plots orbit of some random particles
         
         Initialises some random particles and plots their orbits, just to check what's happening
@@ -221,15 +221,26 @@ class dat_particles(particles):
         """
         f, axtrajxy, axtrajRZ = self._initialize_figure_ptcls_2d()
         f3d, ax3d = self._initialize_figure_ptcls_3d()
-        for ii in range(npart):
-            ind2plot = random.randint(0, self.npart)
-            p2plot = self.partdict[ind2plot]
-            #actual plot
-            self._plot_trajectory(p2plot=p2plot, f=f, axRZ=axtrajRZ, axxy=axtrajxy)
-            self._plot_3d_trajectory(p2plot=p2plot, ax=ax3d)
-        axtrajxy.set_xlim([-max(self.R_w), max(self.R_w)])
-        axtrajRZ.set_xlim([min(self.R_w)*0.9, max(self.R_w)*1.1])
-        
+        if npart!=0:
+            for ii in range(npart):
+                ind2plot = random.randint(0, self.npart)
+                p2plot = self.partdict[ind2plot]
+                #actual plot
+                self._plot_trajectory(p2plot=p2plot, f=f, axRZ=axtrajRZ, axxy=axtrajxy)
+                self._plot_3d_trajectory(p2plot=p2plot, ax=ax3d)
+            axtrajxy.set_xlim([-max(self.R_w), max(self.R_w)])
+            axtrajRZ.set_xlim([min(self.R_w)*0.9, max(self.R_w)*1.1])
+        else:
+            col=['r','g','b','m','c']
+            for ii in range(len(ind)):
+                ind2plot = ind[ii]
+                p2plot = self.partdict[ind2plot]
+                #actual plot
+                self._plot_trajectory(p2plot=p2plot, f=f, axRZ=axtrajRZ, axxy=axtrajxy, col=col[ii])
+                self._plot_3d_trajectory(p2plot=p2plot, ax=ax3d,col=col[ii])
+            axtrajxy.set_xlim([-max(self.R_w), max(self.R_w)])
+            axtrajRZ.set_xlim([min(self.R_w)*0.9, max(self.R_w)*1.1])  
+          
     def plot_orbit_wall(self, theta_f=0., phi_f=0., npart=20):
         """
         Chosen a position on the wall, gets the first ten particles which end there and plots their orbit
@@ -464,7 +475,7 @@ class dat_particles(particles):
         axtrajxy = f.add_subplot(gs[1])
         #plots RZ wall and surfaces
         _plot_RZsurf(self.Rsurf, self.zsurf, self.RZsurf, axtrajRZ)
-        axtrajRZ.plot(self.R_w, self.z_w, 'k')
+        axtrajRZ.plot(self.R_w, self.z_w, 'k', lw=2.5)
         # plots magnetic axis
         circle1 = plt.Circle((0, 0), self.R0, color='r', fill=False, linestyle='--', linewidth=3.)      
         axtrajxy.add_artist(circle1)
@@ -486,7 +497,7 @@ class dat_particles(particles):
         f3d=plt.figure(figsize=(15,9))
         ax3d = f3d.add_subplot(111, projection='3d')
         #plot 3d tokamak 
-        phi_tt = np.arange(0,2.02*np.pi,0.02*np.pi)
+        phi_tt = np.arange(0.*np.pi,2.02*np.pi,0.02*np.pi)
         the_tt = phi_tt
         x_tok = np.zeros((len(phi_tt),len(self.R_w)),dtype=float)
         y_tok = np.zeros((len(phi_tt),len(self.R_w)),dtype=float)
@@ -494,7 +505,7 @@ class dat_particles(particles):
             x_tok[:,i] = R*np.cos(phi_tt)
             y_tok[:,i] = R*np.sin(phi_tt)
         z_tok = self.z_w
-        ax3d.plot_surface(x_tok,y_tok,z_tok,color='k',alpha=0.2)
+        ax3d.plot_surface(x_tok,y_tok,z_tok,color='k',alpha=0.15)
 
         return f3d, ax3d
 
@@ -547,7 +558,7 @@ class dat_particles(particles):
         axtrajxy.plot(x,y, c=col, linestyle='-', lw=2.3)
         axtrajxy.scatter(xe, ye, 100,'r', marker='*')        
 
-    def _plot_3d_trajectory(self, p2plot=0, ax=0):
+    def _plot_3d_trajectory(self, p2plot=0, ax=0, col='k'):
         """
         Plots trajectory of one single particle in 3D
         """
@@ -570,7 +581,7 @@ class dat_particles(particles):
             ##3D plot
             #TOKAMAK
             #shape of tokamak
-            phi = np.arange(0,2.02*np.pi,0.02*np.pi)
+            phi_tt = np.arange(0.*np.pi,2.02*np.pi,0.02*np.pi)
             the = phi
             x_tok = np.zeros((len(phi),len(self.R_w)),dtype=float)
             y_tok = np.zeros((len(phi),len(self.R_w)),dtype=float)
@@ -578,7 +589,7 @@ class dat_particles(particles):
                 x_tok[:,i] = R*np.cos(phi)
                 y_tok[:,i] = R*np.sin(phi)
             z_tok = self.z_w
-            ax3d.plot_surface(x_tok,y_tok,z_tok,color='k',alpha=0.2)
+            ax3d.plot_surface(x_tok,y_tok,z_tok,color='k',alpha=0.15)
 
         else:
             ax3d=ax
@@ -601,10 +612,15 @@ class dat_particles(particles):
         R,z = self.partdict[ind2plot]['R'], self.partdict[ind2plot]['z']
         phi = self.partdict[ind2plot]['phi']
         x, y = R*np.cos(phi), R*np.sin(phi)
-        ax3d.plot(x,y, zs=z, c='k', linestyle=':')
+        ax3d.plot(x,y, zs=z, c=col, linestyle='-', lw=2.5)
 
-        ax3d.set_xlabel('X [m]'); ax3d.set_ylabel('Y [m]');
-        ax3d.set_zlabel('Z [m]');
+        ax3d.set_xticklabels([''])
+        ax3d.set_yticklabels([''])
+        ax3d.set_zticklabels([''])
+
+        ax3d.set_xlabel('X'); ax3d.set_ylabel('Y');
+        ax3d.set_zlabel('Z');
+        plt.axis('off')
         plt.show()
 
 

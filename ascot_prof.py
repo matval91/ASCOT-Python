@@ -130,6 +130,28 @@ class profiles:
         #outfile.close()
 
 
+    def compute_average(self):
+        """compute averages
+        
+        
+        
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        ind = self.rho<=1.
+        vol = self._spline(self._rho_vol, self._volumes, self.rho[ind])
+        ne_avg = np.trapz(self.ne[ind]*vol)
+        ne_avg /= np.sum(vol)
+        te_avg = np.trapz(self.te[ind]*vol)
+        te_avg /= np.sum(vol)
+
+        print('average ne (10e20 m-3): ', ne_avg*1.e-20)
+        print('average te (      keV): ', te_avg*1.e-3)
+        
+
     def _plot_time(self, tit):
         """function to plot with title
 
@@ -184,7 +206,7 @@ class profiles:
             axti = fig.axes[2]
             axni = fig.axes[3]
         #axvt = fig.add_subplot(325)
-        lw=2.
+        lw=4
         axte.plot(self.rho, self.te*1e-3,'k', linewidth=lw)
         axne.plot(self.rho, self.ne,'k', linewidth=lw)
         axti.plot(self.rho, self.ti*1e-3,'k', linewidth=lw)
@@ -223,7 +245,7 @@ class profiles:
                 ax.yaxis.set_major_locator(yticks)
                 ax.xaxis.set_major_locator(xticks)
                 #=====================================================================================
-                ax.grid('on')
+                ax.grid('on', alpha=0.6)
 
 
                 axte.set_ylabel(r'$T_e$ [keV]')
@@ -399,7 +421,8 @@ class h5_profiles(profiles):
         
 
         self.rho_in = vardict['rho']
-
+        self._rho_vol = infile['distributions/rhoDist/abscissae/dim1'].value[1:]
+        self._volumes = infile['distributions/rhoDist/shellVolume'].value
         self.nrho_in = np.size(self.rho_in)
 
         if vardict['a_ions'][0]!='/':
