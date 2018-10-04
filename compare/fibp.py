@@ -7,17 +7,17 @@ from matplotlib import ticker
 import math
 
 colors=['b','r','g','k','c','m']
+col_RGB = np.array([[0, 0, 255], [255, 0, 0], [0, 255, 0], [0,0,0]])
 colors_style=['b--','r--','g--','k--','c--','m--']
 
-plt.rc('font', family='serif', serif='Palatino')
-plt.rc('text', usetex=True)
+plt.rc('font', weight='normal')
 plt.rc('xtick', labelsize=20)
 plt.rc('ytick', labelsize=20)
-plt.rc('axes', labelsize=20)
-lw=2 #line width for plots
+plt.rc('axes', labelsize=30, labelweight='normal', titlesize=24)
+plt.rc('figure', facecolor='white')
+plt.rc('legend', fontsize=20)
 
-
-
+lw=2.3 #line width for plots
 
 
 # Data should be in the format [rho, fibp0, fibp1,...] with one line of header
@@ -26,7 +26,7 @@ infile=open('fibp_comp.dat')
 lines=infile.readlines()
 head=lines[0]
 labels=head.split()[2:]
-labels=['$10^{5}$ ptcls','$2 x 10^{5}$ ptcls','$5 x 10^{5}$ ptcls','$10^{6}$ ptcls']
+labels=[r'$10^{5}$ ptcls',r'$2 \times 10^{5}$ ptcls',r'$5 \times 10^{5}$ ptcls',r'$10^{6}$ ptcls']
 infile.close()
 
 #data=np.transpose(data)
@@ -60,8 +60,8 @@ error_fit=np.poly1d(tmp)
 
 
 #PLOTS
-fig=plt.figure()
-ax=fig.add_subplot(111)
+f  = plt.figure()
+ax = f.add_subplot(111)
 for i in range(n_fibp):
     ax.plot(rho[2:-5], fibp[i,2:-5], colors[i], label=labels[i], linewidth=lw)
     ax.plot(rho[5:-10], polyval[i](rho[5:-10]), colors_style[i], linewidth=lw)
@@ -78,23 +78,34 @@ ax.yaxis.set_major_locator(yticks)
 ax.xaxis.set_major_locator(xticks)
 plt.legend(loc='best')
 
-a = plt.axes([0.65, 0.175, .2, .2])#, facecolor='y')
+plt.rc('font', weight='normal')
+plt.rc('axes', labelsize=15, labelweight='normal', titlesize=24)
+a = plt.axes([0.65, 0.275, .2, .2])#, facecolor='y')
 #a.plot(nptcls, RMS2,'o')
 #a.plot(nptcls, error_fit(nptcls),'k-')
-a.plot(np.log(nptcls), np.log(RMS),'o')
+for i in range(len(nptcls)):
+    a.plot(np.log(nptcls[i]), np.log(RMS[i]),'o', c=col_RGB[i]/255.)
 a.plot(np.log(nptcls), error_fit(np.log(nptcls)),'k-')
 #a.plot(np.log(x_fun), np.log(map(f,x_fun)),'k-')
 
 #a.set_xscale('log')
 #a.set_yscale('log')
-plt.title('ERROR (log scale)')
 #plt.xlim(0.5e5,1.05e6)
 #plt.ylim(0,1e18)
-plt.xlabel('Particles')
-plt.xticks([])
-plt.yticks([])
-
-
-
+a.set_xlabel('N. markers'); a.set_ylabel(r'$\sigma$ (log scale)')
+M = 4
+yticks = ticker.MaxNLocator(M)
+xticks = ticker.MaxNLocator(M)
+# Set the yaxis major locator using your ticker object. You can also choose the minor
+# tick positions with set_minor_locator.
+a.yaxis.set_major_locator(yticks)
+#ax.yaxis.set_minor_locator(yticks_m)
+a.xaxis.set_major_locator(xticks)
+a.xaxis.grid(which="major")
+a.set_yticklabels([])
+a.set_xticks(np.log([1e5, 2e5, 5e5, 1e6]))
+a.set_xticklabels([r'$10^5$', r'$2\times 10^5$',r'$5\times 10^5$',r'$10^6$'], fontsize=12)
+ax.grid('on')
+plt.tight_layout()
 plt.show()
 plt.legend(loc='best')

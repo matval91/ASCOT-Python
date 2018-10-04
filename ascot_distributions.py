@@ -1342,9 +1342,9 @@ class distribution_2d:
             except:
                 self._integrate_spacep()
                 
-            self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
+            #self.norm = np.trapz(self.f_spacep_int, self.dict_dim['E'])
             #print "NORM = ", self.norm
-            #self.norm=1
+            self.norm=1
         elif "mu" in self.dict_dim:
             try:
                 self.f_spacemu_int()

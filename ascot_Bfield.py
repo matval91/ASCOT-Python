@@ -14,6 +14,7 @@ from scipy.interpolate import griddata
 import scipy.optimize
 import scipy.interpolate as interp
 import scipy.io as sio
+from ascot_utils import common_style
 
 class Bfield_ascot:
     """ Handles Bfield store in h5 file
@@ -161,6 +162,35 @@ class Bfield_ascot:
                     'rmin','rmax','zmin','zmax']:
             print(key, " ", self.sanitydict[key])
             
+
+    def _plot_2dpsi(self,ax):
+        """
+        
+        """
+        edge = self.infile['boozer/psiSepa'][:]; axis=self.infile['boozer/psiAxis'][:]
+        edge = self.sanitydict['psiAtSeparatrix']; axis=self.sanitydict['psiAtAxis']
+
+        yplot = self.vardict['psi_2D'][:]
+        r,z = self.vardict['r'], self.vardict['z']
+
+        #ax.set_title('Poloidal flux')
+        CS = ax.contour(r,z,yplot, 30)
+        ax.contour(r,z,yplot,[-edge], colors='k', linewidths=2.5, linestyles='--')
+        ax.set_xlabel("R [m]")
+        ax.set_ylabel("Z [m]")
+        #CB = plt.colorbar(CS)
+        if self.R_w[0]!=0:
+            ax.plot(self.R_w, self.z_w, 'k',linewidth=2.5)
+        ax.axis('equal')
+        ax.grid('on')
+        plt.setp(ax.get_yticklabels()[0], visible=False) 
+        M = 4
+        yticks = ticker.MaxNLocator(M)
+        xticks = ticker.MaxNLocator(M)
+        # tick positions with set_minor_locator.
+        ax.yaxis.set_major_locator(yticks)
+        #ax.yaxis.set_minor_locator(yticks_m)
+        ax.xaxis.set_major_locator(xticks)
     def checkplot(self, f=0):
         """Plots psi_2D, q, Bphi
         
@@ -176,14 +206,9 @@ class Bfield_ascot:
             self.sanitydict['psiAtSeparatrix']
         except:
             self._sanitycheck()
-        #============================================
-        # SET TEXT FONT AND SIZE
-        #============================================
-        plt.rc('xtick', labelsize=20)
-        plt.rc('ytick', labelsize=20)
-        plt.rc('axes', labelsize=20)
-        plt.rc('figure', facecolor='white')
-        #============================================
+
+        common_style()
+
         if f==0:
             f = plt.figure(figsize=(20, 8))
             #f.text(0.01, 0.01, self.infile_n)
@@ -196,22 +221,10 @@ class Bfield_ascot:
             axq  = f.axes[2]
             axf  = f.axes[3]
             plt.rc('lines', linestyle='--')
-        edge = self.infile['boozer/psiSepa'][:]; axis=self.infile['boozer/psiAxis'][:]
-        edge = self.sanitydict['psiAtSeparatrix']; axis=self.sanitydict['psiAtAxis']
-        print(edge)
         ax2d = f.add_subplot(131)
-        ax2d.set_title('Poloidal flux')
-        yplot = self.vardict['psi_2D'][:]
-        r,z = self.vardict['r'], self.vardict['z']
-        CS = ax2d.contour(r,z,yplot, 30)
-        ax2d.contour(r,z,yplot,[-edge], colors='k', linewidths=2.5, linestyles='--')
-        ax2d.set_xlabel("R [m]")
-        ax2d.set_ylabel("Z [m]")
-        CB = plt.colorbar(CS)
-        if self.R_w[0]!=0:
-            ax2d.plot(self.R_w, self.z_w, 'k',linewidth=2.5)
-        ax2d.axis('equal')
-        ax2d.grid('on')
+
+        self._plot_2dpsi(ax2d)
+
         M = 4
         yticks = ticker.MaxNLocator(M)
         xticks = ticker.MaxNLocator(M)
@@ -223,7 +236,7 @@ class Bfield_ascot:
         axq = f.add_subplot(132)
         axq.plot(self.rho, np.abs(self.vardict['q']), lw=2.3, color='k')
         axq.set_xlabel(r'$\rho_{POL}$')
-        axq.set_ylabel(r'q'); axq.set_ylim([0,4])
+        axq.set_ylabel(r'q'); axq.set_ylim([0,6])
         axq.grid('on')
         M = 4
         yticks = ticker.MaxNLocator(M)
@@ -242,7 +255,6 @@ class Bfield_ascot:
 
         plt.setp(axq.get_yticklabels()[0], visible=False) 
         plt.setp(axf.get_yticklabels()[0], visible=False) 
-        plt.setp(ax2d.get_yticklabels()[0], visible=False) 
         M = 4
         yticks = ticker.MaxNLocator(M)
         xticks = ticker.MaxNLocator(M)
@@ -715,8 +727,8 @@ class Bfield_eqdsk:
         #R_temp = np.linspace(float(np.around(np.min(self.R_w), decimals=2)), float(np.around(np.max(self.R_w), decimals=2)), self.nR)
         #z_temp = np.linspace(float(np.around(np.min(self.z_w), decimals=2)), float(np.around(np.max(self.z_w), decimals=2)), self.nz)
 
-        #psitemp = self.psi_coeff(z_temp, R_temp)
-        psitemp = self.psi_coeff(R_temp, z_temp)
+        psitemp = self.psi_coeff(z_temp, R_temp)
+        #psitemp = self.psi_coeff(R_temp, z_temp)
 
         bphitemp = self.param_bphi(R_temp, z_temp)
 

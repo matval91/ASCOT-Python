@@ -7,7 +7,7 @@ import collections
 import math, platform
 import h5py, random
 from mpl_toolkits.mplot3d import Axes3D
-from ascot_utils import _plot_2d, _plot_RZsurf, _plot_1d
+from ascot_utils import _plot_2d, _plot_RZsurf, _plot_1d, limit_labels
 
 
 
@@ -231,7 +231,7 @@ class dat_particles(particles):
             axtrajxy.set_xlim([-max(self.R_w), max(self.R_w)])
             axtrajRZ.set_xlim([min(self.R_w)*0.9, max(self.R_w)*1.1])
         else:
-            col=['r','g','b','m','c']
+            col=['k', 'r','g','b','m','c']
             for ii in range(len(ind)):
                 ind2plot = ind[ii]
                 p2plot = self.partdict[ind2plot]
@@ -488,8 +488,8 @@ class dat_particles(particles):
         axtrajRZ.axis('equal'); axtrajxy.axis('equal')
         axtrajxy.set_xlim([-max(self.R_w), max(self.R_w)])
         axtrajRZ.set_xlim([min(self.R_w), max(self.R_w)])
-        axtrajRZ.set_xlabel(r'R (m)'); axtrajRZ.set_ylabel(r'z (m)')
-        axtrajxy.grid('on'); axtrajRZ.grid('on')
+        limit_labels(axtrajRZ, r'R (m)', r'Z (m)', M=4)
+        axtrajxy.grid('on')
         return f, axtrajxy, axtrajRZ
         
     def _initialize_figure_ptcls_3d(self):
@@ -714,9 +714,9 @@ class SA_orbits(dat_particles):
         num_thir = len(np.where(e<30000)[0])
         num_tot = num_full+num_half+num_thir
         f = plt.figure()
-        f.suptitle(self.id)
+        #f.suptitle(self.id)
         ax = f.add_subplot(111)
-        f.text(0.01, 0.95, str(float(self.ntrapp)/self.npart))
+        #f.text(0.01, 0.95, str(float(self.ntrapp)/self.npart))
         x = [85000./3.,85000./2.,85000.]
         x = [0.33-width/2., 0.66-width/2., 1.-width/2.]
         y = [float(num_t_thir)/num_thir, float(num_t_half)/num_half, float(num_t_full)/num_full]
@@ -731,7 +731,7 @@ class SA_orbits(dat_particles):
         ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1.])
         
         for i in range(3):
-            ax.text(x[i]-0.03, y1[i]+0.05, '{:.1f} %'.format(y[i]*100.), color='r')
+            ax.text(x[i]-0.01, y1[i]+0.05, '{:.1f} %'.format(y[i]*100.), color='r', fontsize=30)
 
         ax.legend(loc='best')
         ax.set_ylabel(r'Fraction to total number')

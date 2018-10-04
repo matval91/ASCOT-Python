@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import ticker, colors
+from matplotlib import ticker, colors, patches
 import collections
 import math, platform
 import h5py
@@ -84,7 +84,7 @@ class particles:
             self.w_e[ind_i] = sum(self.data_e['weight'][ind])  
             self.w[ind_i]  = self.w_i[ind_i]+self.w_e[ind_i]
 
-    def plot_histo_wall(self, ax=0):
+    def plot_histo_wall(self, ax=0, lastpoint=1):
         """
         Histogram of deposition to the wall
         """
@@ -102,7 +102,19 @@ class particles:
         phi = self.data_e['phi'][ind]
         #wallrz= [self.R_w, self.z_w]
         #energy = self.data_e['energy'][ind]*1e-3
-        _plot_2d(phi, theta, xlabel=r'$\phi$ [rad]',ylabel=r'$\theta$ [rad]', Id = self.id, hist=1, xlim=[-3.14, 3.14],ylim=[-3.14, 3.14])
+        angles_ticks=[-3.14, -1.57, 0., 1.57, 3.14]
+        angles_labels=[r'-$\pi$',r'-$\pi/2$',r'0',r'$\pi/2$',r'$\pi$']
+        _plot_2d(phi, theta, xlabel=r'$\phi$ [rad]',ylabel=r'$\theta$ [rad]', Id = self.id, hist=1, xlim=[-3.14, 3.14],ylim=[-3.14, 3.14], cblabel='# markers', lastpoint=lastpoint)
+        ax=plt.gca()
+        ax.set_xticks(angles_ticks); ax.set_xticklabels(angles_labels)
+        ax.set_yticks(angles_ticks); ax.set_yticklabels(angles_labels)
+
+        _plot_1d(theta, xlabel=r'$\theta$ [rad]', hist=1)
+        ax=plt.gca()
+        ax.set_xticks(angles_ticks); ax.set_xticklabels(angles_labels)
+        _plot_1d(phi, xlabel=r'$\phi$ [rad]', hist=1)
+        ax=plt.gca()
+        ax.set_xticks(angles_ticks); ax.set_xticklabels(angles_labels)
         ax=plt.gca()
         r = self.data_i['R'][ind]
         z = self.data_i['z'][ind]
@@ -599,7 +611,9 @@ class h5_particles(particles):
         wallrz= [self.R_w, self.z_w]
         surf=[self.Rsurf, self.zsurf, self.RZsurf]
         _plot_2d(x, y, xlabel=xlab, ylabel=ylab, Id=self.id, title='RZ ionization',\
-                 wallrz=wallrz, surf=surf, ax=ax, xlim=[1.5,4.5])
+                 wallrz=wallrz, surf=surf, ax=ax, xlim=self.xlim, scatter=1)
+
+
         if 'bbnbi' in self._fname and shpart!=0:
             ax = plt.gca()
             R = self.data_e['R']
@@ -850,7 +864,108 @@ class h5_particles(particles):
 
         _plot_2d(r,z, 'R [m]', 'z [m]', scatter=energy, Id=self.id, wallrz=wallrz, surf=[self.Rsurf, self.zsurf, self.RZsurf], ax=ax)
         
-    def maxrho_histo(self):
+
+    def plot_histo_rho(self):
+        """Plot initial rho of lost particles
+        """
+        try:
+            self.R_w.mean()
+        except:
+            self._readwall() 
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        x = self.data_i['rho'][ind]
+        _plot_1d(x, xlabel=r'$\rho$', ylabel=r'# markers', hist=1, ylim=[0, 2500])
+        ax=plt.gca()
+        ax.axvline(1.,color='k', lw=2.3)
+
+    def plot_histo_R(self, max_mark=500):
+        """Plot initial R of lost particles
+        """
+        try:
+            self.R_w.mean()
+        except:
+            self._readwall() 
+
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        x = self.data_i['R'][ind]
+        _plot_1d(x, xlabel=r'R [m]', ylabel=r'# markers', hist=1, ylim=[0, max_mark], color='b')
+        ax=plt.gca()
+        ax.axvline(self.R0,color='k', lw=2.3)
+        rect = patches.Rectangle((max(self.R_w),0),0.05,ax.get_ylim()[-1],edgecolor='k',facecolor='k')
+        ax.add_patch(rect)
+        rect = patches.Rectangle((min(self.R_w)-0.05,0),0.05,ax.get_ylim()[-1],edgecolor='k',facecolor='k')
+        ax.add_patch(rect)
+        ax.set_xlim([min(self.R_w)-0.05, max(self.R_w)+0.05])
+
+
+    def plot_histo_z(self):
+        """Plot initial z of lost particles
+        """
+        try:
+            self.R_w.mean()
+        except:
+            self._readwall() 
+
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        x = self.data_i['z'][ind]
+        _plot_1d(x, xlabel=r'z [m]', ylabel=r'# markers', hist=1, ylim=[0, 1500])
+        ax=plt.gca()
+        ax.axvline(self.z0,color='k', lw=2.3)
+
+    def plot_histo_E(self, max_mark=500):
+        """Plot initial E of lost particles
+        """
+        try:
+            self.R_w.mean()
+        except:
+            self._readwall() 
+
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        x_final = self.data_e['energy'][ind]*1e-3
+        x_initial = self.data_i['energy'][ind]*1e-3
+        x = x_initial-x_final
+        _plot_1d(x, xlabel=r'$\Delta E$ [keV]', ylabel=r'# markers', hist=1, ylim=[0, max_mark])
+
+    def plot_histo_initial_Emax(self, dE=0.5, max_mark=500):
+        """Plot initial R of lost particles
+        """
+        try:
+            self.R_w.mean()
+        except:
+            self._readwall() 
+
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        num_wall=np.size(ind)
+        x_final = self.data_e['energy'][ind]*1e-3
+        x_initial = self.data_i['energy'][ind]*1e-3
+        deltaE = x_initial-x_final
+        ind_minE = np.where(deltaE<dE)
+        num_OL= float(np.size(ind_minE))
+        self.plot_histo_E(max_mark=max_mark)
+        ax=plt.gca()
+        ax.axvline(dE, color='r', lw=2.3, linestyle='--')
+        ax.text(-3, 0.86*max_mark, 'FOL \n{:2.1f}%'.format(num_OL*100./num_wall), color='r', fontsize=20)
+        ax.text(4, 0.86*max_mark, 'DOL \n', color='b', fontsize=20)
+
+        x = self.data_i['R'][ind[ind_minE]]
+        #x = self.data_i['z'][ind[ind_minE]]
+        self.plot_histo_R(max_mark=max_mark)
+        ax=plt.gca()
+        _plot_1d(x, hist=1, ax=ax, color='r')
+        ax.axvline(min(self.R_w),color='k', lw=2.3)
+        ax.axvline(max(self.R_w),color='k', lw=2.3)
+
+        legend_elements = [patches.Patch(facecolor='b', edgecolor='b',
+                                         label=r'$\Delta E>{:.1f} keV$ | {:.1f}%'.format(dE, (1.-num_OL/num_wall)*100.)),
+
+                           patches.Patch(facecolor='r', edgecolor='r',
+                                         label=r'$\Delta E<{:.1f} keV$ | {:.1f}%'.format(dE, num_OL/num_wall*100.))]
+
+        ax.legend(handles=legend_elements, loc='upper right')
+
+
+
+    def plot_maxrho_histo(self):
         """
         Histogram with final theta position, pitch, energy and 2D plot of the particle velocity
         """
@@ -878,12 +993,12 @@ class h5_particles(particles):
         
         
         #plt.close('all')
-#        plt.figure(); plt.hist(pitch, bins=20); plt.xlabel('Pitch'); plt.ylabel('Number of particles')
-#        plt.figure(); plt.hist(energy, bins=30); plt.xlabel('Energy'); plt.ylabel('Number of particles')
-##        plt.figure(); plt.hist(vr*1e-3, bins=20); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel('Number of particles')
-##        plt.figure(); plt.hist(vz*1e-3, bins=20); plt.xlabel(r'$v_z$ [km/s]'); plt.ylabel('Number of particles')
-#        plt.figure(); plt.hist(phi, bins=20); plt.xlabel('Phi (toroidal angle)'); plt.ylabel('Number of particles')
-#        plt.figure(); plt.hist(theta, bins=20); plt.xlabel('theta (poloidal angle)'); plt.ylabel('Number of particles')
+        plt.figure(); plt.hist(pitchi, bins=20); plt.xlabel('Pitch'); plt.ylabel('Number of particles')
+        plt.figure(); plt.hist(energyi, bins=30); plt.xlabel('Energy'); plt.ylabel('Number of particles')
+        plt.figure(); plt.hist(vr*1e-3, bins=20); plt.xlabel(r'$v_r$ [km/s]'); plt.ylabel('Number of particles')
+        plt.figure(); plt.hist(vz*1e-3, bins=20); plt.xlabel(r'$v_z$ [km/s]'); plt.ylabel('Number of particles')
+        plt.figure(); plt.hist(phi, bins=20); plt.xlabel('Phi (toroidal angle)'); plt.ylabel('Number of particles')
+        plt.figure(); plt.hist(theta, bins=20); plt.xlabel('theta (poloidal angle)'); plt.ylabel('Number of particles')
 #
 
 
@@ -936,8 +1051,9 @@ class SA_iniend(h5_particles):
     def __init__(self, infile_n, fname_surf=''):
         self.device = 'JT60SA'
         self.id = infile_n[-9:-3]
+        self.xlim=[1.5, 4.5]
         h5_particles.__init__(self, infile_n, fname_surf)
-
+        
     def plot_beams_XY(self):
         """
         Method to plot XY of ionisation FOR EACH BEAM
@@ -1208,6 +1324,7 @@ class TCV_iniend(h5_particles):
     def __init__(self, infile_n):
         self.device = 'TCV'
         self.id = infile_n[-11:-5]
+        self.xlim = [0.6, 1.1]
         h5_particles.__init__(self, infile_n)
 		
     def calc_shinethr(self):

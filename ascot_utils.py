@@ -41,7 +41,7 @@ def common_style():
     plt.rc('figure', facecolor='white')
     plt.rc('legend', fontsize=20)
 
-def limit_labels(ax, xlabel='', ylabel='', title=''):
+def limit_labels(ax, xlabel='', ylabel='', title='', M=5):
     """
     Limiting labels of the axis to 4 elements and setting grid
     """
@@ -50,7 +50,6 @@ def limit_labels(ax, xlabel='', ylabel='', title=''):
     #==============================================
     
     # Create your ticker object with M ticks
-    M = 5
     yticks = ticker.MaxNLocator(M)
     xticks = ticker.MaxNLocator(M)
     # tick positions with set_minor_locator.
@@ -114,7 +113,7 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, yli
     if fname !='':
         plt.savefig(fname, bbox_inches='tight', dpi=dpi)        
 
-def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='', label='',ax=0, hist=0, multip=0, fname='', color=''):
+def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='', label='',ax=0, hist=0, multip=0, fname='', color='', ylim=[0,0], ls='-'):
     """
     Hidden method for 1D plotting
     """
@@ -125,24 +124,28 @@ def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='', label='',ax=0, hist=
     if ax==0:
         # Defining figure and ax
         fig = plt.figure(figsize=figsize)
-        fig.text(0.01, 0.01, Id)
+        #fig.text(0.01, 0.01, Id)
         ax  = fig.add_subplot(111)
         flag_label=1
     else:
         fig = plt.gcf()
         if multip==0:
             flag_label=0
-    if color=='':
+    if hist!=0:
+        if color=='':
+            color='k'
+        ax.hist(x,bins=30, color=color, linestyle=ls, label=label, histtype='step', lw=2.3)
+    elif color=='':
         ax.plot(x,y, lw=2.3, label=label)
     else:
         ax.plot(x,y, lw=2.3, label=label, color=color)
-        
-    if hist!=0:
-        ax.hist(x,bins=30)
+
+    if ylim[0]!=0 or ylim[-1]!=0:
+        ax.set_ylim(ylim)
 
     if flag_label==1 :
         limit_labels(ax, xlabel, ylabel, title)
-
+        
     fig.tight_layout()
     plt.show()
     if fname !='':
@@ -150,7 +153,7 @@ def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='', label='',ax=0, hist=
 
         
 def _plot_2d(x, y, xlabel='', ylabel='', dist=0, Id='', title='', wallxy=0, wallrz=0, surf=0, R0=0, ax=0, \
-             scatter=0, hist=0, multip=0, xlim=0, ylim=0, fname='', cblabel=''):
+             scatter=0, hist=0, multip=0, xlim=0, ylim=0, fname='', cblabel='', lastpoint=1):
     """
     Hidden method to plot the 2D distribution
     wall: set to 1 if wall needed to plot (i.e. RZ function)
@@ -192,7 +195,10 @@ def _plot_2d(x, y, xlabel='', ylabel='', dist=0, Id='', title='', wallxy=0, wall
         #range = [[-3.14, 3.14],[-3.14, 3.14]]
         # ax.hist2d(x, y, bins=100, range=range, cmap=my_cmap)
         h=ax.hist2d(x, y, bins=100, cmap=my_cmap)
-        fig.colorbar(h[3], ax=ax)
+        cbar =fig.colorbar(h[3], ax=ax)
+        cbar.ax.set_title(cblabel)
+        if lastpoint==0:
+            cbar.ax.set_yticklabels(cbar.ax.get_yticklabels()[0:-1])
     else:
         hb = ax.hist2d(x, y, bins=100, cmap=my_cmap)
         fig.colorbar(hb[3], ax=ax, orientation=or_cb)
@@ -278,10 +284,14 @@ def _plot_RZsurf(R, z, RZ, ax, surf=[0]):
     return
 
 
-def _cumulative_plot(x,y,labels, xlabel, ylabel, title):
+def _cumulative_plot(x,y,labels, xlabel, ylabel, col, ax=0,  title=''):
     common_style()
-    f  = plt.figure()
-    ax = f.add_subplot(111)
+    if ax==0:
+        f  = plt.figure()
+        ax = f.add_subplot(111)
+        f.text(0.01, 0.01, title)
+    else:
+        ax=ax
     tmpy=np.zeros(len(x))
     for i, el in enumerate(y):
         tmpy+=el
@@ -289,5 +299,4 @@ def _cumulative_plot(x,y,labels, xlabel, ylabel, title):
         ax.fill_between(x, tmpy, tmpy-el, color=col[i])
             
     limit_labels(ax, xlabel, ylabel)
-    f.text(0.01, 0.01, title)
     plt.tight_layout()
