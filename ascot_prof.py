@@ -72,7 +72,7 @@ class profiles:
         self.coll_mode=[]
       
 
-    def write_input(self):
+    def write_input(self, suffix=''):
         """ write input.plasma_1d file
 
         Method to write the input.plasma_1d file.
@@ -86,7 +86,7 @@ class profiles:
             
         """
         
-        out_fname = "input.plasma_1d"
+        out_fname = "input.plasma_1d"+suffix
         outfile = open(out_fname, 'w+')
 #        header=''
         outfile.write('# Input file for ASCOT containing radial 1D information of plasma temperature,density and toroidal rotation \n')
