@@ -86,10 +86,10 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, yli
         flag_label=1
 
     if col[0]!='':
-	colours=col
+        colours=col
     else:
         colours_old = ['k', 'g', 'b', 'r', 'c']
-	colours = ['k', 'r', 'b', 'g', 'c']
+        colours = ['k', 'r', 'b', 'g', 'c']
     style = styles[n_l_oplot]
     if n_lines==1:
         ax.plot(data[0], data[1], label=str(data_labels[0]), linewidth=3, color=colours[0], linestyle=style)        
@@ -136,9 +136,9 @@ def _plot_1d(x, y=0, xlabel='', ylabel='', Id='', title='', label='',ax=0, hist=
             color='k'
         ax.hist(x,bins=30, color=color, linestyle=ls, label=label, histtype='step', lw=2.3)
     elif color=='':
-        ax.plot(x,y, lw=2.3, label=label)
+        ax.plot(x,y, lw=2.3, label=label, linestyle=ls)
     else:
-        ax.plot(x,y, lw=2.3, label=label, color=color)
+        ax.plot(x,y, lw=2.3, label=label, color=color, linestyle=ls)
 
     if ylim[0]!=0 or ylim[-1]!=0:
         ax.set_ylim(ylim)
@@ -277,9 +277,9 @@ def _plot_pie(x, lab, Id='', title='', ax=0, fname=''):
 def _plot_RZsurf(R, z, RZ, ax, surf=[0]):
     if surf[0]==0:            
     	CS = ax.contour(R, z, RZ, [0.2, 0.4, 0.6, 0.8, 1.0], colors='k')
-        plt.clabel(CS, inline=1, fontsize=10)
+        #plt.clabel(CS, inline=1, fontsize=10)
     else:
-    	CS = ax.contour(R, z, RZ, surf, colors='k')
+        CS = ax.contour(R, z, RZ, surf, colors='k')
         plt.clabel(CS, inline=True, fontsize=10, manual=True)
     return
 

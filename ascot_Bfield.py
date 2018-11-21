@@ -191,6 +191,7 @@ class Bfield_ascot:
         ax.yaxis.set_major_locator(yticks)
         #ax.yaxis.set_minor_locator(yticks_m)
         ax.xaxis.set_major_locator(xticks)
+
     def checkplot(self, f=0):
         """Plots psi_2D, q, Bphi
         

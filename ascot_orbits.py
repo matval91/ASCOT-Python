@@ -207,6 +207,14 @@ class dat_particles(particles):
             if len(np.where(signchange==1)[0])!=0:
                 self.ntrapp+=1
                 self.trappind[i]=1
+                if i<0:
+                    print(len(np.where(signchange==1)[0]))
+                    f=plt.figure(); f.suptitle(i)
+                    ax=f.add_subplot(211); ax.plot(self.partdict[i]['R'], self.partdict[i]['z'], 'k-')
+                    ax2=f.add_subplot(212); ax2.plot(pitch);ax2.plot(signchange)
+                    plt.ginput()
+                    plt.close('all')
+                
         self._banana_dim()
 
     def plot_random_orbit(self, npart=20, ind=[0]):
@@ -221,7 +229,7 @@ class dat_particles(particles):
         """
         f, axtrajxy, axtrajRZ = self._initialize_figure_ptcls_2d()
         f3d, ax3d = self._initialize_figure_ptcls_3d()
-        if npart!=0:
+        if npart==20:
             for ii in range(npart):
                 ind2plot = random.randint(0, self.npart)
                 p2plot = self.partdict[ind2plot]
@@ -302,10 +310,10 @@ class dat_particles(particles):
          
         and the width of the banana with the following formula
          w_b = sqrt(epsilon)*rho_L(larmor radius evaluated using only poloidal field)
+        w_b =2 v_para m/ (q B_p[(a+r)/2])
         """
         try:
             self.partdict[0]['mass'].mean()
-            self.partdict[0]['charge'].mean()
         except:
             print("Impossible to calculate the banana orbits dimension")
             return
@@ -315,29 +323,15 @@ class dat_particles(particles):
             for i in self.partdict:
                 i['charge']=1
             
-        R_torus = 2.96 #in meters
-        a = 1.11
-        self.epsilon = a/R_torus
-        print("Epsilon used is for scenario 5")      
-        #Calculating larmor radius using only poloidal field
-        self.rhoL_poloidal = np.zeros(self.npart, dtype=float)
-        for i in range(self.npart):
-            if self.trappind[i]==0:
-                continue
-            m,q,E = self.partdict[i]['mass'], self.partdict[i]['charge'], \
-                    self.partdict[i]['energy']
-            q = q*1.602e-19; E = E*1.602e-19
-            m = m*1.66e-27
-            m = m[0]; q=q[0]; E=E[0]
-            v = (2.*E/m)**0.5
-            Bpol = np.sqrt(self.partdict[i]['BR']**2+self.partdict[i]['Bz']**2)
-            Bpol = Bpol[0]            
-            #print m,v,q,Bpol
-            self.rhoL_poloidal[i] = (m*v)/(q*Bpol)
-        
-        self.w_b_unfilt = self.rhoL_poloidal*self.epsilon**0.5
-        self.w_b = self.w_b_unfilt[self.w_b_unfilt<1.]
-        
+        m, E = self.data_i['mass'], self.data_i['energy']
+        q = np.full(len(m),1.)*1.602e-19; E = E*1.602e-19
+        m = m*1.66e-27
+        v = np.sqrt(2.*E/m)*self.data_i['pitch']
+        r = self.data_i['R']-self.R0
+        Bpol = np.sqrt(self.data_i['BR']**2+self.data_i['Bz']**2)
+        #print(Bpol.shape)
+        self.w_banana = np.abs(v)*m/(q*Bpol)
+        self.w_banana = self.w_banana[np.where(self.trappind==1)[0]]
     def plot_trapped_contour(self):
         """
         plots trapped particles in different spaces: (R,z), (vpara, vperp),
@@ -504,7 +498,8 @@ class dat_particles(particles):
         for i,R in enumerate(self.R_w):
             x_tok[:,i] = R*np.cos(phi_tt)
             y_tok[:,i] = R*np.sin(phi_tt)
-        z_tok = self.z_w
+        z_tok = np.array(self.z_w)
+        z_tok=np.tile(z_tok, [np.size(phi_tt),1])
         ax3d.plot_surface(x_tok,y_tok,z_tok,color='k',alpha=0.15)
 
         return f3d, ax3d
@@ -531,7 +526,7 @@ class dat_particles(particles):
         else:
             axtrajRZ = axRZ
             axtrajxy = axxy
-
+        ind2plot=int(ind2plot)
         self._plot_traj_RZ(axtrajRZ, ind2plot, col=col)
         self._plot_traj_xy(axtrajxy, ind2plot, col=col)
         f.tight_layout()
@@ -572,8 +567,9 @@ class dat_particles(particles):
             ind2plot = 0
         else:
             ind2plot = p2plot['id'][0]-1
+        ind2plot=int(ind2plot)
         print('plotting particle '+str(ind2plot+1))
-
+        
         if ax==0:
             f = plt.figure(figsize=(10,5))
             f.suptitle('Orbit particle '+str(ind2plot+1))
@@ -692,6 +688,8 @@ class SA_orbits(dat_particles):
         self.device = 'JT60SA'
         self.id = infile_n[-10:-4]
         dat_particles.__init__(self, infile_n, fname_surf)
+        self.a = 1.11
+        self.R0 = 2.96
 
     def plot_trapped_energy_PNBs(self):
         """
@@ -852,6 +850,8 @@ class TCV_orbits(dat_particles):
     def __init__(self, infile_n, fname_surf=''):
         self.device = 'TCV'
         self.id = infile_n[-12:-4]
+        self.a  = 0.25
+        self.R0 = 0.88
         dat_particles.__init__(self, infile_n, fname_surf=fname_surf)	
 
 

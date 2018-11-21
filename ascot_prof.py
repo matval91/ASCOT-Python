@@ -939,6 +939,160 @@ class SA_datfiles(profiles):
         rhopsi = psi**0.5
         self.param_psi = interpolate.interp1d(np.linspace(0,1,tmpnum), rhopsi)
 
+class SA_datfiles_datascenario(profiles):
+    """ class to handle SA datfiles, as read in repository
+
+    This class is to read the files from CRONOS (usually produced by Jeronimo Garcia (jeronimo.garcia@cea.fr))
+    
+    Base:
+        profiles
+    
+    Parameters:
+        |  infile_name (str): name of the h5 file to use
+        |  nrho (int): number of rho points to use as output (up to 1, outside rho is 1/5 of nrho)
+        |  nion (int): number of ions to use
+        |  A (array): atomic masses of ions
+        |  Z (array): charge of ions
+
+    Arguments:
+        None
+
+    Note
+    rho(TOR)	psi	ne	ni	te	ti	Jpar	q	"Pnbi,el"	"Pnbi,ion"	"Pnbi,supra"	"Nbi,nfast"	"J,NBI"	"Pecrh,el"	Jeccd
+    ni is assumed to be the D density
+
+    """
+    def __init__(self, infile, nrho, shot):
+        profiles.__init__(self)
+        A=[2,12]; Z=[1,6]
+        nion=2
+        print("Using A=2,12 and Z=1,6")
+        self.A = A
+        self.Z = Z
+        self.nrho = nrho
+        self.nion = nion
+        self.rho = np.linspace(0,1,self.nrho, dtype=float)
+        #self.ni_in = np.zeros((self.nion, 2, self.nrho), dtype=float)
+        self.ni = np.zeros((self.nion, self.nrho), dtype=float)
+        self.coll_mode = np.ones(self.nion, dtype=float)
+
+        #Read eqdsk to convert from rhotor to rhopol
+        self._readeqdsk(shot)
+        self._phi2psi()
+        
+        lines = np.loadtxt(infile, skiprows=1, unpack=True)
+        self.rho_in = lines[0,:]
+        self.rhotor = self.rho_in
+        self.rhopol = self.param_psi(np.linspace(0,1,len(self.rhotor)))
+        self.rho_in = self.rhopol
+
+        self.ne_in  = lines[2,:]
+        self.te_in  = lines[4,:]
+        self.ti_in  = lines[5,:]
+        self.ni_in  = np.zeros((self.nion, len(self.rho_in)),dtype=float)
+        self.ni_in[0,:] = lines[3,:]
+        self.vt_in = np.zeros(len(self.rho_in),dtype=float)
+        self.ni = np.zeros((self.nion, self.nrho), dtype=float)
+        if len(self.Z)>1:
+            self._ion_densities_datafiles()
+        self.smooth()
+
+
+    def _ion_densities_datafiles(self):
+        """Computes C and D ion densities
+        Given the ne, nD, computes NC
+        nC = (ne-nD)/6.
+       
+        Parameters:
+            None
+        Arguments:
+            None
+
+        """
+        ne = self.ne_in
+        nD = self.ni_in[0,:]
+        nC = (ne-nD)/6.
+        print("nC/nD: "+str(np.mean(nC/nD)*100.)+" %")
+        self.ni_in[0,:] = nD
+        self.ni_in[1,:] = nC
+
+    def _readeqdsk(self, shot):
+        """ Reads eqdsk
+
+        reads q and the poloidal flux from an eqdsk to convert phi2psi
+
+        Parameters:
+            shot: identifier of scenario (for SA 002, 003, etc)
+        Arguments:
+            None
+        """
+        if shot==003 or shot==002:
+            dir_JT = '/home/vallar/JT60-SA/003/eqdsk_fromRUI_20170715_SCENARIO3/'
+            eqdsk_fname = 'Equil_JT60_prova01_e_refined.eqdsk'
+        elif shot==004:
+            dir_JT = '/home/vallar/JT60-SA/004_2/input_from_EUrepository/'
+            eqdsk_fname = 'JT-60SA_scenario4_uptowall.geq'
+        elif shot==005:
+            dir_JT = '/home/vallar/JT60-SA/005/input_from_EUrepository/'
+            eqdsk_fname = 'JT-60SA_scenario5_eqdsk'
+        try:
+            b = ascot_Bfield.Bfield_eqdsk(dir_JT+eqdsk_fname,129,129, 'JT60SA', COCOS=3)
+            print("Opened ", dir_JT+eqdsk_fname)
+        except:
+            print("Impossible to open ", eqdsk_fname)
+            raise ValueError
+
+        qprof_t   = b.eqdsk.q
+        rho_eqdsk = b.eqdsk.rhopsi
+        self.param_q = interpolate.interp1d(rho_eqdsk, qprof_t)
+
+    def smooth(self):
+        """ spline input data to grid wanted
+        
+        For each variable the input array is splined and put in output to
+        desired grid. This is specific for h5 files
+
+        Parameters:
+            None
+        Attributes:
+            None
+        
+        Note:
+            The _extrapolate private method is called
+        
+        """
+        
+        self.te = self._spline(self.rho_in, self.te_in, self.rho)
+        self.ne = self._spline(self.rho_in, self.ne_in, self.rho)
+        self.ti = self._spline(self.rho_in, self.ti_in, self.rho)
+        self.vt = self._spline(self.rho_in, self.vt_in, self.rho)
+        for i in range(self.nion):
+            self.ni[i,:]=self._spline(self.rho_in, self.ni_in[i,:], self.rho)
+
+        #self.zeff = self._spline(self.rho_in, self.zeff_in, self.rho)
+
+        self._extrapolate()
+
+    def _phi2psi(self):
+        """Converts psi 2 phi
+        
+        Converts in between coordinates using the following relation (phi=toroidal flux, psi=poloidal flux)
+        psi = int(1/q, phi)
+
+        Paramters:
+            None
+        Arguments:
+            None
+        """
+        tmpnum=100000
+        locq   = self.param_q(np.linspace(0,1,tmpnum)) #augmenting precision near the core
+        locphi = np.linspace(0,1,tmpnum)
+        psi = integrate.cumtrapz(1/locq,locphi)
+        psi = np.concatenate([[0], psi])
+        psi = psi/max(psi)
+        rhopsi = psi**0.5
+        self.param_psi = interpolate.interp1d(np.linspace(0,1,tmpnum), rhopsi)
+
 
 class TCV_datfiles(profiles):
     """

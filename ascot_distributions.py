@@ -278,7 +278,7 @@ class distribution_1d:
         """
         Plot sum of the induced beam current density
         """
-        i_tot = self.slices_summed[0,:,12]*1e-3
+        i_tot = self.slices_summed[0,:,3]*1e-3
         if np.mean(i_tot)<0:
             i_tot = -1*i_tot
         plot_article(1,[self.rho, i_tot],[''],r'$\rho$', 'j (kA/$m^2$)', self.infile_n, ax=ax)
@@ -302,44 +302,58 @@ class distribution_1d:
         Plots power deposited to electrons
         """
         ind = self.name_dict['pel']-1
-        if self.slices.shape[2] == 27:
+        if self.slices.shape[3] == 27:
             ind=ind-1
-        pe = self.slices_summed[0,:,ind]*1e-3        
-        nlines=1; lines=[self.rho, pe]
+        pe = self.slices_summed[0,:,ind-1]*1e-3        
+        nlines=1; lines=np.array([self.rho, pe])
         labels=['el.']
         return nlines, lines, labels
 
     def plot_pe(self, ax=0):
         nlines, lines, labels = self._plot_pe()
         plot_article(nlines, lines, labels, r'$\rho$', 'p (kW/$m^3$)', self.infile_n, ax=ax)
-        
+
+    def plot_pe_total(self, ax=0):
+        nlines, lines, labels = self._plot_pe()
+        rho = lines[0,:]
+        data = np.sum(lines[1:,:], axis=0)
+        lines = np.array([rho, data])
+        plot_article(nlines, lines, labels, r'$\rho$', 'p$_e$ (kW/$m^3$)', self.infile_n, ax=ax)
+
     def _plot_pi(self):
         """
         Plots power deposited to ions
         """
         ind = self.name_dict['pel']-1
-        if self.slices.shape[2] == 27:
+        if self.slices.shape[3] == 27:
             ind=ind-1
-        pi1 = self.slices_summed[0,:,ind+1]*1e-3
+        pi1 = self.slices_summed[0,:,ind]*1e-3
         if self.nions > 1:
             pi2 = self.slices_summed[0,:,ind+2]*1e-3
             if self.nions == 2:
-                nlines=2; lines=[self.rho, pi1, pi2]
+                nlines=2; lines=np.array([self.rho, pi1, pi2])
                 labels=['i1', 'i2']     
             elif self.nions == 3:
                 pi3 = self.slices_summed[0,:,ind+3]*1e-3
-                nlines=3; lines=[self.rho, pi1, pi2, pi3]
+                nlines=3; lines=np.array([self.rho, pi1, pi2, pi3])
                 labels=['i1', 'i2', 'i3']           
 
         else:
-            nlines=2; lines=[self.rho, pi1]
-            labels=['el.', 'i1']
+            nlines=1; lines=np.array([self.rho, pi1])
+            labels=['i1']
 
         return nlines, lines, labels
 
     def plot_pi(self, ax=0):
         nlines, lines, labels = self._plot_pi()
         plot_article(nlines, lines, labels, r'$\rho$', 'p (kW/$m^3$)', self.infile_n, ax=ax)
+
+    def plot_pi_total(self, ax=0):
+        nlines, lines, labels = self._plot_pi()
+        rho = lines[0,:]
+        data = np.sum(lines[1:,:], axis=0)
+        lines = np.array([rho, data]);  labels=['i']; nlines=1
+        plot_article(nlines, lines, labels, r'$\rho$', 'p$_i$ (kW/$m^3$)', self.infile_n, ax=ax) 
 
     def plot_totalpower(self, ax=0):
         """
@@ -643,9 +657,9 @@ class TCV_1d(distribution_1d):
         self.I_tot = np.dot(self.slices_summed[0,:,12], self.areas)
         self.pe    = np.dot(self.slices_summed[0,:,ind], self.volumes)
         self.pi1   = np.dot(self.slices_summed[0,:,ind+1], self.volumes)
-        self.tjxb  = np.dot(self.slices_summed[0,:,7], self.volumes) 
-        self.tore  = np.dot(self.slices_summed[0,:,ind+2 + self.nions-1], self.volumes)
-        self.tori1 = np.dot(self.slices_summed[0,:,ind+2 + self.nions], self.volumes)
+#        self.tjxb  = np.dot(self.slices_summed[0,:,7], self.volumes) 
+#        self.tore  = np.dot(self.slices_summed[0,:,ind+2 + self.nions-1], self.volumes)
+#        self.tori1 = np.dot(self.slices_summed[0,:,ind+2 + self.nions], self.volumes)
 
         if self.nions > 1:
             self.pi2   = np.dot(self.slices_summed[0,:,ind+2], self.volumes)
@@ -656,8 +670,8 @@ class TCV_1d(distribution_1d):
 
 
         
-    def calc_Ec(self):
-		self.param_ec, self.ec, self.param_ts, self.ts = self._ecrit(E0=25000)    
+    #def calc_Ec(self):
+    #self.param_ec, self.ec, self.param_ts, self.ts = self._ecrit(E0=25000)    
 
 
 class SA_1d(distribution_1d):
@@ -1032,9 +1046,9 @@ class SA_1d(distribution_1d):
                      r'Fast ion birth profile $1/(s\cdot m^3)$', title, ylim=ylim, fname=fname)
                          
                          
-    def calc_Ec(self):
-		self.param_ec, self.ec, self.param_ts85,  self.ts85  = self._ecrit(E0=85000)
-		self.param_ec, self.ec, self.param_ts500, self.ts500 = self._ecrit(E0=500000)		
+#    def calc_Ec(self):
+#		self.param_ec, self.ec, self.param_ts85,  self.ts85  = self._ecrit(E0=85000)
+#		self.param_ec, self.ec, self.param_ts500, self.ts500 = self._ecrit(E0=500000)		
        
        
 class distribution_2d:
@@ -1052,7 +1066,7 @@ class distribution_2d:
             print("No rhoPhiPitchE dist in ", self.fname)
         if "rzMuEdist" not in self.infile['distributions'].keys():
             print("No rzMuE dist in ", self.fname)
-        
+
         indd = self.fname[-9:-3]
         self.id = indd
         if indd[0:2] != '00':
@@ -1075,9 +1089,9 @@ class distribution_2d:
             _plot_2d(x, y, 'R [m]', 'z [m]', Id = self.id, \
                      wallrz=wallrz, surf=surf, ax=ax, dist=z*1e-18, cblabel=r'n ($10^{18}$/$m^3$)')
         elif 'rho' in self.dict_dim and 'phi' in self.dict_dim:
-            self.xplot = self.dict_dim['rho']
-            self.yplot = self.dict_dim['phi'] 
-            self._plot_2d('rho', 'phi', wall=0, ax=ax)
+            x = self.dict_dim['rho']
+            y = z[0,:]*1.602e-19
+            _plot_1d(x,y, r'$\rho$', 'fdist', ax=ax)
             
 
     def integrate_range_Ep(self, dim_range):
@@ -1116,7 +1130,10 @@ class distribution_2d:
 #        int_p = np.trapz(dist_toint, self.dict_dim['pitch'], axis=1)        
         int_E = np.trapz(dist_toint, self.dict_dim['E'], axis=0)
         self.f_Ep_int = np.trapz(int_E, self.dict_dim['pitch'], axis=0)
+        totvol = np.sum(self.vol)
+        self.f_Ep_int=self.f_Ep_int/totvol**2
 #        self.f_Ep_int = np.trapz(int_E, self.dict_dim['pitch'], axis=0)
+        
 
         if 'rho' in self.dict_dim.keys():
             for i,el in enumerate(self.vol):
@@ -1200,9 +1217,9 @@ class distribution_2d:
 
         x = self.dict_dim['pitch']
         y = self.dict_dim['E']*1e-3/1.6e-19
-        z = self.f_space_int*1.6e-19*1e-14*self.norm
+        z = self.f_space_int*1.6e-19*1e-17*self.norm
         
-        _plot_2d(x, y, dist=z, xlabel=r'$\xi$', ylabel='E [keV]', ax=ax, Id=self.id, cblabel=r'$10^{14}$/keV', ylim=ylim)
+        _plot_2d(x, y, dist=z, xlabel=r'$\xi$', ylabel='E [keV]', ax=ax, Id=self.id, cblabel=r'$10^{17}$/keV', ylim=ylim)
 
     def plot_Emu(self):
         """
@@ -1216,7 +1233,7 @@ class distribution_2d:
         self.xplot = self.dict_dim['mu']/1.6e-19
         self.yplot = self.dict_dim['E']/1.6e-19
         self.zplot = self.f_space_int
-        self._plot_2d('mu', 'E', wall=0)
+        self._plot_2d('mu', 'E', wallrz=0)
         
     def write_pitchE(self):
         try:
@@ -1481,7 +1498,7 @@ class frzpe(distribution_2d):
         if 'R' in self.dict_dim and 'z' in self.dict_dim:
             self.xplot = self.dict_dim['R']
             self.yplot = self.dict_dim['z'] 
-            self._plot_2d('R [m]', 'z [m]', wall=1, surf=1, \
+            _plot_2d('R [m]', 'z [m]', wallrz=1, surf=1, \
                           title=str(sliceind))
 
     def _integrate_pitch_enslice(self, sliceind):
@@ -1618,7 +1635,7 @@ class frhophipe(distribution_2d):
         int_rho    = np.trapz(dist_toint, self.dict_dim['rho'], axis = -1)
         
         #int_rhophi  = np.trapz(int_rho   , self.dict_dim['phi'], axis = -1) 
-        int_rhophi = int_rho[:,:,0]*2*math.pi
+        int_rhophi = int_rho[:,:,0]*2.*np.pi
         self.f_space_int = int_rhophi #E,pitch  
         
     def write_allf(self):
@@ -1641,13 +1658,14 @@ class frhophipe(distribution_2d):
         self.yplot = self.dict_dim['E']/1.6e-19*1e-3
         self.zplot = dist_toplot
         if 'fname' in kwargs:
-            self._plot_2d(r'$\xi$', 'E [keV]', \
+            _plot_2d(r'$\xi$', 'E [keV]', \
                           title=r'$\rho$='+str(slicerho), \
                           fname=kwargs['fname'])
         else:
-            self._plot_2d(r'$\xi$', 'E [keV]', title=r'$\rho$='+str(slicerho))
-        
-class frzmue(distribution_2d):
+            _plot_2d(r'$\xi$', 'E [keV]', title=r'$\rho$='+str(slicerho))
+
+       
+class frzv(distribution_2d):
     
     def __init__(self, infile_n):
         """
@@ -1656,12 +1674,12 @@ class frzmue(distribution_2d):
         """
         distribution_2d.__init__(self, infile_n)
         try:
-            self.dist_h5 = self.infile['distributions/rzMuEdist'] 
+            self.dist_h5 = self.infile['distributions/rzVDist'] 
         except:
             raise ValueError
-        self.__name__ = 'frzpe'
+        self.__name__ = 'frzv'
 
-        self.dict_dim = collections.OrderedDict([('R',[]),('z',[]),('mu',[]),('E',[]),('t',[])])
+        self.dict_dim = collections.OrderedDict([('R',[]),('z',[]),('vpara',[]),('vperp',[]),('t',[])])
         self.collect_dim()
         self.build_fdist()
         self._integrate_space()        
@@ -1679,3 +1697,18 @@ class frzmue(distribution_2d):
         int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
         self.f_space_int = int_Rz #E,pitch
 
+    def plot_vv(self, ax=0):
+        """
+        plot 2D (vpara, vperp, int_space(fdist))
+        """
+        try:
+            self.f_space_int.mean()
+        except:
+            self._integrate_space()
+
+        x = self.dict_dim['vpara']
+        y = self.dict_dim['vperp']
+        z = self.f_space_int*self.norm
+        
+        _plot_2d(x*1e-6, y*1e-6, dist=z, xlabel=r'v$_{\parallel}$[km/ms]', ylabel=r'v$_{\perp}$[km/ms]', ax=ax, Id=self.id)
+        plt.axis('equal')
