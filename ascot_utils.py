@@ -80,7 +80,7 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, yli
         n_l_oplot = np.shape(ax.lines)[0]
         if n_l_oplot > 2:
             n_l_oplot=2
-    fig.text(0.01, 0.01, title)
+    #fig.text(0.01, 0.01, title)
 
     if ax.get_xlabel()=='':
         flag_label=1
@@ -91,6 +91,7 @@ def plot_article(n_lines, data, data_labels, xlabel, ylabel, title='', ax=0, yli
         colours_old = ['k', 'g', 'b', 'r', 'c']
         colours = ['k', 'r', 'b', 'g', 'c']
     style = styles[n_l_oplot]
+    style='-'
     if n_lines==1:
         ax.plot(data[0], data[1], label=str(data_labels[0]), linewidth=3, color=colours[0], linestyle=style)        
     else:

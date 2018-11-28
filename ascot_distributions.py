@@ -301,7 +301,7 @@ class distribution_1d:
         """
         Plots power deposited to electrons
         """
-        ind = self.name_dict['pel']-1
+        ind = self.name_dict['pel']
         if self.slices.shape[3] == 27:
             ind=ind-1
         pe = self.slices_summed[0,:,ind-1]*1e-3        

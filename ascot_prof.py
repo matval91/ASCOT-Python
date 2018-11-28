@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker
 from scipy import interpolate, integrate
 import scipy.io as sio
-import ufiles as uf
+#import ufiles as uf
 import ascot_Bfield
 cluster = platform.uname()[1]
 if cluster[-7:] == 'epfl.ch':
@@ -128,7 +128,7 @@ class profiles:
         #data.tofile(outfile, sep='\t', format='%15e')
         np.savetxt(outfile, data, fmt='%.5e')
         #outfile.close()
-
+        print(data)
 
     def compute_average(self):
         """compute averages
@@ -836,14 +836,15 @@ class SA_datfiles(profiles):
 
         #Read eqdsk to convert from rhotor to rhopol
         self._readeqdsk(shot)
-        self._phi2psi()
+
         
         lines = np.loadtxt(infile, skiprows=1, unpack=True)
         self.rho_in = lines[0,:]
         self.rhotor = self.rho_in
-        self.rhopol = self.param_psi(np.linspace(0,1,len(self.rhotor)))
-        self.rho_in = self.rhopol
-
+        self._phi2psi()
+        self.psipol = self.param_psi(np.linspace(0,1,len(self.rhotor)))
+        self.rho_in = self.psipol**0.5
+        
         self.ne_in  = lines[1,:]
         self.te_in  = lines[2,:]
         self.ti_in  = lines[3,:]
@@ -872,13 +873,13 @@ class SA_datfiles(profiles):
         Arguments:
             None
         """
-        if shot==003 or shot==002:
+        if shot==3 or shot==2:
             dir_JT = '/home/vallar/JT60-SA/003/eqdsk_fromRUI_20170715_SCENARIO3/'
             eqdsk_fname = 'Equil_JT60_prova01_e_refined.eqdsk'
-        elif shot==004:
+        elif shot==4:
             dir_JT = '/home/vallar/JT60-SA/004_2/input_from_EUrepository/'
             eqdsk_fname = 'JT-60SA_scenario4_uptowall.geq'
-        elif shot==005:
+        elif shot==5:
             dir_JT = '/home/vallar/JT60-SA/005/input_from_EUrepository/'
             eqdsk_fname = 'JT-60SA_scenario5_eqdsk'
         try:
@@ -932,7 +933,9 @@ class SA_datfiles(profiles):
         """
         tmpnum=100000
         locq   = self.param_q(np.linspace(0,1,tmpnum)) #augmenting precision near the core
-        locphi = np.linspace(0,1,tmpnum)
+        locphi = self.rhotor**2
+        locphi_p = interpolate.interp1d(np.linspace(0,1,len(locphi)),locphi)
+        locphi = locphi_p(np.linspace(0,1,tmpnum))
         psi = integrate.cumtrapz(1/locq,locphi)
         psi = np.concatenate([[0], psi])
         psi = psi/max(psi)
@@ -1026,13 +1029,13 @@ class SA_datfiles_datascenario(profiles):
         Arguments:
             None
         """
-        if shot==003 or shot==002:
+        if shot==3 or shot==2:
             dir_JT = '/home/vallar/JT60-SA/003/eqdsk_fromRUI_20170715_SCENARIO3/'
             eqdsk_fname = 'Equil_JT60_prova01_e_refined.eqdsk'
-        elif shot==004:
+        elif shot==4:
             dir_JT = '/home/vallar/JT60-SA/004_2/input_from_EUrepository/'
             eqdsk_fname = 'JT-60SA_scenario4_uptowall.geq'
-        elif shot==005:
+        elif shot==5:
             dir_JT = '/home/vallar/JT60-SA/005/input_from_EUrepository/'
             eqdsk_fname = 'JT-60SA_scenario5_eqdsk'
         try:

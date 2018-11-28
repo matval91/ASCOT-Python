@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 shot = input('Scenario? ')
 folder = '/home/vallar/ASCOT/runs/JT60SA/'
-    
+shot=int(shot)
 if shot==2:
     folder += '002/'
     bfield_name = 'ascot_002034.h5'
@@ -103,13 +103,13 @@ elif shot==5:
             'fibp': [],
             'rho':[],
             'label': 'NNB'},
-        'PT': {
+        'PP': {
             'fname':'bbnbi_005054.h5',
             'dist_obj': None,
             'fibp': [],
             'rho':[],
             'label': 'PT'},
-        'PP': {
+        'PT': {
             'fname':'bbnbi_005052.h5',
             'dist_obj': None,
             'fibp': [],
@@ -138,5 +138,5 @@ for el in dd:
 data = np.array([rho, dd['tot']['fibp'].T, dd['PP']['fibp'].T, dd['PT']['fibp'].T, dd['NNB']['fibp'].T])
 
 data_labels = ['TOT','PP', 'PT', 'NNB']
-plot_article(4,data, data_labels=data_labels,xlabel=r'$\rho$', ylabel=r'Fast ion birth profile $1/(s\cdot m^3)$', ylim=[0, 3.e19])
+plot_article(4,data, data_labels=data_labels,xlabel=r'$\rho$', ylabel=r'Fast ion birth profile $1/(s\cdot m^3)$',ylim=[0, 3.e19])
 

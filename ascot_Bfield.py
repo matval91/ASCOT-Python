@@ -9,7 +9,7 @@ import numpy as np
 import h5py, math
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import ReadEQDSK_python2
+import ReadEQDSK
 from scipy.interpolate import griddata
 import scipy.optimize
 import scipy.interpolate as interp
@@ -354,7 +354,7 @@ class Bfield_eqdsk:
             self.rhopsi=rhopsi
         
         """    
-        self.eqdsk= ReadEQDSK_python2.ReadEQDSK(infile_eqdsk)
+        self.eqdsk= ReadEQDSK.ReadEQDSK(infile_eqdsk)
         self.infile = infile_eqdsk
         self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))       
         self.R_eqd = np.linspace(self.eqdsk.rboxleft, self.eqdsk.rboxleft+self.eqdsk.rboxlength, self.eqdsk.nrbox)
@@ -697,9 +697,9 @@ class Bfield_eqdsk:
         print("remember: I am multiplying psi axis and x-point times 2pi since in ascot it divides by it!")
 
         # poloidal flux of the special points.
-        self.hdr['PFxx'] = [self.xflux[0][0], self.axflux[0][0]]
-        self.hdr['RPFx'] = [self.xpoint[0], self.ax[0]]
-        self.hdr['zPFx'] = [self.xpoint[1], self.ax[1]]
+        self.hdr['PFxx'] = [self.axflux[0][0], self.xflux[0][0]]
+        self.hdr['RPFx'] = [self.ax[0], self.xpoint[0]]
+        self.hdr['zPFx'] = [self.ax[1], self.xpoint[1]]
         self.hdr['SSQ']  = [self.eqdsk.R0EXP, self.eqdsk.Zaxis, 0, 0]
         
     def build_bkg(self):
