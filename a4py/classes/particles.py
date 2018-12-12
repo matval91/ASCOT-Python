@@ -6,7 +6,7 @@ from matplotlib import colors, patches
 import collections
 import math, platform
 import h5py
-from utils.ascot_utils import _plot_2d, _plot_1d
+from utils.plot_utils import _plot_2d, _plot_1d
 
 colours = ['k', 'g','b','r','c']
 styles = ['-','--','-.']
@@ -614,6 +614,7 @@ class h5_particles(particles):
         ind = np.where(np.logical_or(endcond == 1, endcond == 2))  #Tmax, Emin, cputmax
         p_res = np.dot(self.data_e['weight'][ind],self.data_e['energy'][ind])*1.602e-19
         self.pcoup = p_ini-p_end+p_res    
+        
     def plot_rhopitch(self):
         """ plot rhopitch of losses
     

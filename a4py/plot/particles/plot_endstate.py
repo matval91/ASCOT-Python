@@ -7,7 +7,7 @@ Created on Wed Nov 28 18:25:45 2018
 """
 import numpy as np
 import matplotlib.pyplot as plt
-import utils.ascot_utils as ascot_utils
+import utils.plot_utils as ascot_utils
 
 def plot_histo_wall(data_e, R0=0, z0=0, ax=0, lastpoint=1):
     """ plot wall losses

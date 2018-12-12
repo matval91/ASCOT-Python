@@ -15,10 +15,10 @@ Arguments:
 """
 from __future__ import print_function
 import numpy as np
-
+import matplotlib.pyplot as plt
 def filter_marker(input_fname='input.particles', \
                   fname_out='input.particles_filt',\
-                  minrho=0.8, minxi=-1., maxxi=1.):
+                  minrho=0.8, minxi=-1., maxxi=1., sign=1):
 
     fin = open(input_fname,"r")
     lines=fin.readlines()
@@ -45,13 +45,14 @@ def filter_marker(input_fname='input.particles', \
             continue
         ind_markerstart = ind
         break
+    
     header = lines[0:ind_markerstart-1]
     markers = np.zeros((nmarkers, nfields))
     for ind, ll in enumerate(lines[ind_markerstart:-1]):
         tmp = ll.split()
         markers[ind,:] = tmp[:]
     vtot = np.sqrt(markers[:, indvphi]**2+markers[:, indvz]**2+markers[:, indvr]**2)
-    pitch = markers[:, indvphi]/vtot
+    pitch = sign*markers[:, indvphi]/vtot
     indnew = np.where(np.logical_and(markers[:,indrho] > minrho,\
                                      np.logical_and(pitch>minxi, pitch<maxxi)))[0]
     

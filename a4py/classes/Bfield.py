@@ -8,12 +8,12 @@ from __future__ import print_function
 import numpy as np
 import h5py, math
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import ReadEQDSK
 from scipy.interpolate import griddata
 import scipy.optimize
 import scipy.interpolate as interp
-from utils.ascot_utils import common_style
+import a4py.utils.cocos_transform as cocos
+import a4py.plot.input.plot_input as plot_input
 
 class Bfield_ascot:
     """ Handles Bfield store in h5 file
@@ -80,7 +80,8 @@ class Bfield_ascot:
                         "nr":"/bfield/nr", "nz":"/bfield/nz",\
                         "r":"/bfield/r", "z":"/bfield/z",\
                         "raxis":"/bfield/raxis", "zaxis":"/bfield/zaxis",\
-                        "q":"/boozer/qprof", "psi_rho":"/boozer/psi"}
+                        "q":"/boozer/qprof", "psi_rho":"/boozer/psi",\
+                        "psi_sepa":"/boozer/psiSepa"}
         
 #                         "Babs":"/boozer/Babs", "I":"/boozer/Ifunc",\
 #                         "r_boo":"/boozer/R","axisR_boo":"/boozer/axisR", "axisZ_boo":"/boozer/axisz",\
@@ -103,13 +104,21 @@ class Bfield_ascot:
             self.vardict[k] = self.infile[self.labdict[k]]
 
         self.nrho = self.vardict['psi_rho'].shape[0]
-        self.rho = self.vardict['psi_rho'][:]**0.5
+        
+        self.R = self.vardict['r'][:]
+        self.Z = self.vardict['z'][:]
+        self.psi = self.vardict['psi_2D']
+        self.psiedge = self.vardict['psi_sepa']
+        self.rhopsi = self.vardict['psi_rho'][:]**0.5
+        self.q = self.vardict['q']
 
+        self.Bphi = self.vardict['bphi']
+
+        
         #these nR and nZ are from the group /bfield/, the ones for /boozer/ are on rho and theta (spacing of grid)
         self.nR = self.vardict['nr'][:]        
         self.nZ = self.vardict['nz'][:]
-        self.R = self.vardict['r'][:]
-        self.Z = self.vardict['z'][:]
+
         self.rmin=np.min(self.R)
         self.rmax=np.max(self.R)
         self.zmin=np.min(self.Z)
@@ -160,111 +169,11 @@ class Bfield_ascot:
         for key in ['Ip', 'b0','psiAtAxis', 'psiAtSeparatrix',\
                     'rmin','rmax','zmin','zmax']:
             print(key, " ", self.sanitydict[key])
+           
             
-
-    def _plot_2dpsi(self,ax):
-        """
+    def plot_B(self,f=0 ):
+        plot_input.plot_Bfield(self,f)
         
-        """
-        edge = self.infile['boozer/psiSepa'][:]; axis=self.infile['boozer/psiAxis'][:]
-        edge = self.sanitydict['psiAtSeparatrix']; axis=self.sanitydict['psiAtAxis']
-
-        yplot = self.vardict['psi_2D'][:]
-        r,z = self.vardict['r'], self.vardict['z']
-
-        #ax.set_title('Poloidal flux')
-        CS = ax.contour(r,z,yplot, 30)
-        ax.contour(r,z,yplot,[-edge], colors='k', linewidths=2.5, linestyles='--')
-        ax.set_xlabel("R [m]")
-        ax.set_ylabel("Z [m]")
-        #CB = plt.colorbar(CS)
-        if self.R_w[0]!=0:
-            ax.plot(self.R_w, self.z_w, 'k',linewidth=2.5)
-        ax.axis('equal')
-        ax.grid('on')
-        plt.setp(ax.get_yticklabels()[0], visible=False) 
-        M = 4
-        yticks = ticker.MaxNLocator(M)
-        xticks = ticker.MaxNLocator(M)
-        # tick positions with set_minor_locator.
-        ax.yaxis.set_major_locator(yticks)
-        #ax.yaxis.set_minor_locator(yticks_m)
-        ax.xaxis.set_major_locator(xticks)
-
-    def checkplot(self, f=0):
-        """Plots psi_2D, q, Bphi
-        
-        Method to plot the values and check the magnetic field we are looking at
-
-        Parameters:
-            f (obj): figure object where to plot
-        Attributes:
-            None
-        
-        """
-        try:
-            self.sanitydict['psiAtSeparatrix']
-        except:
-            self._sanitycheck()
-
-        common_style()
-
-        if f==0:
-            f = plt.figure(figsize=(20, 8))
-            #f.text(0.01, 0.01, self.infile_n)
-            ax2d = f.add_subplot(131)
-            axq = f.add_subplot(132)
-            axf = f.add_subplot(133)
-        else:
-            f=plt.gcf()
-            ax2d = f.axes[0]
-            axq  = f.axes[2]
-            axf  = f.axes[3]
-            plt.rc('lines', linestyle='--')
-        ax2d = f.add_subplot(131)
-
-        self._plot_2dpsi(ax2d)
-
-        M = 4
-        yticks = ticker.MaxNLocator(M)
-        xticks = ticker.MaxNLocator(M)
-        # tick positions with set_minor_locator.
-        ax2d.yaxis.set_major_locator(yticks)
-        #ax.yaxis.set_minor_locator(yticks_m)
-        ax2d.xaxis.set_major_locator(xticks)
-
-        axq = f.add_subplot(132)
-        axq.plot(self.rho, np.abs(self.vardict['q']), lw=2.3, color='k')
-        axq.set_xlabel(r'$\rho_{POL}$')
-        axq.set_ylabel(r'q'); axq.set_ylim([0,6])
-        axq.grid('on')
-        M = 4
-        yticks = ticker.MaxNLocator(M)
-        xticks = ticker.MaxNLocator(M)
-        # tick positions with set_minor_locator.
-        axq.yaxis.set_major_locator(yticks)
-        #ax.yaxis.set_minor_locator(yticks_m)
-        axq.xaxis.set_major_locator(xticks)
-        axf = f.add_subplot(133)
-        axf.plot(self.vardict['r'],  self.vardict['bphi'][50,:], lw=2.3, color='k')
-        axf.set_xlabel(r'R [m]')
-        axf.set_ylabel(r'$B_\phi$')
-        axf.grid('on')
-        f.tight_layout()
-        plt.rc('lines', linestyle='-')
-
-        plt.setp(axq.get_yticklabels()[0], visible=False) 
-        plt.setp(axf.get_yticklabels()[0], visible=False) 
-        M = 4
-        yticks = ticker.MaxNLocator(M)
-        xticks = ticker.MaxNLocator(M)
-        # tick positions with set_minor_locator.
-        axf.yaxis.set_major_locator(yticks)
-        #ax.yaxis.set_minor_locator(yticks_m)
-        axf.xaxis.set_major_locator(xticks)
-
-        plt.show()
-
         
 class Bfield_eqdsk:
     """ Class handling eqdsk magnetic field
@@ -302,13 +211,14 @@ class Bfield_eqdsk:
         self._read_wall()
         self._import_from_eqdsk(infile)
         #these are the dimensions of the output arrays
-        self.nR=nR
-        self.nz=nz
-        if len(args)!=0:
-            self.dr, self.dz = np.asarray(args[0]), np.asarray(args[1])
-            print("Shifting of quantity ", self.dr, " and ", self.dz)
-            self._shift_eq()
-
+        self.R = self.R_eqd
+        self.z = self.Z_eqd
+        self.psi = self.eqdsk.psi
+        self.psiedge = self.eqdsk.psiedge
+        self.rhopsi = self.eqdsk.rhopsi
+        self.q = self.eqdsk.q
+        self.nR=len(self.R)
+        self.nz=len(self.z)
 
     def _import_from_eqdsk(self, infile_eqdsk):
         """ importing from eqdsk
@@ -358,12 +268,11 @@ class Bfield_eqdsk:
         self.eqdsk.psi = np.reshape(self.eqdsk.psi, (self.eqdsk.nzbox, self.eqdsk.nrbox))       
         self.R_eqd = np.linspace(self.eqdsk.rboxleft, self.eqdsk.rboxleft+self.eqdsk.rboxlength, self.eqdsk.nrbox)
         self.Z_eqd = np.linspace(-self.eqdsk.zboxlength/2., self.eqdsk.zboxlength/2., self.eqdsk.nzbox)
-        self.cocos_transform(self.COCOS)
+        self._cocos_transform(self.COCOS)
         #This is for Equilibrium from CREATE for scenario 2, also to modify in build bkg
-        self.psi_coeff = interp.RectBivariateSpline(self.Z_eqd, self.R_eqd, self.eqdsk.psi)
-        #self.psi_coeff = interp.RectBivariateSpline(self.R_eqd, self.Z_eqd, self.eqdsk.psi) 
-       
-    def cocos_transform(self, COCOS):
+        self.psi_coeff = interp.RectBivariateSpline(self.Z_eqd, self.R_eqd, self.eqdsk.psi)   
+        
+    def _cocos_transform(self, COCOS):
         """ cocos transformations
         This function converts the magnetic input from their starting cocos to eqdsk 5 (needed by ascot).
 
@@ -373,122 +282,10 @@ class Bfield_eqdsk:
             None
         
         """
+        cocos.cocos_transform(self.eqdsk, COCOS, 5, \
+                              sigma_ip_out=1, sigma_b0_out=-1)
 
-        print("COCOS tranformation from "+str(COCOS)+" to 5")
-        cocos_keys = ['sigma_Bp', 'sigma_RphiZ', 'sigma_rhothetaphi', 'sign_q_pos', 'sign_pprime_pos', 'exp_Bp']
-        pi = math.pi
-        cocosin = dict.fromkeys(cocos_keys)
-        cocosin['exp_Bp'] = 0 # if COCOS>=10, this should be 1
-        if COCOS>10:
-            cocosin['exp_Bp'] = +1 # if COCOS>=10, this should be 1
-            
-        
-        if COCOS==2 or COCOS==12:
-            #These cocos are for CHEASE (2) - IN
-            cocosin['sigma_Bp'] = +1
-            cocosin['sigma_RphiZ'] = -1
-            cocosin['sigma_rhothetaphi'] = +1
-            cocosin['sign_q_pos'] = +1
-            cocosin['sign_pprime_pos'] = -1
-        elif COCOS==3 or COCOS==13:
-            #These cocos are for EFIT (3) - IN
-            cocosin['sigma_Bp'] = -1
-            cocosin['sigma_RphiZ'] = +1
-            cocosin['sigma_rhothetaphi'] = -1
-            cocosin['sign_q_pos'] = -1
-            cocosin['sign_pprime_pos'] = +1
-        elif COCOS==4 or COCOS==14:
-            cocosin['sigma_Bp'] = -1
-            cocosin['sigma_RphiZ'] = -1
-            cocosin['sigma_rhothetaphi'] = -1
-            cocosin['sign_q_pos'] = -1
-            cocosin['sign_pprime_pos'] = +1
-        elif COCOS==7 or COCOS==17:
-            #These cocos are for LIUQE(17) - IN
-            cocosin['sigma_Bp'] = -1
-            cocosin['sigma_RphiZ'] = +1
-            cocosin['sigma_rhothetaphi'] = +1
-            cocosin['sign_q_pos'] = +1
-            cocosin['sign_pprime_pos'] = +1
-       
-        else:
-            print(str(COCOS)+" Not Implemented \n")
-            raise ValueError
-        
-        cocosin['sigma_ip'] = np.sign(self.eqdsk.Ip)
-        cocosin['sigma_b0'] = np.sign(self.eqdsk.B0EXP)
-
-        #These cocos are for ASCOT - OUT
-        cocosout = dict.fromkeys(cocos_keys)
-        cocosout['sigma_Bp'] = 1
-        cocosout['sigma_RphiZ'] = +1
-        cocosout['sigma_rhothetaphi'] = +1
-        cocosout['sign_q_pos'] = +1
-        cocosout['sign_pprime_pos'] = -1
-        cocosout['exp_Bp'] = 0
-        cocosout['sigma_ip'] = +1
-        cocosout['sigma_b0'] = -1
-        
-        # Define effective variables: sigma_Ip_eff, sigma_B0_eff, sigma_Bp_eff, exp_Bp_eff as in Appendix C
-        #sigma_Ip_eff = cocosin['sigma_RphiZ'] * cocosout['sigma_RphiZ']
-        #sigma_B0_eff = cocosin['sigma_RphiZ'] * cocosout['sigma_RphiZ']
-        # Since we want sigmaip and sigmab0 defined, we must use
-        sigma_Ip_eff = cocosin['sigma_ip']*cocosout['sigma_ip']
-        sigma_B0_eff = cocosin['sigma_b0']*cocosout['sigma_b0']
-        sigma_Bp_eff = cocosin['sigma_Bp'] * cocosout['sigma_Bp']
-        exp_Bp_eff = cocosout['exp_Bp'] - cocosin['exp_Bp']
-        sigma_rhothetaphi_eff = cocosin['sigma_rhothetaphi'] * cocosout['sigma_rhothetaphi']
-        # Define input
-        F_in = self.eqdsk.T
-        FFprime_in = self.eqdsk.TTprime
-        pprime_in = self.eqdsk.pprime
-        psirz_in = self.eqdsk.psi
-        psiaxis_in = self.eqdsk.psiaxis
-        psiedge_in = self.eqdsk.psiedge
-        q_in = self.eqdsk.q
-        b0_in = self.eqdsk.B0EXP
-        ip_in = self.eqdsk.Ip
-        
-        # Transform
-        F = F_in * sigma_B0_eff
-        FFprime = FFprime_in*sigma_Ip_eff*sigma_Bp_eff/(2*pi)**exp_Bp_eff
-        pprime = pprime_in * sigma_Ip_eff * sigma_Bp_eff / (2*pi)**exp_Bp_eff
-        _fact_psi = sigma_Ip_eff * sigma_Bp_eff * (2*pi)**exp_Bp_eff
-        psirz = psirz_in * _fact_psi       
-        psiaxis = psiaxis_in * _fact_psi
-        psiedge = psiedge_in * _fact_psi
-        q = q_in * sigma_Ip_eff * sigma_B0_eff * sigma_rhothetaphi_eff
-        b0 = b0_in * sigma_B0_eff
-        ip = ip_in * sigma_Ip_eff
-        # Define output
-        self.eqdsk.T = F
-        self.eqdsk.TTprime = FFprime
-        self.eqdsk.pprime = pprime
-        self.eqdsk.psi = psirz
-        self.eqdsk.psiaxis = psiaxis
-        self.eqdsk.psiedge = psiedge
-        self.eqdsk.q = q
-        self.eqdsk.B0EXP = b0
-        self.eqdsk.Ip = ip
-
-    def _shift_eq(self):
-        """
-        NOT FULLY FUNCTIONAL
-        Shift the equilibrium of the quantity dr and dz (Dr>0: shift to right, Dz>0: shift up)
-        """
-        self.eqdsk.R0EXP    += self.dr
-        self.eqdsk.rboxleft += self.dr
-        self.eqdsk.Raxis    += self.dr
-        self.eqdsk.R        += self.dr
-        self.eqdsk.R_grid   += self.dr
-        self.R_eqd          += self.dr
-
-        self.eqdsk.Zaxis    += self.dz
-        self.eqdsk.Z        += self.dz
-        self.eqdsk.Z_grid   += self.dz
-        self.Z_eqd          += self.dz
-
-    def eqdsk_checkplot(self, f=0):
+    def plot_B(self, f=0):
         """plot of 2D psi, q, bphi
 
         Method to plot the values (2D psi, q, bphi) and check the magnetic field we are looking at
@@ -504,71 +301,7 @@ class Bfield_eqdsk:
         except:
             self.calc_field()
             
-        plt.rc('xtick', labelsize=12)
-        plt.rc('ytick', labelsize=12)
-        plt.rc('axes', labelsize=15)
-        plt.rc('figure', facecolor='white')
-        if f==0:
-            f = plt.figure(figsize=(20, 8))
-            f.text(0.01, 0.01, self.infile)
-        else:
-            f=plt.gcf()
-        ax2d = f.add_subplot(131)
-        r,z = self.R_eqd, self.Z_eqd
-        #r = np.linspace(float(np.around(np.min(self.R_w), decimals=2)), float(np.around(np.max(self.R_w), decimals=2)), self.nR)
-        #z = np.linspace(float(np.around(np.min(self.z_w), decimals=2)), float(np.around(np.max(self.z_w), decimals=2)), self.nz)
-
- 
-        CS = ax2d.contour(r,z, self.psi_coeff(z,r), 30)
-        plt.contour(r,z, self.psi_coeff(z,r), [self.eqdsk.psiedge], colors='k', linewidths=3.)
-
-        ax2d.set_xlabel("R [m]")
-        ax2d.set_ylabel("Z [m]")
-        CB = plt.colorbar(CS)
-        if self.R_w[0]!=0:
-            ax2d.plot(self.R_w, self.z_w, 'k',linewidth=2)
-        ax2d.axis('equal')
-        axq = f.add_subplot(132)
-        axq.plot(self.eqdsk.rhopsi, self.eqdsk.q, lw=2.3, color='k')
-        axq.set_xlabel(r'$\rho_{POL}$')
-        axq.set_ylabel(r'q')
-
-        axf = f.add_subplot(133)
-        #axf.plot(self.R_eqd, self.eqdsk.T)
-        axf.plot(r, self.param_bphi(r,z)[len(r)/2,:], lw=2.3, color='k')
-        axf.set_xlabel(r'R [m]')
-        axf.set_ylabel(r'$B_\phi$')
-        f.tight_layout()
-        plt.show()
-
-    def plot_Bfield(self):
-        """
-        Plots the magnetic field used (only thing ASCOT is interested by)
-        """
-        try:
-            self.Br_t.mean()
-        except:
-            self.calc_field()
-
-        self.Br_t, self.Bz_t, self.Bphi
-
-        f=plt.figure()
-        axr=f.add_subplot(131)
-        CS = plt.contour(self.R_eqd, self.Z_eqd, self.Br_t)
-        CB = plt.colorbar(CS)
-        axr.set_title("R")
-
-        axz = f.add_subplot(132)
-        CS = plt.contour(self.R_eqd, self.Z_eqd, self.Bz_t)
-        CB = plt.colorbar(CS)
-        axz.set_title("z")
-
-        axphi = f.add_subplot(133)
-        CS = plt.contour(self.R_eqd, self.Z_eqd, self.param_bphi(self.R_eqd, self.Z_eqd))
-        CB = plt.colorbar(CS)
-        axphi.set_title("phi")
-
-        plt.show()
+        plot_input.plot_Bfield(self,f)
 
     def write(self):
         """
@@ -697,8 +430,8 @@ class Bfield_eqdsk:
 
         # poloidal flux of the special points.
         self.hdr['PFxx'] = [self.axflux[0][0], self.xflux[0][0]]
-        self.hdr['RPFx'] = [self.ax[0], self.xpoint[0]]
-        self.hdr['zPFx'] = [self.ax[1], self.xpoint[1]]
+        self.hdr['RPFx'] = [self.xpoint[0], self.ax[0]]
+        self.hdr['zPFx'] = [self.xpoint[1], self.ax[1]]
         self.hdr['SSQ']  = [self.eqdsk.R0EXP, self.eqdsk.Zaxis, 0, 0]
         
     def build_bkg(self):
@@ -816,7 +549,6 @@ class Bfield_eqdsk:
         print("Calculating Bphi")
         inv_R = np.asarray(1.0)/np.array(self.R_eqd)
         inv_R = np.tile(inv_R,[self.eqdsk.nzbox, 1])
-        self.Bphi = np.zeros(np.shape(inv_R))
         #Bphi is used, BR and Bz not but you must initialise it to 0 and
         # print them anyway
         #self.Br_t = -self.dpsidZ*inv_R
@@ -832,11 +564,12 @@ class Bfield_eqdsk:
         #Set values out of the separatrix (where Fgrid is NaN) to the value at the separatrix
         Fgrid[np.where(self.rhogrid>1.)] = self.eqdsk.T[-1]
 
-        self.Fgrid=Fgrid 
+        self._Fgrid=Fgrid 
         Bphi = np.multiply(Fgrid,inv_R)        
         self.param_bphi = interp.interp2d(self.R_eqd, self.Z_eqd, Bphi)
-        self.Bphi = Bphi
-
+        self._Bphi2D = Bphi
+        self.Bphi = self._Bphi2D[int(self.nR/2), :]
+        
     def write_head(self):
         """ writing header
         Write to input.magn_header file
@@ -858,7 +591,7 @@ class Bfield_eqdsk:
             out_fname += '_'+self.infile[6:18]
 			
         print('OUT header '+out_fname)
-        outfile = open(out_fname, 'wa')
+        outfile = open(out_fname, 'w')
        
         
         #outfile.write('{:d} (R,z) wall points & divertor flag (1 = divertor, 0 = wall)\n'.format(len(lines)))
@@ -886,7 +619,7 @@ class Bfield_eqdsk:
         outfile.write(' \n')
         
         #SSQ
-        for i in xrange(0,len(hdr['SSQ']),4):
+        for i in range(0,len(hdr['SSQ']),4):
             tmp_str = ['{:8.6f} '.format(j) for j in hdr['SSQ'][i:i+4]]
             outfile.write(" ".join(tmp_str))
             outfile.write("\n")
@@ -898,7 +631,7 @@ class Bfield_eqdsk:
         for arr_name in ('PFL','Vol','Area','Qpl'):
             print("Writing ", arr_name)
             arr = hdr[arr_name]
-            for i in xrange(0,len(arr),4):
+            for i in range(0,len(arr),4):
                 tmp_str = ['{:18.10f}'.format(j) for j in arr[i:i+4]]
                 outfile.write(" ".join(tmp_str))
                 outfile.write("\n")
@@ -933,7 +666,7 @@ class Bfield_eqdsk:
             out_fname += '_'+self.infile[6:18]
 
         print('OUT bkg '+out_fname)
-        outfile = open(out_fname, 'wa') 
+        outfile = open(out_fname, 'w') 
     
         #outfile.write('{:d} (R,z) wall points & divertor flag (1 = divertor, 0 = wall)\n'.format(len(lines)))        
         outfile.write('{:18.10f} {:3d} {:3d} {:3d} {:3d}\n'.format(\
@@ -954,7 +687,7 @@ class Bfield_eqdsk:
             print("Bkg[nsector] = ", bkg['nsector'])
             for arr_name in ('phimap_toroidal', 'phimap_poloidal'):
                 arr = bkg[arr_name]
-                for i in xrange(0,len(arr),18):
+                for i in range(0,len(arr),18):
                     tmp_str = ['{:d}'.format(j) for j in arr[i:i+18]]
                     outfile.write(" ".join(tmp_str))
                     outfile.write("\n")
@@ -971,7 +704,7 @@ class Bfield_eqdsk:
             #making the array plain:
             arr = arr.reshape(arr.size)
 
-            for i in xrange(0,np.size(arr)-np.mod(np.size(arr),4),4):
+            for i in range(0,np.size(arr)-np.mod(np.size(arr),4),4):
                 tmp_str = ['{:18.10f} {:18.10f} {:18.10f} {:18.10f}'.format(arr[i],arr[i+1],arr[i+2],arr[i+3])]
                 outfile.write(" ".join(tmp_str))
                 outfile.write("\n")

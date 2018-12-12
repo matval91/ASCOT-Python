@@ -1,6 +1,6 @@
 import numpy as np
 
-def cocos_transform(eqd, cocosin_f, cocosout_f):
+def cocos_transform(eqd, cocosin_f, cocosout_f, sigma_ip_out=1, sigma_b0_out=1):
     """ cocos transformations
     This function converts the magnetic input from their starting cocos to cocos 3 (needed by ascot5)
 
@@ -45,6 +45,12 @@ def cocos_transform(eqd, cocosin_f, cocosout_f):
         cocosin['sigma_rhothetaphi'] = -1
         cocosin['sign_q_pos'] = -1
         cocosin['sign_pprime_pos'] = +1
+    elif cocosin_f==5 or cocosin_f==15:
+        cocosin['sigma_Bp'] = 1
+        cocosin['sigma_RphiZ'] = +1
+        cocosin['sigma_rhothetaphi'] = +1
+        cocosin['sign_q_pos'] = +1
+        cocosin['sign_pprime_pos'] = -1  
     elif cocosin_f==7 or cocosin_f==17:
         #These cocos are for LIUQE(17) - IN
         cocosin['sigma_Bp'] = -1
@@ -84,6 +90,12 @@ def cocos_transform(eqd, cocosin_f, cocosout_f):
         cocosout['sigma_rhothetaphi'] = -1
         cocosout['sign_q_pos'] = -1
         cocosout['sign_pprime_pos'] = +1
+    elif cocosout_f==5 or cocosout_f==15:
+        cocosout['sigma_Bp'] = 1
+        cocosout['sigma_RphiZ'] = +1
+        cocosout['sigma_rhothetaphi'] = +1
+        cocosout['sign_q_pos'] = +1
+        cocosout['sign_pprime_pos'] = -1      
     elif cocosout_f==7 or cocosout_f==17:
         #These cocos are for LIUQE(17) - IN
         cocosout['sigma_Bp'] = -1
@@ -94,9 +106,9 @@ def cocos_transform(eqd, cocosin_f, cocosout_f):
     else:
         print(str(cocosout_f)+" Not Implemented \n")
         raise ValueError
-
-    cocosout['sigma_ip'] = +1
-    cocosout['sigma_b0'] = +1
+        
+    cocosout['sigma_ip'] = sigma_ip_out
+    cocosout['sigma_b0'] = sigma_b0_out
 
     # Define effective variables: sigma_Ip_eff, sigma_B0_eff, sigma_Bp_eff, exp_Bp_eff as in Appendix C
     #sigma_Ip_eff = cocosin['sigma_RphiZ'] * cocosout['sigma_RphiZ']

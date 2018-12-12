@@ -6,7 +6,7 @@ Created on Wed Nov 28 18:33:26 2018
 @author: vallar
 """
 import numpy as np
-import utils.ascot_utils as ascot_utils
+import utils.plot_utils as ascot_utils
 
 def plot_RZ(data_i, wallrz, surf, xlim, ax=0):
     """plot inistate RZ

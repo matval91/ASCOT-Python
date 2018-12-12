@@ -1403,15 +1403,6 @@ class distribution_2d:
         self._read_dim()
         self._fix_dim()
 
-    def _read_dim(self):
-        """
-        Hidden method to read the abscissae
-        """
-        self.shape_dim = self.dict_dim.copy()
-        for i, dim in enumerate(self.dict_dim):
-            self.dict_dim[dim] = self.dist_h5['abscissae/dim'+str(i+1)].value
-            self.shape_dim[dim] = np.size(self.dict_dim[dim])-1
-
     def _fix_dim(self):
         """
         Hidden method to make the abscissae the correct length (same as ordinate)
@@ -1474,20 +1465,7 @@ class frzpe(distribution_2d):
         self.dict_dim = collections.OrderedDict([('R',[]),('z',[]),('pitch',[]),('E',[]),('t',[])])
         self.collect_dim()
         self.build_fdist()
-        self._integrate_space()        
-        
-    def _integrate_space(self):
-        """
-        Function to integrate over (R,z)
-        """
-        dist_toint = self.fdist_notnorm[0,:,:,:,:]/self.norm
-
-        for i, el in enumerate(self.dict_dim['R']):
-            dist_toint[:,:,:,i] *= 2*math.pi*el
-
-        int_R   = np.trapz(dist_toint, self.dict_dim['R'], axis = -1)
-        int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
-        self.f_space_int = int_Rz #E,pitch
+        self._integrate_space_rz()        
     
     def plot_space_enslice(self, sliceind):
         """

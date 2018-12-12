@@ -1,34 +1,42 @@
 import matplotlib.pyplot as plt
 from matplotlib import ticker, colors
 import numpy as np
-colours_old = ['k', 'g', 'b', 'r', 'c']
-colours = ['k', 'r', 'b', 'g', 'c']
 
-styles = ['-','--','-.']
+def define_colors():
+    colours_old = ['k', 'g', 'b', 'r', 'c']
+    colours = ['k', 'r', 'b', 'g', 'c']
+    
+    styles = ['-','--','-.']
+    
+    cdict = {'red': ((0., 1, 1),
+                     (0.05, 1, 1),
+                     (0.11, 0, 0),
+                     (0.66, 1, 1),
+                     (0.89, 1, 1),
+                     (1, 0.5, 0.5)),
+             'green': ((0., 1, 1),
+                       (0.05, 1, 1),
+                       (0.11, 0, 0),
+                       (0.375, 1, 1),
+                       (0.64, 1, 1),
+                       (0.91, 0, 0),
+                       (1, 0, 0)),
+             'blue': ((0., 1, 1),
+                      (0.05, 1, 1),
+                      (0.11, 1, 1),
+                      (0.34, 1, 1),
+                      (0.65, 0, 0),
+                      (1, 0, 0))}
+    
+    my_cmap = colors.LinearSegmentedColormap('my_colormap',cdict,256)
+    
+    dpi=800
 
-cdict = {'red': ((0., 1, 1),
-                 (0.05, 1, 1),
-                 (0.11, 0, 0),
-                 (0.66, 1, 1),
-                 (0.89, 1, 1),
-                 (1, 0.5, 0.5)),
-         'green': ((0., 1, 1),
-                   (0.05, 1, 1),
-                   (0.11, 0, 0),
-                   (0.375, 1, 1),
-                   (0.64, 1, 1),
-                   (0.91, 0, 0),
-                   (1, 0, 0)),
-         'blue': ((0., 1, 1),
-                  (0.05, 1, 1),
-                  (0.11, 1, 1),
-                  (0.34, 1, 1),
-                  (0.65, 0, 0),
-                  (1, 0, 0))}
+    return colours, colours_old, styles, my_cmap, dpi
 
-my_cmap = colors.LinearSegmentedColormap('my_colormap',cdict,256)
 
-dpi=800
+colours, colours_old, styles, my_cmap, dpi= define_colors()
+
 
 def common_style():
     """plotting style

@@ -6,11 +6,10 @@ Class for profiles I/O for ascot&bbnbi
 from __future__ import print_function
 import numpy as np
 import h5py, time, platform
-import matplotlib.pyplot as plt
 from scipy import interpolate, integrate
 import scipy.io as sio
-import classes.ascot_Bfield as ascot_Bfield
-from utils.ascot_utils import common_style, limit_labels
+import a4py.classes.Bfield as ascot_Bfield
+import a4py.plot.input.plot_input as plot_input
 
 # if on TCV, load also mdsplus
 cluster = platform.uname()[1]
@@ -155,9 +154,9 @@ class profiles:
 
         """
         tit=str(tit)
-        self.plot_profiles(title=tit)
+        self.plot_profiles()
 
-    def plot_profiles(self, f=0, title=''):
+    def plot_profiles(self, fig=0):
         """Plot the profiles
         
         This function makes a plot with ne, Te, Ti, ni(eventually nimp) on 4 different frames
@@ -169,49 +168,7 @@ class profiles:
             None
 
         """
-        common_style()
-        
-
-        #=====================================================================================
-        if f==0:
-            w, h = plt.figaspect(0.8)
-            fig=plt.figure(title, figsize=(10,8))
-            axte = fig.add_subplot(221)
-            axne = fig.add_subplot(222, sharex=axte)
-            axti = fig.add_subplot(223, sharey=axte)
-            axni = fig.add_subplot(224, sharey=axne)
-        else:
-            fig=f
-            axte = fig.axes[0]
-            axne = fig.axes[1]
-            axti = fig.axes[2]
-            axni = fig.axes[3]
-        #axvt = fig.add_subplot(325)
-        lw=4
-        axte.plot(self.rho, self.te*1e-3,'k', linewidth=lw)
-        axne.plot(self.rho, self.ne,'k', linewidth=lw)
-        axti.plot(self.rho, self.ti*1e-3,'k', linewidth=lw)
-        #axvt.plot(self.rho, self.vt,'k', linewidth=lw)
-        for i in range(self.nion):
-            if self.A[i]==2.:
-                label='D'
-            elif self.A[i]==12:
-                label='C'
-            else:
-                label='UNSPEC'
-            axni.plot(self.rho, self.ni[i,:],colours[i], \
-                      label=label, linewidth=lw)
-        axni.legend(loc='best')
-
-
-        if f == 0:
-            limit_labels(axte, r'$\rho$', r'$T_e$ [keV]')
-            limit_labels(axte, r'$\rho$', r'$n_e$ [1/$m^3$]')
-            limit_labels(axte, r'$\rho$', r'$T_i$ [keV]')
-            limit_labels(axte, r'$\rho$', r'$n_i$ [1/$m^3$]')
-
-            fig.tight_layout() # Or equivalently,  "plt.tight_layout()"
-        plt.show()
+        plot_input.plot_profiles(self, fig)
 
 
     def _spline(self,rho,data, rho_new):
@@ -1268,12 +1225,10 @@ class TCV_mds(profiles):
         suffix = '_'+str(self.shot)+'_'+str(int(self.t*1e3))
         self.write_input(suffix=suffix)
 
-
-
 class input_datfiles(profiles):
     """
     Reads an input.plasma_1d file:
-    rho pol, ne [m^-3], te[eV], ti[eV]
+    rho pol, ne [m^-3], te[eV], ti[eV], ni [m^-3]
     """
     def __init__(self,infile):
         """
@@ -1313,3 +1268,4 @@ class input_datfiles(profiles):
         self.ni[:,0] = data[5,:]
         for i in range(self.nion-1):
             self.ni[:,i+1] = data[i+6,:]
+        self.ni = np.transpose(self.ni)
