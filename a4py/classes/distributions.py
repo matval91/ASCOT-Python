@@ -15,12 +15,11 @@ from __future__ import print_function
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
-from matplotlib import colors
 from scipy import interpolate
 import os.path, math, time
 import collections
-import classes.ascot_particles as ascot_particles
-from utils.ascot_utils import _plot_2d, plot_article, _plot_1d
+import a4py.classes.particles as ascot_particles
+from utils.plot_utils import _plot_2d, plot_article, _plot_1d
                   
 class distribution_1d:
     """
