@@ -10,7 +10,7 @@ import numpy as np
 import scipy.interpolate as interpolate
 
 def ecrit(inf_name='ascot.h5', E0=500000):
-    """
+    """ecrit calculation
     Calculates critical energy profiles
     Ec = 14.8*te*(A**(1.5)/ne*summ)**(2./3.)
     ts = 6.28e14*(A*te^1.5)/(Z^2*ne*lnlambda)
