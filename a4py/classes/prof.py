@@ -1,5 +1,5 @@
 """
-matteo.vallar@igi.cnr.it - 11/2017
+matteo.vallar@igi.cnr.it - 02/2019
 
 Class for profiles I/O for ascot&bbnbi
 """
@@ -87,38 +87,40 @@ class profiles:
         """
         
         out_fname = "input.plasma_1d"+suffix
-        outfile = open(out_fname, 'w+')
-        outfile.write('# Input file for ASCOT containing radial 1D information of plasma temperature,density and toroidal rotation \n')
-        outfile.write('# range must cover [0,1] of normalised poloidal rho. It can exceed 1. \n')
-        outfile.write('# {:s} (first 3 lines are comment lines) \n'.format(time.strftime('%d%b%y')))
-        outfile.write('{:d}\t{:1d}\t# Nrad,Nion \n'.format(self.nrho,self.nion))
-        strcoll = str(1)+' ' # for electrons
-        strZ=''
-        strA=''
-        for i in range(self.nion):
-            strZ += str(self.Z[i]) + ' '
-            strA += str(self.A[i]) + ' '
-            strcoll += str(int(self.coll_mode[i])) + ' '
-        strZ +='\t\t# ion Znum \n'
-        strA +='\t\t# ion Amass \n'
-        strcoll += '# collision mode (0= no colls, 1=Maxw colls, 2=binary colls, 3=both colls) 1st number is for electrons \n'
-        outfile.write(strZ)				
-        outfile.write(strA)
-        outfile.write(strcoll)
+        with open(out_fname, 'w+') as outfile:
+            outfile.write('# Input file for ASCOT containing radial 1D information of plasma temperature,density and toroidal rotation \n')
+            outfile.write('# range must cover [0,1] of normalised poloidal rho. It can exceed 1. \n')
+            outfile.write('# {:s} (first 3 lines are comment lines) \n'.format(time.strftime('%d%b%y')))
+            outfile.write('{:d}\t{:1d}\t# Nrad,Nion \n'.format(self.nrho,self.nion))
+            strcoll = str(1)+' ' # for electrons
+            strZ=''
+            strA=''
+            for i in range(self.nion):
+                strZ += str(self.Z[i]) + ' '
+                strA += str(self.A[i]) + ' '
+                strcoll += str(int(self.coll_mode[i])) + ' '
+            strZ +='\t\t# ion Znum \n'
+            strA +='\t\t# ion Amass \n'
+            strcoll += '# collision mode (0= no colls, 1=Maxw colls, 2=binary colls, 3=both colls) 1st number is for electrons \n'
+            outfile.write(strZ)				
+            outfile.write(strA)
+            outfile.write(strcoll)
            
-        lab_len=15
-        strlabel='RHO (pol)'.ljust(lab_len)+'Te (eV)'.ljust(lab_len)+'Ne (1/m3)'.ljust(lab_len)+'Vtor_I (rad/s)'.ljust(lab_len)+\
-                  'Ti1 (eV)'.ljust(lab_len)
-        for i in range(self.nion):
-            tmpstr ='Ni{:d} (1/m3)'.format(i+1)
-            strlabel+=tmpstr.ljust(lab_len)
-        strlabel+='\n'
-        outfile.write(strlabel)
-        data=np.array((self.rho, self.te, self.ne, self.vt, self.ti), dtype=float)
-        data = np.concatenate([data, [self.ni[i,:] for i in range(self.nion)]])
+            lab_len=15
+            strlabel='RHO (pol)'.ljust(lab_len)+'Te (eV)'.ljust(lab_len)+'Ne (1/m3)'.ljust(lab_len)+'Vtor_I (rad/s)'.ljust(lab_len)+\
+                'Ti1 (eV)'.ljust(lab_len)
+            for i in range(self.nion):
+                tmpstr ='Ni{:d} (1/m3)'.format(i+1)
+                strlabel+=tmpstr.ljust(lab_len)
+            strlabel+='\n'
+            outfile.write(strlabel)
+            data=np.array((self.rho, self.te, self.ne, self.vt, self.ti), dtype=float)
+            data = np.concatenate([data, [self.ni[i,:] for i in range(self.nion)]])
 
-        data=np.transpose(data)
-        np.savetxt(outfile, data, fmt='%.5e')
+            data=np.transpose(data)
+            print(data)
+            print("if i don't print, it won't work")
+            np.savetxt(outfile, data, fmt='%.5e')
 
     def compute_average(self):
         """compute averages
@@ -736,21 +738,23 @@ class SA_datfiles(profiles):
         self.Z = Z
         self.nrho = nrho
         self.nion = nion
-        self.rho = np.linspace(0,1,self.nrho, dtype=float)
         #self.ni_in = np.zeros((self.nion, 2, self.nrho), dtype=float)
         self.ni = np.zeros((self.nion, self.nrho), dtype=float)
         self.coll_mode = np.ones(self.nion, dtype=float)
 
         #Read eqdsk to convert from rhotor to rhopol
-        self._readeqdsk(shot)
+        #self._readeqdsk(shot)
 
-        
         lines = np.loadtxt(infile, skiprows=1, unpack=True)
         self.rho_in = lines[0,:]
         self.rhotor = self.rho_in
+        self.param_q = interpolate.interp1d(self.rhotor, lines[5,:])
+        
         self._phi2psi()
-        self.psipol = self.param_psi(np.linspace(0,1,len(self.rhotor)))
-        self.rho_in = self.psipol**0.5
+        self.psipol = self.param_psi(self.rhotor) #This is psipol as function of rhotor
+        self.rho_in = self.psipol**0.5 #this is rhopol as function of rhotor
+        _rhop = interpolate.interp1d(self.rhotor, self.rho_in) #parameters for re-gridding
+        self.rho = _rhop(np.linspace(0,1,self.nrho))
         
         self.ne_in  = lines[1,:]
         self.te_in  = lines[2,:]
@@ -838,16 +842,24 @@ class SA_datfiles(profiles):
         Arguments:
             None
         """
-        tmpnum=100000
-        locq   = self.param_q(np.linspace(0,1,tmpnum)) #augmenting precision near the core
+        locq   = self.param_q(self.rhotor)
         locphi = self.rhotor**2
-        locphi_p = interpolate.interp1d(np.linspace(0,1,len(locphi)),locphi)
-        locphi = locphi_p(np.linspace(0,1,tmpnum))
         psi = integrate.cumtrapz(1/locq,locphi)
         psi = np.concatenate([[0], psi])
         psi = psi/max(psi)
-        rhopsi = psi**0.5
-        self.param_psi = interpolate.interp1d(np.linspace(0,1,tmpnum), rhopsi)
+        self.param_psi = interpolate.interp1d(self.rhotor, psi)   
+        
+
+        # tmpnum=100000
+        # locq   = self.param_q(np.linspace(0,1,tmpnum)) #augmenting precision near the core
+        # locphi = self.rhotor**2
+        # locphi_p = interpolate.interp1d(np.linspace(0,1,len(locphi)),locphi)
+        # locphi = locphi_p(np.linspace(0,1,tmpnum))
+        # psi = integrate.cumtrapz(1/locq,locphi)
+        # psi = np.concatenate([[0], psi])
+        # psi = psi/max(psi)
+        # rhopsi = psi**0.5
+        # self.param_psi = interpolate.interp1d(np.linspace(0,1,tmpnum), rhopsi)
 
 class SA_datfiles_datascenario(profiles):
     """ class to handle SA datfiles, as read in repository

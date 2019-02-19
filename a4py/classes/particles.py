@@ -140,6 +140,9 @@ class h5_particles(particles):
         particles.__init__(self, fname_surf)
         dataf = h5py.File(self._fname)
         self.infile=dataf
+        if 'shinethr' not in self.infile.keys():
+            print(list(dataf.keys()))
+        
         try:
             self._endgroup = 'shinethr' #this is for bbnbi
             self.field = dataf[self._endgroup].keys()
@@ -193,7 +196,7 @@ class h5_particles(particles):
         ylab = 'z [m]'
         wallrz= [self.R_w, self.z_w]
         surf=[self.Rsurf, self.zsurf, self.RZsurf]
-        _plot_2d(x, y, xlabel=xlab, ylabel=ylab, Id=self.id, title='RZ ionization',\
+        _plot_2d(x, y, xlabel=xlab, ylabel=ylab,  title='RZ ionization',\
                  wallrz=wallrz, surf=surf, ax=ax, xlim=self.xlim, scatter=1)
 
 
@@ -235,7 +238,7 @@ class h5_particles(particles):
             
         wallxy= [self.R_w, self.z_w]
         
-        _plot_2d(x, y, xlabel=xlab, ylabel=ylab, Id=self.id, title='XY Ionization',\
+        _plot_2d(x, y, xlabel=xlab, ylabel=ylab,  title='XY Ionization',\
                  wallxy=wallxy, R0=R0, ax=ax)
         if 'bbnbi' in self._fname and shpart!=0:
             ax = plt.gca()
@@ -407,7 +410,7 @@ class h5_particles(particles):
         #axrz.axvline(x=np.max(self.R_w-0.1))
         #axrz.axvline(x=np.min(self.R_w+0.1))
         axxy = fig.add_subplot(nrow, ncol,2)
-        _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, Id=self.id, wallxy=wallrz, ax=axxy, multip=1, R0=self.R0)
+        _plot_2d(x, y, 'X [m]', 'Y [m]', scatter=energy, wallxy=wallrz, ax=axxy, multip=1, R0=self.R0)
         axep = fig.add_subplot(nrow,ncol,3)
         _plot_2d(energy, pitch, xlabel=r'E [keV]',ylabel=r'$\xi$', Id = self.id, hist=1, ax=axep, multip=1,\
                  xlim=[0, 30], ylim=[-1.,1.])
@@ -494,8 +497,9 @@ class h5_particles(particles):
         ax=plt.gca()
         ax.axvline(self.z0,color='k', lw=2.3)
 
-    def plot_histo_E(self, max_mark=500):
-        """Plot initial E of lost particles
+    def plot_histo_E(self, max_mark=500, ax=0):
+        """
+        Plot initial E of lost particles
         """
         try:
             self.R_w.mean()
@@ -506,7 +510,8 @@ class h5_particles(particles):
         x_final = self.data_e['energy'][ind]*1e-3
         x_initial = self.data_i['energy'][ind]*1e-3
         x = x_initial-x_final
-        _plot_1d(x, xlabel=r'$\Delta E$ [keV]', ylabel=r'# markers', hist=1, ylim=[0, max_mark])
+        x = x[np.where(x<100)[0]]
+        _plot_1d(x, xlabel=r'$\Delta E$ [keV]', ylabel=r'# markers', hist=1, ylim=[0, max_mark], ax=ax)
 
     def plot_histo_initial_Emax(self, dE=0.5, max_mark=500):
         """Plot initial R of lost particles
@@ -545,6 +550,14 @@ class h5_particles(particles):
 
         ax.legend(handles=legend_elements, loc='upper right')
 
+    def plot_Etime(self, ax=0):
+        """
+        """
+        ind = np.where(self.data_e['endcond']== 3)[0] #wall
+        x = self.data_e['energy'][ind]
+        y = self.data_e['time'][ind]
+        
+        _plot_2d(x,y, scatter=1, xlabel=r'E [kev]', ylabel=r't [s]', ax=ax)
 
 
     def plot_maxrho_histo(self):
@@ -610,11 +623,30 @@ class h5_particles(particles):
         """
         p_ini = np.dot(self.data_i['weight'], self.data_i['energy'])*1.602e-19
         p_end = np.dot(self.data_e['weight'], self.data_e['energy'])*1.602e-19
-        endcond = self.data_e['endcond']        
-        ind = np.where(np.logical_or(endcond == 1, endcond == 2))  #Tmax, Emin, cputmax
+        # you need to add the power which you assume absorbed, i.e. the thermalized, minimum energy and cputime
+        endcond = self.data_e['endcond'] 
+        flags = [1,2,4]
+        ix = np.isin(endcond, flags)
+        ind = np.where(ix)[0]
+        #ind = np.where(np.logical_or(endcond == 1, endcond == 2, endcond == 4))  #Tmax, Emin
         p_res = np.dot(self.data_e['weight'][ind],self.data_e['energy'][ind])*1.602e-19
-        self.pcoup = p_ini-p_end+p_res    
-        
+        self.pcoup = p_ini-p_end+p_res  
+        self.pini = p_ini
+        ind = np.where(endcond==3)[0]        
+        self.p_lost = np.dot(self.data_e['weight'][ind], self.data_e['energy'][ind])*1.602e-19
+
+    def print_power_coupled(self):
+        """
+        """
+        try:
+            self.pcoup
+        except:
+            self._power_coupled()
+            
+        print("Injected power ", self.pini*1e-6, " MW")
+        print("Coupled  power ", self.pcoup*1e-6, " MW, ", self.pcoup/self.pini*100.," % of Pinj")
+         
+
     def plot_rhopitch(self):
         """ plot rhopitch of losses
     

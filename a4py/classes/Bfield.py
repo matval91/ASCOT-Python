@@ -101,12 +101,12 @@ class Bfield_ascot:
         #store data with the correct labels
         
         for k in self.labdict:
-            self.vardict[k] = self.infile[self.labdict[k]]
+            self.vardict[k] = self.infile[self.labdict[k]].value
 
         self.nrho = self.vardict['psi_rho'].shape[0]
         
         self.R = self.vardict['r'][:]
-        self.Z = self.vardict['z'][:]
+        self.z = self.vardict['z'][:]
         self.psi = self.vardict['psi_2D']
         self.psiedge = self.vardict['psi_sepa']
         self.rhopsi = self.vardict['psi_rho'][:]**0.5
@@ -121,8 +121,8 @@ class Bfield_ascot:
 
         self.rmin=np.min(self.R)
         self.rmax=np.max(self.R)
-        self.zmin=np.min(self.Z)
-        self.zmax=np.max(self.Z)
+        self.zmin=np.min(self.z)
+        self.zmax=np.max(self.z)
 
         self._read_wall_h5()
 

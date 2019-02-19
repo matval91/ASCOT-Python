@@ -4,7 +4,6 @@ matteo.vallar@igi.cnr.it - 11/2017
 Class for distributions
 two classes inside:
 distribution_1d(h5 ascot file)
-distribution_2d(h5 ascot file with 2D distributions in it)
 
 02/2018: PORTING TO python3 with backwards compatibility using future package
 http://python-future.org/index.html
@@ -19,8 +18,8 @@ from scipy import interpolate
 import os.path, math, time
 import collections
 import a4py.classes.particles as ascot_particles
-from utils.plot_utils import _plot_2d, plot_article, _plot_1d
-                  
+from utils.plot_utils import _plot_2d, plot_article, _plot_1d    
+             
 class distribution_1d:
     """
     Class for handling the <distributions> data
@@ -188,23 +187,23 @@ class distribution_1d:
             
         ordinate = self.infile['/distributions/rhoDist/ordinate'].value
         
-        #ADDING DIFFERENT ION SPECIES
-        self.nions = len(self.infile['plasma/anum'][:])
-        n_ions_more = self.nions-1
-        self.dimnum += 2*n_ions_more
-        self.name_dict['ctor_el']+= n_ions_more
-        self.name_dict['ctor_i1']+= n_ions_more              
-        for el in range(n_ions_more):
-            k='pi'+str(el+2)
-            self.name_dict[k]=self.dimnum-1+el
-            k2='ctor_i'+str(el+2)
-            self.name_dict[k2]=self.dimnum+1+el+1
+        # #ADDING DIFFERENT ION SPECIES
+        # self.nions = len(self.infile['plasma/anum'][:])
+        # n_ions_more = self.nions-1
+        # self.dimnum += 2*n_ions_more
+        # self.name_dict['ctor_el']+= n_ions_more
+        # self.name_dict['ctor_i1']+= n_ions_more              
+        # for el in range(n_ions_more):
+        #     k='pi'+str(el+2)
+        #     self.name_dict[k]=self.dimnum-1+el
+        #     k2='ctor_i'+str(el+2)
+        #     self.name_dict[k2]=self.dimnum+1+el+1
 
         #self.slices structure WILL BECOME:
         #(injector, time, rho, type of distribution)
-        if ordinate.shape[-1]!=self.dimnum:
-            print(self.dimnum, ordinate.shape[-1])
-            raise ValueError
+        # if ordinate.shape[-1]!=self.dimnum:
+        #     print(self.dimnum, ordinate.shape[-1])
+        #     raise ValueError
         self.slices = ordinate.reshape(ordinate.shape[-4], ordinate.shape[-3], ordinate.shape[-2], ordinate.shape[-1])
         self.n_inj = self.slices.shape[0]
         self.lab = np.array([], dtype='S32')
@@ -219,6 +218,47 @@ class distribution_1d:
 
 
     def _check_dims(self):
+        
+        for i in range(20):
+            ii=i+10
+            try:
+                tmpstr = str(self.infile['/distributions/rhoDist/ordinates/name_0000'+str(ii)].value)
+            except:
+                self.dimnum = ii-1
+                break
+            ii=ii-1
+            if "Power deposition to electrons" in tmpstr:
+                self.name_dict['pel'] = ii
+                self.peind = ii
+            elif "Power deposition to background species  1" in tmpstr:
+                self.name_dict['pi1'] = ii
+            elif "Power deposition to background species  2" in tmpstr:
+                self.name_dict['pi2'] = ii     
+            elif 'Collisional torque deposition to electrons' in tmpstr:
+                self.name_dict['ctor_el'] = ii
+            elif 'Collisional torque deposition to background species 1' in tmpstr:
+                self.name_dict['ctor_i1'] = ii            
+            elif 'Collisional torque deposition to background species 2' in tmpstr:
+                self.name_dict['ctor_i2'] = ii 
+        print('peind',self.peind)
+
+
+        #ADDING DIFFERENT ION SPECIES
+        self.nions = len(self.infile['plasma/anum'][:])
+        # n_ions_more = self.nions-1
+        # self.dimnum += 2*n_ions_more
+        # self.name_dict['ctor_el']+= n_ions_more
+        # self.name_dict['ctor_i1']+= n_ions_more              
+        # for el in range(n_ions_more):
+        #     k='pi'+str(el+2)
+        #     self.name_dict[k]=self.dimnum-1+el
+        #     k2='ctor_i'+str(el+2)
+        #     self.name_dict[k2]=self.dimnum+1+el+1
+
+        return
+
+
+    def _check_dims_old(self):
         """
         In two different versions of ascot (e.g. 9215 and >9401) there is one
         rhodist more, which is J.B. Need to check for that to be the case
@@ -229,7 +269,9 @@ class distribution_1d:
         dimnum /= 2
         self.dimnum = int(dimnum)
         print("Dimensions ",self.dimnum)
-        if self.dimnum==24:
+        
+        
+        if self.dimnum==25:
             self.name_dict['pel'] = 22
             self.name_dict['pi1'] = 23
             self.name_dict['ctor_el'] = 24
@@ -243,6 +285,7 @@ class distribution_1d:
             self.name_dict['ctor_i1'] = 26 # The last two lines are affected by the number of ion species
             self.peind=23
         self.peind-=1
+        print(self.peind)
         return
        
        
@@ -277,7 +320,7 @@ class distribution_1d:
         """
         Plot sum of the induced beam current density
         """
-        i_tot = self.slices_summed[0,:,3]*1e-3
+        i_tot = self.slices_summed[0,:,12]*1e-3
         if np.mean(i_tot)<0:
             i_tot = -1*i_tot
         plot_article(1,[self.rho, i_tot],[''],r'$\rho$', 'j (kA/$m^2$)', self.infile_n, ax=ax)
@@ -301,9 +344,9 @@ class distribution_1d:
         Plots power deposited to electrons
         """
         ind = self.name_dict['pel']
-        if self.slices.shape[3] == 27:
-            ind=ind-1
-        pe = self.slices_summed[0,:,ind-1]*1e-3        
+        #if self.slices.shape[3] == 27:
+        #    ind=ind-1
+        pe = self.slices_summed[0,:,ind]*1e-3        
         nlines=1; lines=np.array([self.rho, pe])
         labels=['el.']
         return nlines, lines, labels
@@ -323,10 +366,8 @@ class distribution_1d:
         """
         Plots power deposited to ions
         """
-        ind = self.name_dict['pel']-1
-        if self.slices.shape[3] == 27:
-            ind=ind-1
-        pi1 = self.slices_summed[0,:,ind]*1e-3
+        ind = self.name_dict['pel']
+        pi1 = self.slices_summed[0,:,ind+1]*1e-3
         if self.nions > 1:
             pi2 = self.slices_summed[0,:,ind+2]*1e-3
             if self.nions == 2:
@@ -364,8 +405,11 @@ class distribution_1d:
         nlines = nlinese+nlinesi
         lines = np.concatenate((linese, linesi), axis=0)
         labels = np.append(labelse, labelsi)
-        plot_article(nlines, lines, labels, r'$\rho$', 'p (kW/$m^3$)', self.infile_n, ax=ax)
-
+        #plot_article(nlines, lines, labels, r'$\rho$', 'p (kW/$m^3$)', self.infile_n, ax=ax)
+        if self.nions==1:
+            _plot_1d(self.rho, linese[1,:]+linesi[0,:], ax=ax)            
+        elif self.nion == 2:
+            _plot_1d(self.rho, linese[1,:]+linesi[0,:]+linesi[1,:], ax=ax)
 
     def plot_totaltorque(self):
         """
@@ -539,7 +583,6 @@ class distribution_1d:
         Ec = 14.8*te*(A**(1.5)/ne*summ)**(2./3.)
         ts = 6.28e14*(A*te^1.5)/(Z^2*ne*lnlambda)
         """
-        print("Calculating Ec")
         print("Calculating ts with E0="+str(E0)) 
         rho = self.infile['plasma/1d/rho'][:]
         te = self.infile['plasma/1d/te'][:]
@@ -692,14 +735,26 @@ class SA_1d(distribution_1d):
                         }
         self.beamnum = {1,2,3,4,5,6,7,8,9,10,13,14,99,101}
         self.beampow = [2e6,2e6,2e6,2e6,2e6,2e6,2e6,2e6,2e6,2e6,2e6,5e6,5e6]
-        self.beamnum2id = \
-                        {'1':[45, 46],      '2':[47, 48],\
-                         '3':[133, 134],    '4':[135, 136],\
-                         '5':[221, 222],    '6':[223, 224],\
-                         '7':[309, 310],    '8':[311, 312],\
-                         '9':[3637, 3638],  '10':[3639, 3640],\
-                         '13':[5253, 5254], '14':[5255, 5256],\
-                         '99':[3031],       '101':[3032]}  
+      
+        
+#        self.beamnum2id = \
+#                        {'1':[45, 46],      '2':[47, 48],\
+#                         '3':[133, 134],    '4':[135, 136],\
+#                         '5':[221, 222],    '6':[223, 224],\
+#                         '7':[309, 310],    '8':[311, 312],\
+#                         '9':[3637, 3638],  '10':[3639, 3640],\
+#                         '13':[5253, 5254], '14':[5255, 5256],\
+#                         '99':[3031],       '101':[3032]} 
+                        
+        self.beamnum2id = collections.OrderedDict([
+                ('1',[45, 46]),      ('2',[47, 48]),\
+                ('3',[133, 134]),    ('4',[135, 136]),\
+                ('5',[221, 222]),    ('6',[223, 224]),\
+                ('7',[309, 310]),    ('8',[311, 312]),\
+                ('9',[3637, 3638]),  ('10',[3639, 3640]),\
+                ('13',[5253, 5254]), ('14',[5255, 5256]),\
+                ('99',[3031]),       ('101',[3032]) 
+                ])
         self.beamlabel=['1','2','3','4','5','6','7','8','9','10',\
                         '13','14','NNB_U','NNB_L']
         self.NNBflag=0
@@ -717,7 +772,7 @@ class SA_1d(distribution_1d):
             n_row = 5
             n_col = 5
         else:
-            y_ind = args[0]  
+            y_ind = args[0] 
             if len(y_ind)<3:
                 n_row = 1
             else:
@@ -776,6 +831,7 @@ class SA_1d(distribution_1d):
             for ii in beamid:
                 if ii in self._h5origins:
                     ind_ii = np.where(self._h5origins==ii)[0]
+
                     # CURRENT
                     tmp_j  = self.slices[ind_ii,0,:,12]
                     tmp_I  = np.dot(tmp_j, self.areas)
@@ -783,20 +839,20 @@ class SA_1d(distribution_1d):
                     self.I_tot += tmp_I
         
                     # POWER TO electrons
-                    tmp_Penorm = self.slices[ind_ii,0,:,self.peind-1]
+                    tmp_Penorm = self.slices[ind_ii,0,:,self.peind]
                     tmp_Pe = np.dot(tmp_Penorm, self.volumes)
                     self.pe_beams[jj] = tmp_Pe
                     self.pe += tmp_Pe
         
                     # POWER TO IONS 1
-                    tmp_Pinorm = self.slices[ind_ii,0,:,self.peind]
+                    tmp_Pinorm = self.slices[ind_ii,0,:,self.peind+1]
                     tmp_Pi = np.dot(tmp_Pinorm, self.volumes)
                     self.pi_beams[jj] = tmp_Pi
                     self.pi1 += tmp_Pi
                     
                     if self.nions >1:
                         # POWER TO IONS 2
-                        tmp_Pi2norm = self.slices[ind_ii,0,:,self.peind+1]
+                        tmp_Pi2norm = self.slices[ind_ii,0,:,self.peind+2]
                         tmp_Pi2 = np.dot(tmp_Pi2norm, self.volumes)
                         self.pi2_beams[jj] = tmp_Pi2
                         self.pi2 += tmp_Pi2        
@@ -830,12 +886,12 @@ class SA_1d(distribution_1d):
         for ii, el in enumerate(self.pe_beams):
             if el==0:
                 continue
-            print("Pe from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW | ",self.pe/totpower*100., '%')
+            print("Pe from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW | ",el/totpower*100., '%')
         print("")
         for ii, el in enumerate(self.pi_beams):
             if el==0:
                 continue
-            print("Pi from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW ",self.pi1/totpower*100., '%')
+            print("Pi from beam ", self.beamlabel[ii], " is ", el*1e-6, " MW ",el/totpower*100., '%')
         print("")
         if self.nions>1:
             for ii, el in enumerate(self.pi2_beams):
@@ -927,15 +983,16 @@ class SA_1d(distribution_1d):
             self.data_PPAR.mean()
         except:
             self.group_beams()
-        self._plot_groups(self.peind-1,r'$P_e$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+
+        self._plot_groups(self.peind,r'$P_e$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
         if self.nions==1:
-            self._plot_groups(self.peind,r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
-            self._plot_groups([self.peind-1, self.peind],r'$P_{TOT}$ (kW/$m^3$)', factor=1e-3, ylim=[0, 500])
+            self._plot_groups(self.peind+1,r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+            self._plot_groups([self.peind, self.peind+1],r'$P_{TOT}$ (kW/$m^3$)', factor=1e-3, ylim=[0, 500])
         if self.nions==2:
-            self._plot_groups(self.peind,r'$P_i \, 1$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
-            self._plot_groups(self.peind+1,r'$P_i \, 2$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+            self._plot_groups(self.peind+1,r'$P_i \, 1$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
+            self._plot_groups(self.peind+2,r'$P_i \, 2$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
             self._plot_groups([self.peind,self.peind+1],r'$P_i$ (kW/$m^3$)', factor=1e-3, ylim=[0, 350])
-            self._plot_groups([self.peind-1, self.peind, self.peind+1],r'$P_{TOT}$ (kW/$m^3$)', factor=1e-3, ylim=[0, 500])
+            self._plot_groups([self.peind, self.peind+1, self.peind+2],r'$P_{TOT}$ (kW/$m^3$)', factor=1e-3, ylim=[0, 500])
             
     def _plot_pn(self):
         """

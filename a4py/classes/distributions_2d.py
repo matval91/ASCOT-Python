@@ -130,7 +130,7 @@ class distribution_2d(fdist_superclass):
         y = self.dict_dim['E']*1e-3/1.6e-19
         z = self.f_space_int*1.6e-19*1e-17*self.norm
         
-        _plot_2d(x, y, dist=z, xlabel=r'$\xi$', ylabel='E [keV]', ax=ax, Id=self.id, cblabel=r'$10^{17}$/keV', ylim=ylim)
+        _plot_2d(x, y, dist=z, xlabel=r'$\xi$', ylabel='E [keV]', ax=ax, cblabel=r'$10^{17}$/keV', ylim=ylim)
 
     def plot_Emu(self):
         """

@@ -7,7 +7,7 @@ import collections
 import math, platform
 import h5py, random
 from mpl_toolkits.mplot3d import Axes3D
-from utils.ascot_utils import _plot_2d, _plot_RZsurf, limit_labels
+from utils.plot_utils import _plot_2d, _plot_RZsurf, limit_labels
 
 
 
@@ -98,7 +98,7 @@ class dat_particles(particles):
         self.unit = np.array(self.unit)
         if self.npart==-1:
             self.npart=input("Number of particles? ")
-            
+            self.npart=int(self.npart)
         tmpdict = dict.fromkeys(self.field,[])
         self.partdict = np.array([dict.copy(tmpdict) for x in range(self.npart)])
         
@@ -175,7 +175,7 @@ class dat_particles(particles):
         """
         Histogram of deposition to the wall
         """
-        ind = np.where(self.data_e['endcond']== 3)[0] #wall        
+        ind = np.where(self.trappind==1)[0]
         rho = self.data_i['rho'][ind]
         pitch = self.data_i['pitch'][ind]
         
@@ -330,8 +330,11 @@ class dat_particles(particles):
         r = self.data_i['R']-self.R0
         Bpol = np.sqrt(self.data_i['BR']**2+self.data_i['Bz']**2)
         #print(Bpol.shape)
-        self.w_banana = np.abs(v)*m/(q*Bpol)
-        self.w_banana = self.w_banana[np.where(self.trappind==1)[0]]
+        w_banana = np.abs(v)*m/(q*Bpol)
+        self.w_banana_all = w_banana[np.where(self.trappind==1)[0]]
+        self.w_banana = w_banana[np.where(np.logical_and(self.trappind==1, self.data_i['rho']>0.4))[0]]
+
+
     def plot_trapped_contour(self):
         """
         plots trapped particles in different spaces: (R,z), (vpara, vperp),
