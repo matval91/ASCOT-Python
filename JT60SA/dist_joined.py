@@ -1,10 +1,9 @@
 """
 Script to join different profiles (w 1e6 particles for each set of beams)
 """
-import ascot_distributions
-from ascot_utils import _plot_1d, plot_article
+import a4py.classes.distributions as ascot_distributions
+from utils.plot_utils import plot_article
 import numpy as np
-import matplotlib.pyplot as plt
 import scipy.interpolate as interp
 
 def interp1d(x,y,xnew):
@@ -203,18 +202,18 @@ for el in dd:
 rho = dd['NNB']['rho']
 
 
-data_labels = ['TOT','PP', 'PT', 'NNB']
+data_labels = ['TOT','NNB', 'PT', 'PP']
 ylab = [r'j (kA/$m^2$)', r'$P_{el}\,(kW/m^3)$', r'$P_{i}\,(kW/m^3)$', r'p (kN/$m^2$)', r'n (1/$m^3$)']
 factor = [-1e-3, 1e-3, 1e-3, 1e-3, 1]
 for i, el in enumerate(['j', 'pel', 'pi', 'pr','n']):
     try:
         tot = factor[i]*dd['PP'][el].T+factor[i]*dd['PT'][el].T+factor[i]*dd['NNB'][el].T
-        data = np.array([rho, tot, factor[i]*dd['PP'][el].T, factor[i]*dd['PT'][el].T, factor[i]*dd['NNB'][el].T])
+        data = np.array([rho, tot, factor[i]*dd['NNB'][el].T, factor[i]*dd['PT'][el].T, factor[i]*dd['PP'][el].T])
     except:
         rho_old = dd['PT']['rho']
         dd['PT'][el] = interp1d(rho_old, dd['PT'][el],rho)
         tot = factor[i]*dd['PP'][el].T+factor[i]*dd['PT'][el].T+factor[i]*dd['NNB'][el].T
-        data = np.array([rho, tot, factor[i]*dd['PP'][el].T, factor[i]*dd['PT'][el].T, factor[i]*dd['NNB'][el].T])
+        data = np.array([rho, tot, factor[i]*dd['NNB'][el].T, factor[i]*dd['PT'][el].T, factor[i]*dd['PP'][el].T])
 
  
     if el=='pel' or el=='pi':

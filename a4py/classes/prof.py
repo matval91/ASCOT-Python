@@ -741,15 +741,14 @@ class SA_datfiles(profiles):
         #self.ni_in = np.zeros((self.nion, 2, self.nrho), dtype=float)
         self.ni = np.zeros((self.nion, self.nrho), dtype=float)
         self.coll_mode = np.ones(self.nion, dtype=float)
-
+        self.shot=shot
         #Read eqdsk to convert from rhotor to rhopol
         #self._readeqdsk(shot)
 
         lines = np.loadtxt(infile, skiprows=1, unpack=True)
         self.rho_in = lines[0,:]
         self.rhotor = self.rho_in
-        self.param_q = interpolate.interp1d(self.rhotor, lines[5,:])
-        
+        #self.param_q = interpolate.interp1d(self.rhotor, lines[5,:])
         self._phi2psi()
         self.psipol = self.param_psi(self.rhotor) #This is psipol as function of rhotor
         self.rho_in = self.psipol**0.5 #this is rhopol as function of rhotor
@@ -842,7 +841,12 @@ class SA_datfiles(profiles):
         Arguments:
             None
         """
-        locq   = self.param_q(self.rhotor)
+        try:
+            locq   = self.param_q(self.rhotor)
+        except:
+            self._readeqdsk(self.shot)
+            locq   = self.param_q(self.rhotor)
+            
         locphi = self.rhotor**2
         psi = integrate.cumtrapz(1/locq,locphi)
         psi = np.concatenate([[0], psi])
@@ -897,16 +901,16 @@ class SA_datfiles_datascenario(profiles):
         #self.ni_in = np.zeros((self.nion, 2, self.nrho), dtype=float)
         self.ni = np.zeros((self.nion, self.nrho), dtype=float)
         self.coll_mode = np.ones(self.nion, dtype=float)
-
-        #Read eqdsk to convert from rhotor to rhopol
-        self._readeqdsk(shot)
-        self._phi2psi()
         
         lines = np.loadtxt(infile, skiprows=1, unpack=True)
         self.rho_in = lines[0,:]
         self.rhotor = self.rho_in
-        self.rhopol = self.param_psi(np.linspace(0,1,len(self.rhotor)))
-        self.rho_in = self.rhopol
+        self.param_q = interpolate.interp1d(self.rhotor, lines[7,:])
+        self._phi2psi()
+        self.psipol = self.param_psi(np.linspace(0,1,len(self.rhotor)))
+        self.rho_in = self.psipol**0.5 #this is rhopol as function of rhotor
+        _rhop = interpolate.interp1d(self.rhotor, self.rho_in) #parameters for re-gridding
+        self.rho = _rhop(np.linspace(0,1,self.nrho))
 
         self.ne_in  = lines[2,:]
         self.te_in  = lines[4,:]
@@ -995,6 +999,7 @@ class SA_datfiles_datascenario(profiles):
 
         self._extrapolate()
 
+
     def _phi2psi(self):
         """Converts psi 2 phi
         
@@ -1006,14 +1011,26 @@ class SA_datfiles_datascenario(profiles):
         Arguments:
             None
         """
-        tmpnum=100000
-        locq   = self.param_q(np.linspace(0,1,tmpnum)) #augmenting precision near the core
-        locphi = np.linspace(0,1,tmpnum)
+        try:
+            locq   = self.param_q(self.rhotor)
+        except:
+            self._readeqdsk(self.shot)
+            locq   = self.param_q(self.rhotor)
+            
+        locphi = self.rhotor**2
         psi = integrate.cumtrapz(1/locq,locphi)
         psi = np.concatenate([[0], psi])
         psi = psi/max(psi)
-        rhopsi = psi**0.5
-        self.param_psi = interpolate.interp1d(np.linspace(0,1,tmpnum), rhopsi)
+        self.param_psi = interpolate.interp1d(self.rhotor, psi)   
+
+        #tmpnum=100000
+        # locq   = self.param_q(np.linspace(0,1,tmpnum)) #augmenting precision near the core
+        # locphi = np.linspace(0,1,tmpnum)
+        # psi = integrate.cumtrapz(1/locq,locphi)
+        # psi = np.concatenate([[0], psi])
+        # psi = psi/max(psi)
+        # rhopsi = psi**0.5
+        # self.param_psi = interpolate.interp1d(np.linspace(0,1,tmpnum), rhopsi)
 
 
 class TCV_datfiles(profiles):

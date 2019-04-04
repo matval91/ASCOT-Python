@@ -1,0 +1,45 @@
+   case(-2)
+       condition = 'ABORTED'  ! when an error is encountered during simulation
+    case(-1)
+       condition = 'REJECTED' ! when an error is encountered during initialization
+    case(0)
+       condition = 'NONE'
+    case(1)
+       condition = 'TMAX'
+    case(2)
+       condition = 'EMIN'
+    case(3)
+       condition = 'WALL'
+    case(4)
+       condition = 'THERMALIZATION'
+    case(5)
+       condition = 'BANANATIPPOSITIVE'
+    case(6)
+       condition = 'BANANATIPNEGATIVE'
+    case(7)
+       condition = 'OUTERMIDPLANEUP'
+    case(8)
+       condition = 'OUTERMIDPLANEDOWN'
+    case(9)
+       condition = 'TOROIDALANGLE'
+    case(10)
+       condition = 'OUTSIDEMAXRHO'
+    case(11)
+       condition = 'OUTOFBOOZERGRID'
+    case(12)
+       condition = 'TORANGLEPOS'
+    case(13)
+       condition = 'TORANGLENEG'
+    case(14)
+       condition = 'TORDIRECTION'
+    case(15)
+       condition = 'OUTSIDECALCAREA'
+    case(16)
+       condition = 'OUTSIDEWALL'
+    case(17)
+       condition = 'CPUTMAX'
+    case(18)
+       condition = 'CHECKPOINTED'
+    case default
+       condition = 'UNSPECIFIED'
+    end select

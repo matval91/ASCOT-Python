@@ -29,14 +29,13 @@ def plot_profiles(prof, fig=0, title=''):
     au.common_style()
     overplot=False
     ls = '-'
-    #=====================================================================================
     if fig==0:
         w, h = plt.figaspect(0.8)
         fig=plt.figure(title, figsize=(10,8))
         axte = fig.add_subplot(221)
         axne = fig.add_subplot(222, sharex=axte)
-        axti = fig.add_subplot(223, sharey=axte)
-        axni = fig.add_subplot(224, sharey=axne)
+        axti = fig.add_subplot(223, sharey=axte, sharex=axte)
+        axni = fig.add_subplot(224, sharey=axne, sharex=axte)
     else:
         overplot=True
         ls='--'
@@ -60,12 +59,12 @@ def plot_profiles(prof, fig=0, title=''):
         axni.plot(prof.rho, prof.ni[i,:],colours[i], \
                   label=label, linewidth=lw, linestyle=ls)
     axni.legend(loc='best')
-
+    axte.set_xlim([0,1.])
     if ~overplot:
-        au.limit_labels(axte, r'$\rho$', r'$T_e$ [keV]')
-        au.limit_labels(axne, r'$\rho$', r'$n_e$ [1/$m^3$]')
-        au.limit_labels(axti, r'$\rho$', r'$T_i$ [keV]')
-        au.limit_labels(axni, r'$\rho$', r'$n_i$ [1/$m^3$]')
+        au.limit_labels(axte, r'$\rho_{pol}$', r'$T_e$ [keV]')
+        au.limit_labels(axne, r'$\rho_{pol}$', r'$n_e$ [1/$m^3$]')
+        au.limit_labels(axti, r'$\rho_{pol}$', r'$T_i$ [keV]')
+        au.limit_labels(axni, r'$\rho_{pol}$', r'$n_i$ [1/$m^3$]')
 
         fig.tight_layout() # Or equivalently,  "plt.tight_layout()"
     plt.show()
@@ -85,27 +84,30 @@ def plot_Bfield(B, fig=0, title=''):
     
     if fig==0:
         fig = plt.figure(figsize=(20, 8))
-        fig.text(0.01, 0.01, B.infile)
+        fig.text(0.01, 0.01, '')
         
     ax2d = fig.add_subplot(131)
 
     CS = ax2d.contour(B.R,B.z, B.psi, 30)
     plt.contour(B.R,B.z, B.psi, [B.psiedge], colors='k', linewidths=3.)
     plt.colorbar(CS)
-    au.limit_labels(ax2d, r'R [m]', r'z [m]')
+    au.limit_labels(ax2d, r'R [m]', r'z [m]', M=3)
 
     if B.R_w[0]!=0:
         ax2d.plot(B.R_w, B.z_w, 'k',linewidth=2)
     ax2d.axis('equal')
     
     axq = fig.add_subplot(132)
-    axq.plot(B.eqdsk.rhopsi, B.eqdsk.q, lw=2.3, color='k')
-    au.limit_labels(axq, r'$\rho_{POL}$', r'q')
+    axq.plot(B.rhopsi, B.q, lw=2.3, color='k')
+    au.limit_labels(axq, r'$\rho_{POL}$', r'q', M=3)
 
     axf = fig.add_subplot(133)
     #axf.plot(B.R_eqd, B.eqdsk.T)
-    axf.plot(B.R, B.Bphi, lw=2.3, color='k')
-    au.limit_labels(axf, r'R [m]', r'$B_\phi$ [T]')
+    if len(B.Bphi.shape)>1:
+        axf.plot(B.R, B.Bphi[int(len(B.z)/2.),:], lw=2.3, color='k')
+    else:
+        axf.plot(B.R, B.Bphi, lw=2.3, color='k')
+    au.limit_labels(axf, r'R [m]', r'$B_\phi$ [T]', M=3)
 
     fig.tight_layout()
     

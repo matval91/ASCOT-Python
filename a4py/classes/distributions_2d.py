@@ -577,6 +577,18 @@ class frzv(distribution_2d):
         int_Rz  = np.trapz(int_R     , self.dict_dim['z'], axis = -1)
         self.f_space_int = int_Rz #E,pitch
 
+    def _integrate_v(self):
+        try:
+            self.f_space_int.mean()
+        except:
+            self._integrate_space()
+
+        dist_toint = self.f_space_int
+        int_vpara = np.trapz(dist_toint, self.dict_dim['vpara'], axis=0)
+        self.norm = np.trapz(int_vpara, self.dict_dim['vperp'], axis=0)
+        
+        
+        
     def plot_vv(self, ax=0):
         """
         plot 2D (vpara, vperp, int_space(fdist))

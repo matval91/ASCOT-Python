@@ -1,9 +1,10 @@
 """
 Script to join different FIBP profiles (w 1e6 particles for each set of beams)
 """
-import ascot_distributions
-from ascot_utils import _plot_1d, plot_article
+import a4py.classes.distributions as ascot_distributions
+from utils.plot_utils import plot_article
 import numpy as np
+import scipy.interpolate as interp
 import matplotlib.pyplot as plt
 
 shot = input('Scenario? ')
@@ -135,8 +136,8 @@ for el in dd:
     fibp = dd[el]['fibp']
 
 
-data = np.array([rho, dd['tot']['fibp'].T, dd['PP']['fibp'].T, dd['PT']['fibp'].T, dd['NNB']['fibp'].T])
+data = np.array([rho, dd['tot']['fibp'].T, dd['NNB']['fibp'].T, dd['PT']['fibp'].T, dd['PP']['fibp'].T])
 
-data_labels = ['TOT','PP', 'PT', 'NNB']
+data_labels = ['TOT','NNB', 'PT', 'PP']
 plot_article(4,data, data_labels=data_labels,xlabel=r'$\rho$', ylabel=r'Fast ion birth profile $1/(s\cdot m^3)$',ylim=[0, 3.e19])
 

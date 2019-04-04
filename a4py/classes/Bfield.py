@@ -219,6 +219,8 @@ class Bfield_eqdsk:
         self.q = self.eqdsk.q
         self.nR=len(self.R)
         self.nz=len(self.z)
+        self.nR=nR
+        self.nz=nz        
 
     def _import_from_eqdsk(self, infile_eqdsk):
         """ importing from eqdsk
@@ -418,6 +420,7 @@ class Bfield_eqdsk:
         r,z = self.R_eqd, self.Z_eqd
         ax2d.contour(r,z, self.eqdsk.psi, 50)
         ax2d.set_title('choose x point position')
+        ax2d.axis('equal')
         x0 = plt.ginput()
         plt.close(f)
         self.xpoint = self._min_grad(x0=x0)        
@@ -448,7 +451,7 @@ class Bfield_eqdsk:
         
         """
         try:
-            self.Fgrid.mean()
+            self.param_bphi.x
             print("Bphi already built!")
         except:
             self.calc_field()
@@ -470,7 +473,8 @@ class Bfield_eqdsk:
                   'R':R_temp,'z':z_temp, \
                   'phimap_toroidal':0, 'phimap_poloidal':0, \
                   'psi':[],\
-                  'Bphi':bphitemp, 'BR':self.Br, 'Bz':self.Bz} 
+                  'Bphi':bphitemp, 'BR':self.Br, 'Bz':self.Bz, \
+                  'Bphi_pert':self.Bphi_pert, 'BR_pert':self.BR_pert, 'Bz_pert':self.Bz_pert} 
 
         self.bkg['psi'] = psitemp*2*math.pi #in ASCOT Bfield, the psi is divided by 2*pi and reverses sign. This prevents it from happening  
         print("remember: I am multiplying psi times 2pi since in ascot it divides by it!")
@@ -567,8 +571,12 @@ class Bfield_eqdsk:
         self._Fgrid=Fgrid 
         Bphi = np.multiply(Fgrid,inv_R)        
         self.param_bphi = interp.interp2d(self.R_eqd, self.Z_eqd, Bphi)
-        self._Bphi2D = Bphi
-        self.Bphi = self._Bphi2D[int(self.nR/2), :]
+        self.Bphi = Bphi
+        # Adding perturbation fields
+        self.Bphi_pert = self.Br
+        self.BR_pert = self.Br
+        self.Bz_pert = self.Br
+        
         
     def write_head(self):
         """ writing header
@@ -695,15 +703,14 @@ class Bfield_eqdsk:
            
             #Bphi is used, BR and Bz not but you must initialise it to 0 and
            # print them anyway           
-        for arr_name in ('psi', 'BR', 'Bphi', 'Bz'):
+        for arr_name in ('psi', 'BR', 'Bphi', 'Bz'): #, 'Bphi_pert', 'BR_pert', 'Bz_pert'):
             print("Writing ", arr_name)
             arr_t = bkg[arr_name]
-            #arr = self._perm_dims(arr_t)
-            arr=arr_t
+            arr = arr_t;
+            #if arr_name!='psi':arr = self._perm_dims(arr_t)
 
             #making the array plain:
             arr = arr.reshape(arr.size)
-
             for i in range(0,np.size(arr)-np.mod(np.size(arr),4),4):
                 tmp_str = ['{:18.10f} {:18.10f} {:18.10f} {:18.10f}'.format(arr[i],arr[i+1],arr[i+2],arr[i+3])]
                 outfile.write(" ".join(tmp_str))
